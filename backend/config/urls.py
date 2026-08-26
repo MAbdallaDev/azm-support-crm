@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from config.health import health
@@ -15,5 +15,6 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    # Story 03 onward appends path("api/v1/", include("apps.<app>.urls")) entries here.
+    # Auth: login, refresh, me. Stories 04+ append their own app URL modules here.
+    path("api/v1/", include("apps.accounts.urls")),
 ]

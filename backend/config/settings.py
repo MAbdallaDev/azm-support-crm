@@ -6,6 +6,7 @@ at the repository root documents the full set.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -23,7 +24,9 @@ def env_list(key: str, default: str = "") -> list[str]:
     return [item.strip() for item in os.getenv(key, default).split(",") if item.strip()]
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-insecure-key-change-me")
+# At least 32 bytes: SimpleJWT signs with HMAC-SHA256, and PyJWT warns on every
+# token operation below that. Always overridden in any real deployment.
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-insecure-key-change-me-in-production")
 DEBUG = env_bool("DEBUG", True)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,api")
 
@@ -56,6 +59,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # After AuthenticationMiddleware: it needs request.user to already exist.
+    "apps.accounts.middleware.CurrentActorMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -113,6 +118,20 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    # Deny by default. Anything public says so explicitly — see config/urls.py,
+    # config/health.py and SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"] below.
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTES", "60"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "7"))),
+    "ROTATE_REFRESH_TOKENS": False,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "UPDATE_LAST_LOGIN": True,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -120,6 +139,10 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Multi-channel customer support CRM — tickets, SLA, knowledge base, portal.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # DEFAULT_PERMISSION_CLASSES above applies to drf-spectacular's own views too,
+    # which would make /api/v1/schema/ and /api/v1/docs/ return 401 — a regression
+    # invisible until a reviewer opens the link. Public, and deliberately so.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
 }
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
