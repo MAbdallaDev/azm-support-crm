@@ -1,0 +1,156 @@
+{
+  "artboards": [
+    {
+      "file": "PortalHome.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 880,
+      "title": "Portal home",
+      "page": "portal"
+    },
+    {
+      "file": "PortalSubmit.dc.html",
+      "x": 1320,
+      "y": 0,
+      "w": 1200,
+      "h": 880,
+      "title": "Submit a request",
+      "page": "portal"
+    },
+    {
+      "file": "PortalTicket.dc.html",
+      "x": 2640,
+      "y": 0,
+      "w": 1200,
+      "h": 880,
+      "title": "Request detail + CSAT",
+      "page": "portal"
+    },
+    {
+      "file": "TicketWorkspaceRTL.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "title": "Ticket workspace — العربية",
+      "page": "arabic-foundations"
+    },
+    {
+      "file": "DesignSystem.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1020,
+      "h": 1060,
+      "title": "Design system",
+      "page": "arabic-foundations"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "title": "Ticket workspace",
+      "page": "agent-app"
+    },
+    {
+      "file": "Dashboard.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "title": "Agent dashboard",
+      "page": "agent-app"
+    },
+    {
+      "file": "Login.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Sign in",
+      "page": "agent-app"
+    },
+    {
+      "file": "Customer360.dc.html",
+      "x": 0,
+      "y": 1120,
+      "w": 1440,
+      "h": 940,
+      "title": "Customer 360",
+      "page": "agent-app"
+    },
+    {
+      "file": "KnowledgeBase.dc.html",
+      "x": 1560,
+      "y": 1120,
+      "w": 1440,
+      "h": 940,
+      "title": "Knowledge base",
+      "page": "agent-app"
+    },
+    {
+      "file": "KBEditor.dc.html",
+      "x": 3120,
+      "y": 1120,
+      "w": 1440,
+      "h": 940,
+      "title": "Article editor",
+      "page": "agent-app"
+    },
+    {
+      "file": "Reports.dc.html",
+      "x": 0,
+      "y": 2240,
+      "w": 1440,
+      "h": 940,
+      "title": "Manager reports",
+      "page": "agent-app"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "portal-note",
+      "x": 0,
+      "y": -130,
+      "w": 520,
+      "text": "The portal is a separate trust boundary, not the agent app with fields hidden.\nNo assignee, no internal notes, no SLA targets, no department. Story 09.",
+      "page": "portal"
+    },
+    {
+      "id": "rtl-note",
+      "x": 0,
+      "y": -150,
+      "w": 560,
+      "text": "Arabic flips everything, including the top chrome — that was the open question from the first draft.\nLatin stays LTR inside RTL text: ticket numbers, phone numbers, email, policy names.",
+      "page": "arabic-foundations"
+    },
+    {
+      "id": "spec-note",
+      "x": 0,
+      "y": -150,
+      "w": 560,
+      "text": "Ticket workspace is the primary spec — story 07 builds this screen.\nQueue left, conversation centre, context right. Everything else on this page reuses its vocabulary.",
+      "page": "agent-app"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "agent-app"
+  },
+  "pages": [
+    {
+      "id": "agent-app",
+      "name": "Agent app"
+    },
+    {
+      "id": "portal",
+      "name": "Customer portal"
+    },
+    {
+      "id": "arabic-foundations",
+      "name": "Arabic & foundations"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+version: 1
+project:
+  name: azm-support-crm
+  primaryLanguage: python
+  projectRoots:
+    - .
+tracker:
+  type: none
+naming:
+  includeTrackerId: false
+  globalSequence: true
+agents:
+  - claude-code

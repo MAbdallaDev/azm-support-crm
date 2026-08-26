@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --brand-soft:#eef0fe;
+      --danger:#c62828; --danger-bg:#fdecec;
+      --warn:#b45309; --warn-bg:#fdf3e0;
+      --ok:#0f7a52; --ok-bg:#e3f5ec;
+      --gold:#8a6100; --gold-bg:#fdf0d5;
+      --sky:#0b6a9e; --sky-bg:#e4f3fb;
+      --violet:#6b3fc4; --violet-bg:#f0eafd;
+      --slate:#4a5567; --slate-bg:#eef1f5;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
+    a{color:var(--brand);text-decoration:none;} a:hover{color:#3730b8;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+    .caps{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;}
+    .p-urgent{background:var(--danger-bg);color:var(--danger);}
+    .p-high{background:var(--warn-bg);color:var(--warn);}
+    .p-normal{background:var(--slate-bg);color:var(--slate);}
+    .p-low{background:var(--ok-bg);color:var(--ok);}
+    .c-whatsapp{background:var(--ok-bg);color:var(--ok);}
+    .c-email{background:var(--brand-soft);color:#3730b8;}
+    .c-chat{background:var(--violet-bg);color:var(--violet);}
+    .c-sms{background:var(--sky-bg);color:var(--sky);}
+    .c-web{background:var(--slate-bg);color:var(--slate);}
+    .tier{background:var(--gold-bg);color:var(--gold);letter-spacing:.07em;font-size:10px;text-transform:uppercase;}
+    .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:7px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--ink2);}
+    .btn:hover{background:var(--bg2);}
+    .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+    .btn-primary:hover{background:#4038cf;}
+    .btn[disabled]{background:var(--bg3);border-color:var(--line);color:var(--faint);cursor:default;}
+    .chip{display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg);font-size:12px;color:var(--ink2);cursor:pointer;}
+    .chip:hover{border-color:#c9cfda;background:var(--bg2);}
+    .chip.on{background:#14171f;border-color:#14171f;color:#fff;font-weight:600;}
+    .avatar{display:flex;align-items:center;justify-content:center;border-radius:999px;background:#2f3a56;color:#fff;font-size:11px;font-weight:600;flex:none;}
+    .row{display:flex;align-items:center;}
+    .divider{height:1px;background:var(--line2);}
+    .tab{padding:0 2px 10px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;}
+    .tab.on{color:var(--ink);border-bottom-color:var(--brand);font-weight:600;}
+    .count{display:inline-block;margin-inline-start:6px;padding:1px 6px;border-radius:999px;background:var(--bg3);color:var(--muted);font-size:10px;font-weight:600;}
+    .navlink{padding:6px 11px;border-radius:7px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;}
+    .navlink:hover{background:var(--bg3);}
+    .navlink.on{background:#14171f;color:#fff;font-weight:600;}
+    .card{border:1px solid var(--line);border-radius:9px;background:var(--bg);}
+    .bar{height:5px;border-radius:999px;background:var(--bg3);overflow:hidden;}
+    .bar > i{display:block;height:100%;border-radius:999px;}
+    .kpi{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:15px 16px;}
+    .kpi .n{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px;}
+    .kpi .s{font-size:11px;color:var(--faint);margin-top:5px;}
+    .field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;font-size:12.5px;}
+    .field .k{color:var(--muted);} .field .v{color:var(--ink);font-weight:500;text-align:end;}
+    th{font-size:11px;font-weight:600;color:var(--muted);text-align:start;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+    td{font-size:12.5px;padding:11px 12px;border-bottom:1px solid var(--line2);}
+    table{width:100%;border-collapse:collapse;}
+    .inp{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);display:flex;align-items:center;padding:0 12px;font-size:13px;color:var(--faint);}
+    </style>
+</helmet>
+
+<div style="width:1440px;height:900px;display:flex;">
+  <div style="width:560px;flex:none;background:#14171f;color:#fff;padding:56px 54px;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:32px;height:32px;border-radius:8px;background:#fff;color:#14171f;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">AZ</div>
+      <div style="font-size:16px;font-weight:700;">AZM Squad</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+      <div style="font-size:38px;font-weight:700;line-height:1.2;letter-spacing:-.02em;">Every request,<br>answered on time.</div>
+      <div style="font-size:14px;line-height:1.7;color:#9aa1ad;margin-top:20px;max-width:400px;">One queue for email, WhatsApp, SMS, live chat and the customer portal — with SLA timers that make the promise visible before it is broken.</div>
+      <div style="display:flex;gap:9px;margin-top:28px;flex-wrap:wrap;">
+        <span class="pill" style="background:#232833;color:#c9cfda;">Multi-channel</span>
+        <span class="pill" style="background:#232833;color:#c9cfda;">SLA tracking</span>
+        <span class="pill" style="background:#232833;color:#c9cfda;">AI assist</span>
+        <span class="pill" style="background:#232833;color:#c9cfda;">عربي / English</span>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:#6b7280;">Customer? Use the <span style="color:#c9cfda;">customer portal</span> instead.</div>
+  </div>
+
+  <div style="flex:1;background:var(--bg2);display:flex;align-items:center;justify-content:center;">
+    <div style="width:396px;">
+      <div style="font-size:24px;font-weight:700;letter-spacing:-.01em;">Sign in</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:7px;">Agent and manager access.</div>
+      <div style="margin-top:26px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:7px;">Email</div>
+        <div class="inp" style="height:40px;background:var(--bg);color:var(--ink);">omar.malki@azmsquad.com</div>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="row" style="justify-content:space-between;margin-bottom:7px;">
+          <span style="font-size:12px;font-weight:600;">Password</span>
+          <a style="font-size:11.5px;">Forgot?</a>
+        </div>
+        <div class="inp" style="height:40px;background:var(--bg);color:var(--ink);letter-spacing:.18em;">••••••••••</div>
+      </div>
+      <div class="btn btn-primary" style="width:100%;height:42px;justify-content:center;margin-top:22px;font-size:14px;">Sign in</div>
+      <div style="margin-top:22px;padding:13px 14px;border:1px dashed var(--line);border-radius:9px;background:var(--bg);">
+        <div class="caps">Demo logins</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.8;">
+          admin@demo · manager@demo · agent@demo · customer@demo<br>
+          <span class="mono">seed_demo</span> prints the shared password.
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:22px;">
+        <span style="font-size:12px;color:var(--muted);">Language</span>
+        <a style="font-size:12px;font-weight:600;">English</a>
+        <span style="font-size:12px;color:var(--faint);">·</span>
+        <a style="font-size:12px;">العربية</a>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

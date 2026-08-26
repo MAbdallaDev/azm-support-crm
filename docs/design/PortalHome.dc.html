@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --brand-soft:#eef0fe;
+      --danger:#c62828; --danger-bg:#fdecec;
+      --warn:#b45309; --warn-bg:#fdf3e0;
+      --ok:#0f7a52; --ok-bg:#e3f5ec;
+      --gold:#8a6100; --gold-bg:#fdf0d5;
+      --sky:#0b6a9e; --sky-bg:#e4f3fb;
+      --violet:#6b3fc4; --violet-bg:#f0eafd;
+      --slate:#4a5567; --slate-bg:#eef1f5;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
+    a{color:var(--brand);text-decoration:none;} a:hover{color:#3730b8;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+    .caps{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;}
+    .p-urgent{background:var(--danger-bg);color:var(--danger);}
+    .p-high{background:var(--warn-bg);color:var(--warn);}
+    .p-normal{background:var(--slate-bg);color:var(--slate);}
+    .p-low{background:var(--ok-bg);color:var(--ok);}
+    .c-whatsapp{background:var(--ok-bg);color:var(--ok);}
+    .c-email{background:var(--brand-soft);color:#3730b8;}
+    .c-chat{background:var(--violet-bg);color:var(--violet);}
+    .c-sms{background:var(--sky-bg);color:var(--sky);}
+    .c-web{background:var(--slate-bg);color:var(--slate);}
+    .tier{background:var(--gold-bg);color:var(--gold);letter-spacing:.07em;font-size:10px;text-transform:uppercase;}
+    .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:7px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--ink2);}
+    .btn:hover{background:var(--bg2);}
+    .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+    .btn-primary:hover{background:#4038cf;}
+    .btn[disabled]{background:var(--bg3);border-color:var(--line);color:var(--faint);cursor:default;}
+    .chip{display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg);font-size:12px;color:var(--ink2);cursor:pointer;}
+    .chip:hover{border-color:#c9cfda;background:var(--bg2);}
+    .chip.on{background:#14171f;border-color:#14171f;color:#fff;font-weight:600;}
+    .avatar{display:flex;align-items:center;justify-content:center;border-radius:999px;background:#2f3a56;color:#fff;font-size:11px;font-weight:600;flex:none;}
+    .row{display:flex;align-items:center;}
+    .divider{height:1px;background:var(--line2);}
+    .tab{padding:0 2px 10px;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;}
+    .tab.on{color:var(--ink);border-bottom-color:var(--brand);font-weight:600;}
+    .count{display:inline-block;margin-inline-start:6px;padding:1px 6px;border-radius:999px;background:var(--bg3);color:var(--muted);font-size:10px;font-weight:600;}
+    .navlink{padding:6px 11px;border-radius:7px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;}
+    .navlink:hover{background:var(--bg3);}
+    .navlink.on{background:#14171f;color:#fff;font-weight:600;}
+    .card{border:1px solid var(--line);border-radius:9px;background:var(--bg);}
+    .bar{height:5px;border-radius:999px;background:var(--bg3);overflow:hidden;}
+    .bar > i{display:block;height:100%;border-radius:999px;}
+    .kpi{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:15px 16px;}
+    .kpi .n{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px;}
+    .kpi .s{font-size:11px;color:var(--faint);margin-top:5px;}
+    .field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;font-size:12.5px;}
+    .field .k{color:var(--muted);} .field .v{color:var(--ink);font-weight:500;text-align:end;}
+    th{font-size:11px;font-weight:600;color:var(--muted);text-align:start;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+    td{font-size:12.5px;padding:11px 12px;border-bottom:1px solid var(--line2);}
+    table{width:100%;border-collapse:collapse;}
+    .inp{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);display:flex;align-items:center;padding:0 12px;font-size:13px;color:var(--faint);}
+    </style>
+</helmet>
+
+<div style="width:1200px;height:880px;display:flex;flex-direction:column;background:var(--bg2);">
+  
+  <div style="height:60px;flex:none;display:flex;align-items:center;gap:18px;padding:0 28px;background:var(--bg);border-bottom:1px solid var(--line);">
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div style="width:28px;height:28px;border-radius:7px;background:#14171f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">AZ</div>
+      <div style="font-size:14px;font-weight:700;">AZM Squad</div>
+      <div style="width:1px;height:16px;background:var(--line);"></div>
+      <div style="font-size:13px;color:var(--muted);">Support</div>
+    </div>
+    <div style="display:flex;gap:2px;margin-inline-start:12px;"><div class="navlink on">My requests</div><div class="navlink">Help articles</div></div>
+    <div style="flex:1;"></div>
+    <div style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;">
+      <div style="padding:0 11px;height:30px;display:flex;align-items:center;background:#14171f;color:#fff;font-size:12px;font-weight:600;">EN</div>
+      <div style="padding:0 11px;height:30px;display:flex;align-items:center;color:var(--muted);font-size:13px;">ع</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div class="avatar" style="width:28px;height:28px;background:#3f5a7d;">KO</div>
+      <div style="font-size:12.5px;font-weight:600;">Khalid Omari</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:28px 0;overflow:hidden;">
+    <div style="max-width:880px;margin:0 auto;">
+
+      <div style="padding:26px 28px;border-radius:12px;background:#14171f;color:#fff;">
+        <div style="font-size:22px;font-weight:700;letter-spacing:-.01em;">How can we help, Khalid?</div>
+        <div style="font-size:13px;color:#9aa1ad;margin-top:7px;">Search our help articles first — most questions are answered there in under a minute.</div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <div style="flex:1;display:flex;align-items:center;gap:9px;height:42px;padding:0 14px;border-radius:9px;background:#fff;color:var(--faint);font-size:13px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>Search help articles…
+          </div>
+          <div class="btn btn-primary" style="height:42px;padding:0 18px;font-size:13.5px;">Submit a request</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+          <span class="pill" style="background:#232833;color:#c9cfda;">Billing &amp; invoices</span>
+          <span class="pill" style="background:#232833;color:#c9cfda;">Notifications</span>
+          <span class="pill" style="background:#232833;color:#c9cfda;">Account &amp; access</span>
+          <span class="pill" style="background:#232833;color:#c9cfda;">Getting started</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="row" style="justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);">
+          <span style="font-size:14px;font-weight:700;">Open requests</span><span class="count">3</span>
+        </div>
+        
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line2);">
+        <div class="row" style="gap:9px;">
+          <span style="flex:1;font-size:13.5px;font-weight:600;">SMS notifications arriving hours late</span>
+          <span class="pill p-high">In progress</span>
+        </div>
+        <div class="row" style="gap:10px;margin-top:7px;font-size:11.5px;color:var(--muted);">
+          <span class="mono">TK-4796</span><span>·</span><span class="pill c-sms">SMS</span><span>·</span><span>opened 2 days ago</span><span>·</span><span>updated 3h ago</span>
+        </div>
+      </div>
+        
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line2);">
+        <div class="row" style="gap:9px;">
+          <span style="flex:1;font-size:13.5px;font-weight:600;">Duplicate charge on August statement</span>
+          <span class="pill p-normal">Waiting on you</span>
+        </div>
+        <div class="row" style="gap:10px;margin-top:7px;font-size:11.5px;color:var(--muted);">
+          <span class="mono">TK-4771</span><span>·</span><span class="pill c-email">Email</span><span>·</span><span>opened 5 days ago</span><span>·</span><span style='color:var(--warn);font-weight:600;'>reply needed</span>
+        </div>
+      </div>
+        
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line2);">
+        <div class="row" style="gap:9px;">
+          <span style="flex:1;font-size:13.5px;font-weight:600;">Add Sara to billing notifications</span>
+          <span class="pill p-low">Received</span>
+        </div>
+        <div class="row" style="gap:10px;margin-top:7px;font-size:11.5px;color:var(--muted);">
+          <span class="mono">TK-4744</span><span>·</span><span class="pill c-web">Portal</span><span>·</span><span>opened 7 days ago</span>
+        </div>
+      </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="row" style="justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);">
+          <span style="font-size:14px;font-weight:700;">Closed</span>
+          <a style="font-size:12px;font-weight:600;">View all 34</a>
+        </div>
+        
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line2);">
+        <div class="row" style="gap:9px;">
+          <span style="flex:1;font-size:13.5px;font-weight:600;">Arabic invoice template request</span>
+          <span class="pill p-low">Resolved</span>
+        </div>
+        <div class="row" style="gap:10px;margin-top:7px;font-size:11.5px;color:var(--muted);">
+          <span class="mono">TK-4702</span><span>·</span><span class="pill c-whatsapp">WhatsApp</span><span>·</span><span>closed 15 Aug</span><span>·</span><span>you rated 5 ★</span>
+        </div>
+      </div>
+        
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line2);">
+        <div class="row" style="gap:9px;">
+          <span style="flex:1;font-size:13.5px;font-weight:600;">Site access codes not syncing</span>
+          <span class="pill p-low">Resolved</span>
+        </div>
+        <div class="row" style="gap:10px;margin-top:7px;font-size:11.5px;color:var(--muted);">
+          <span class="mono">TK-4688</span><span>·</span><span class="pill c-chat">Live chat</span><span>·</span><span>closed 8 Aug</span><span>·</span><span style='color:var(--brand);font-weight:600;'>rate this</span>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

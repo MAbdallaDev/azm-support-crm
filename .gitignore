@@ -1,0 +1,22 @@
+# Managed by squad-kit — do not edit this block
+.squad/secrets.yaml
+.squad/stories/**/attachments/
+.squad/.trash/
+# End squad-kit block
+
+# Story attachments are part of the SDD artifact the reviewer reads — keep them tracked.
+# (squad-kit's managed block above excludes them by default.)
+!.squad/stories/**/attachments/
+
+# Python / Node / env — added ahead of story 01.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+dist/
+.env
+.env.local
+*.sqlite3
+.pytest_cache/
+.coverage
