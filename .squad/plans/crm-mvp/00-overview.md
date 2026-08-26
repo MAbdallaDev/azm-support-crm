@@ -9,8 +9,8 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | NN | File | Title | Tracker id | Depends on | Status |
 |----|------|-------|------------|------------|--------|
 | 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
-| 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented |
-| 03 | _not yet planned_ | Auth, roles & permissions, audit log | — | Story 02 | — |
+| 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented | ✅ implemented |
+| 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | — |
 | 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 | — |
 | 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
 | 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
