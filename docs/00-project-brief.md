@@ -160,23 +160,68 @@ Phase 2 stories land under the feature slug `crm-advanced`, starting at NN 11.
 
 ## 5. How this project is graded
 
-The company scores four things, and each is a deliverable rather than a by-product.
+The company's rubric has **ten weighted criteria totalling 100**, each scored 1–5 and weighted.
+Source: the assessment criteria sheet shared by the company.
 
-1. **SDD via squad-kit.** `.squad/` ships inside the repo: ten story intakes, ten generated plans,
-   an overview and an index. The commit history shows plan-then-implement order.
-2. **Full-stack implementation.** Django + DRF, React + TypeScript, PostgreSQL, Docker Compose,
-   tests on both sides, OpenAPI docs, and an end-to-end demo path through portal → agent → manager.
-3. **Productivity.** The levers are deliberate: Django admin replaces every admin CRUD screen,
-   `seed_demo` replaces manual data entry, and one scoped session per story keeps context small.
-   `docs/AI_USAGE.md` records elapsed time per story so the figure is visible rather than asserted.
-4. **Visible AI usage.** `docs/AI_USAGE.md` is appended **after every story, while it is fresh** —
-   not reconstructed at the end — using a fixed plain-language template: what was asked for, what
-   the AI built, what it decided on its own, what had to be corrected, what was learned.
-   `docs/SUMMARY.md` is the final single hand-in document.
+| Block | Criterion | What it asks for | Weight |
+|---|---|---|---|
+| **AI & SDD Application** | Requirement & Specification | Clear spec, assumptions and acceptance criteria **before** implementation | 10 |
+| | **Planning & Task Breakdown** | Logical technical plan and clear implementation tasks | **20** |
+| | AI Usage & Verification | Good AI context, output review, testing and safe usage | 10 |
+| **Software Engineering & Full-Stack** | Engineering Foundations | Core design, separation of concerns, validation, errors, **Git**, testing and debugging | 10 |
+| | Backend / API / Database | Backend flow, APIs, business logic, validation and data handling | 10 |
+| | Frontend & End-to-End Flow | Components, forms, state, API integration and full feature flow | 10 |
+| | Productivity | Output delivered per unit of time | 10 |
+| **Quality & Understanding** | Correctness & Maintainability | Correct solution, readable structure, maintainable code | 10 |
+| | Testing, Security & Edge Cases | Tests, failure scenarios, validation, security and edge cases | 5 |
+| | Technical Understanding & Ownership | Explains decisions, debugs, adapts the solution, **avoids blind AI dependency** | 5 |
+
+**Planning & Task Breakdown alone is worth 20 — double any other line, and the AI & SDD block is 40%
+of the total.** The squad-kit intakes and generated plans are therefore not project overhead; they
+are the single largest scoring surface in the assessment. Generate a real plan for every story, and
+keep doing it under time pressure, when the temptation to skip straight to code is strongest.
+
+### Where each criterion is answered
+
+| Criterion | Answered by |
+|---|---|
+| Requirement & Specification | Ten `intake.md` files, each with numbered acceptance criteria, dependencies, an explicit **out-of-scope** list, and the assumptions in section 6 below — all written before any code |
+| Planning & Task Breakdown | Ten generated plans in `.squad/plans/crm-mvp/`, each with concrete file paths, field definitions, verification steps and a done-criteria checklist. The commit history shows plan-then-implement order |
+| AI Usage & Verification | `docs/AI_USAGE.md`, plus every story's verification section actually being run — story 01's Docker verification found a real port-collision bug that static review had missed |
+| Engineering Foundations | Layered `apps/` structure, DRF permission classes separated from viewsets, env-driven settings, tests both sides, branch-per-story → PR → `dev` with plans committed ahead of code |
+| Backend / API / Database | Stories 02–05: seventeen models, state-machine-guarded transitions, filters and pagination, OpenAPI schema |
+| Frontend & End-to-End Flow | Stories 06–09, built against the artboards in `docs/design/` |
+| Productivity | Django admin replaces every admin CRUD screen; `seed_demo` replaces manual data entry; one scoped session per story keeps context small. `docs/AI_USAGE.md` records elapsed time per story, so the figure is visible rather than asserted |
+| Correctness & Maintainability | Bilingual `_en`/`_ar` convention applied uniformly, shared component vocabulary from story 06, no directional Tailwind utilities so RTL is structural rather than patched |
+| Testing, Security & Edge Cases | The three tests that exist specifically for this: the **internal-note leak** regression (story 03), **path-traversal** on attachment filenames (story 04), and the **portal trust-boundary** test asserting no portal response ever exposes an assignee, internal note or SLA internal (story 05). Plus SLA breach boundaries and the 50-thread ticket-numbering race |
+| Technical Understanding & Ownership | `docs/SUMMARY.md` carries a dedicated section collecting the moments the AI was **corrected, overruled or verified** — see below |
+
+### The AI journal, and the ownership section
+
+`docs/AI_USAGE.md` is appended **after every story, while it is fresh** — never reconstructed at the
+end — using a fixed plain-language template: what was asked for, what the AI built, what it decided
+on its own, what had to be corrected, what was learned, and elapsed time.
 
 **No story is finished until its journal entry is written.**
 
----
+The last criterion, *avoids blind AI dependency*, is the one most easily lost: the evidence
+accumulates in the journal but is never collected anywhere a reviewer will look. `docs/SUMMARY.md`
+must therefore carry an explicit section pulling those moments together — each entry naming the
+decision, who made it and why. Examples already on record from stories 00 and 01:
+
+- The stack was changed from the AI's initial FastAPI recommendation to **Django + DRF** once the
+  timeline was fixed at two days.
+- The AI was instructed to narrate in plain language and to **commit nothing until the work had been
+  reviewed**.
+- A first draft of this brief was left recommending FastAPI while the plan had already moved to
+  Django; that contradiction was caught in review and the file was rewritten rather than patched.
+- The AI planned to write the usage journal at the end of the project; it was made a per-story rule
+  instead, because criterion 4 is about understanding the work *during* implementation.
+- Story 01's plan specified catching `OperationalError` in the health endpoint. That was widened to
+  `django.db.Error` during implementation — and running the container later proved the wider catch
+  was necessary, since a pooled dead connection does not raise the narrower type.
+- Story 02's plan **deviates from its own intake** on ticket numbering, with the reasoning recorded:
+  the suggested counter row would need an eighteenth model the intake forbids.
 
 ## 6. Assumptions
 
