@@ -15,6 +15,8 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    # Auth: login, refresh, me. Stories 04+ append their own app URL modules here.
+    # Auth: login, refresh, me. Stories 05+ append their own app URL modules here.
     path("api/v1/", include("apps.accounts.urls")),
+    path("api/v1/", include("apps.customers.urls")),
+    path("api/v1/", include("apps.tickets.urls")),
 ]
