@@ -18,6 +18,11 @@ run. Running the command twice leaves every object count unchanged.
 Randomness comes from `random.Random(SEED)`, a seeded *instance* rather than the
 global module, so the shape of the data is reproducible while the timestamps
 stay live. Nothing else in the process has its RNG disturbed.
+
+The whole run happens inside `audit_disabled()`. Story 03's signals audit every
+write to Ticket, Customer, KBArticle and User; demo data is not an audit event,
+and letting it through would bury real entries under thousands of rows with no
+actor.
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.audit import audit_disabled
 from apps.accounts.models import Branch, Department
 from apps.customers.models import Contact, Customer, CustomerNote
 from apps.kb.models import KBArticle, KBCategory
@@ -107,39 +113,49 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
 
     def handle(self, *args, **options):
-        if options["flush"]:
-            if not settings.DEBUG:
-                raise CommandError(
-                    "--flush refuses to run with DEBUG=False. It deletes tickets, customers "
-                    "and users, which is not something to do by accident against a real "
-                    "deployment."
-                )
-            self._flush()
+        if options["flush"] and not settings.DEBUG:
+            raise CommandError(
+                "--flush refuses to run with DEBUG=False. It deletes tickets, customers "
+                "and users, which is not something to do by accident against a real "
+                "deployment."
+            )
 
         self.rng = random.Random(SEED)
         self.now = timezone.now()
         self.counts: dict[str, int] = {}
 
-        with transaction.atomic():
-            departments = self._seed_departments()
-            branches = self._seed_branches()
-            staff = self._seed_staff(departments, branches)
-            customers = self._seed_customers(branches, staff)
-            portal_users = self._seed_portal_logins(customers, branches)
-            categories = self._seed_categories()
-            tags = self._seed_tags()
-            policies = self._seed_sla_policies()
-            self._seed_canned_replies(categories)
-            self._seed_knowledge_base(staff)
-            self._seed_tickets(
-                staff=staff,
-                portal_users=portal_users,
-                customers=customers,
-                categories=categories,
-                tags=tags,
-                policies=policies,
-                departments=departments,
-            )
+        # Seeding is not an audit event. Without this, ~150 tickets plus their
+        # messages, events and customers would write thousands of AuditLog rows
+        # attributed to nobody, and add a SELECT per save for the pre_save
+        # snapshot. Story 03 added the signals; this keeps them out of the demo.
+        #
+        # The guard covers --flush as well as the seeding: deleting the previous
+        # run fires post_delete on every audited model, and a flush that logged
+        # thousands of deletions would defeat the point just as thoroughly.
+        with audit_disabled():
+            if options["flush"]:
+                self._flush()
+
+            with transaction.atomic():
+                departments = self._seed_departments()
+                branches = self._seed_branches()
+                staff = self._seed_staff(departments, branches)
+                customers = self._seed_customers(branches, staff)
+                portal_users = self._seed_portal_logins(customers, branches)
+                categories = self._seed_categories()
+                tags = self._seed_tags()
+                policies = self._seed_sla_policies()
+                self._seed_canned_replies(categories)
+                self._seed_knowledge_base(staff)
+                self._seed_tickets(
+                    staff=staff,
+                    portal_users=portal_users,
+                    customers=customers,
+                    categories=categories,
+                    tags=tags,
+                    policies=policies,
+                    departments=departments,
+                )
 
         self._report()
 

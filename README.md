@@ -33,6 +33,20 @@ Then open:
 | OpenAPI schema | http://localhost:8000/api/v1/schema/ |
 | Django admin | http://localhost:8000/admin/ |
 
+The API denies by default from story 03 onward. `health`, `schema` and `docs` are public; everything
+else needs a bearer token:
+
+```bash
+curl -s -X POST localhost:8000/api/v1/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin@demo","password":"Demo!2345"}'
+```
+
+That returns `access`, `refresh` and the caller's profile. Send the access token as
+`Authorization: Bearer <access>`; `POST /api/v1/auth/refresh/` exchanges the refresh token for a new
+access token, and `GET /api/v1/auth/me/` returns your own profile. The `username` field accepts
+either the username (`admin@demo`) or the email (`admin@demo.local`).
+
 To stop: `Ctrl+C`, then `docker compose down`. Add `-v` to also drop the database volume.
 
 ### Check it is really working
@@ -182,21 +196,22 @@ development: every story has an intake under `.squad/stories/` and a generated p
 
 ## Status
 
-**This is story 02 of 10 — the data model, the back-office, and demo data.**
+**This is story 03 of 10 — authentication, roles and the audit trail.**
 
-What exists now: everything from story 01 (the dockerized stack, environment-driven settings, the
-health endpoint, OpenAPI schema and Swagger UI, the frontend shell), plus the complete domain model —
-eighteen models across `accounts`, `customers`, `tickets` and `kb` — every one of them registered in
-Django admin with real list columns, filters, search and inlines, and a `seed_demo` command that
-fills the database with credible bilingual data.
+What exists now: the dockerized stack and health endpoint (story 01), the complete domain model,
+Django admin back-office and `seed_demo` (story 02), and now JWT authentication, four-role access
+control and an automatic audit log.
 
-**Django admin at `/admin/` is the product's back-office, not a debug aid.** The "Admin" item in the
-app's top navigation links there. Users, roles, departments, branches, categories, tags, SLA
-policies, canned replies and the audit log are all managed in it and will never be rebuilt as React
-screens — a deliberate trade that buys two to three stories of time.
+**Access control is two layers, deliberately.** Permission classes in `apps/accounts/permissions.py`
+decide whether a role may touch a model at all; scoping functions in `apps/accounts/scoping.py`
+decide which rows it may see. Those are Odoo's `ir.model.access` and record rules respectively, and
+building only the first is the classic mistake — an agent correctly denied the right to delete
+customers can still list every customer unless the queryset is filtered too.
 
-**There is still no API and no real UI.** There are no serializers, viewsets or endpoints beyond
-`/api/v1/health/`, no authentication, and `/login` and `/app/dashboard` are still placeholders.
-Authentication and role-based permissions arrive in story 03, the REST API in stories 04 and 05, and
-the first real screens in story 06. Progress per story is recorded in
-[`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+Every write to a ticket, customer, KB article or user now leaves an audit row naming the actor and
+the fields that changed. Passwords never appear in it.
+
+**There is still no resource API and no real UI.** Beyond `/api/v1/auth/*` and `/api/v1/health/`
+there are no endpoints — the customers and tickets API is story 04, the rest of the backend is story
+05, and the first real screens are story 06. `/login` and `/app/dashboard` remain placeholders.
+Progress per story is recorded in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).

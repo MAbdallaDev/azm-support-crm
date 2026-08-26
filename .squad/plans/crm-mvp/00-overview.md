@@ -10,7 +10,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 |----|------|-------|------------|------------|--------|
 | 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
 | 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented |
-| 03 | _not yet planned_ | Auth, roles & permissions, audit log | — | Story 02 | — |
+| 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | ✅ implemented |
 | 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 | — |
 | 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
 | 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
@@ -84,6 +84,40 @@ Five things later stories should know about:
 
 Story 03 consumes `User.role` for its permission classes and `AuditLog` for its signals; both are in
 place and empty of business logic by design.
+
+## Story 03 — as built
+
+Implemented. JWT via SimpleJWT with `role` and `name` claims; `POST /api/v1/auth/login/` (accepting
+username **or** email), `auth/refresh/`, `GET /auth/me/`. DRF denies by default; `health`, `schema`
+and `docs` stay public explicitly. Access control is two modules, deliberately: six permission
+classes in `apps/accounts/permissions.py` (the `ir.model.access` layer) and scoping functions plus
+`ScopedQuerySetMixin` in `apps/accounts/scoping.py` (the record-rules layer). An automatic audit
+trail covers Ticket, Customer, KBArticle and User, with the actor carried by thread-local middleware.
+**118 tests pass on PostgreSQL** (117 + 1 skipped on host SQLite).
+
+What stories 04 and 05 consume from this:
+
+- **Use `ScopedQuerySetMixin`, do not filter in a list handler.** Set `scope_function` on the
+  viewset. The same queryset backs retrieve, update and delete, so scoping in `get_queryset()` is
+  what stops a detail route bypassing it — and why an out-of-scope detail request returns **404, not
+  403**. The mixin raises `NotImplementedError` if `scope_function` is unset rather than silently
+  returning unfiltered rows.
+- **`scope_ticket_messages` is the internal-note boundary.** Its `.filter(is_internal=False)` for
+  customers is the only check on the read path; there is no second one further down. It has a
+  dedicated regression test, plus a guard test proving the fixture actually contains internal notes
+  on the customer's own tickets, so the assertion cannot pass vacuously.
+- **`scope_kb_articles` exists although story 03 did not require it** — story 05's portal needs
+  published-only filtering, and every record rule belongs in the one module.
+- **Audit is automatic; do not write `AuditLog` rows by hand in a viewset.** Signals cover create,
+  update and delete. Anything bulk should run inside `audit_disabled()` — `seed_demo` already does,
+  covering both its seeding and its `--flush`.
+- **`REDACTED_FIELDS` and `auto_now` fields never enter `changes`.** Passwords are absent rather than
+  masked, and `updated_at` is excluded because Django rewrites it on every save — without that,
+  every no-op save wrote a row and "changed fields only" meant nothing.
+
+Two deliberate deviations from the intake, both recorded in the journal: login accepts username or
+email (the intake says email, the README documents the username), and the endpoint-level role matrix
+is deferred to story 04, which is the first story that has endpoints to matrix.
 
 ## Dependency notes
 

@@ -349,3 +349,107 @@ and write a `seed_demo` command that fills the database with credible bilingual 
   away automatically is also manual: `list_select_related` plus a `get_queryset` prefetch is the
   difference between 25 queries and several hundred on a 25-row page, and there is now a test
   pinning it.
+
+---
+
+## Story 03 — Auth, roles & permissions, audit log          (elapsed: ~20m)
+
+**What I asked for:** implement the generated plan for story 03 — wire JWT authentication, build
+role-based access control as two distinct layers, and add an automatic audit trail.
+
+**What the AI built:**
+
+- `backend/config/settings.py` — `JWTAuthentication` as the default authenticator and
+  `IsAuthenticated` as the default permission, so the API denies by default. A `SIMPLE_JWT` block
+  with env-driven lifetimes, and `CurrentActorMiddleware` registered after `AuthenticationMiddleware`.
+- `backend/apps/accounts/serializers.py` — `LoginSerializer` (adds `role` and `name` claims to the
+  token, resolves username *or* email) and `MeSerializer`.
+- `backend/apps/accounts/views.py`, `urls.py` — `POST /api/v1/auth/login/`, `auth/refresh/`,
+  `GET /auth/me/`.
+- `backend/apps/accounts/permissions.py` — six classes: `IsAdmin`, `IsManager`, `IsAgent`,
+  `IsCustomer`, `IsAgentOrAbove`, `IsOwnerOrAgentOrAbove`. This is the `ir.model.access` layer.
+- `backend/apps/accounts/scoping.py` — `scope_tickets`, `scope_customers`, `scope_ticket_messages`,
+  `scope_kb_articles`, plus `ScopedQuerySetMixin`. This is the record-rules layer.
+- `backend/apps/accounts/middleware.py` — thread-local actor, cleared in a `finally`.
+- `backend/apps/accounts/audit.py` — `pre_save`/`post_save`/`post_delete` handlers over Ticket,
+  Customer, KBArticle and User; `REDACTED_FIELDS`; `audit_disabled()`; login and failed-login events.
+  Connected from `AccountsConfig.ready()`.
+- `seed_demo` wrapped in `audit_disabled()`.
+- Tests: `test_auth.py` (11), `test_permissions.py` (23), `test_scoping.py` (14), `test_audit.py` (11).
+  **118 passing on PostgreSQL**, 117 + 1 skipped on host SQLite.
+
+**Decisions the AI made on its own:**
+
+- *`auto_now` fields are excluded from the audit diff, alongside the redacted ones.* This was not in
+  the plan and only surfaced when a test failed — see below.
+- *`scope_customers` lets staff with no branch see everything, while a customer with no linked
+  `Customer` sees nothing.* Branch is an organisational convenience, so an unconfigured agent should
+  be inconvenienced rather than locked out; a customer's link is a security boundary, so it fails
+  closed. The two cases genuinely differ and the module says why.
+- *Added `scope_kb_articles`, which the plan did not ask for.* Story 05's portal needs published-only
+  filtering, and putting it beside the other three keeps every record rule in one module rather than
+  having one live in a viewset later.
+- *`ScopedQuerySetMixin` raises `NotImplementedError` when `scope_function` is unset* rather than
+  quietly returning the unfiltered queryset. A silent unscoped queryset on a view that advertises
+  itself as scoped is the exact failure this story exists to prevent.
+- *Login auditing lives in the view, not the serializer.* Only the view knows the final outcome — a
+  401 raised during validation never reaches the serializer's return path.
+- *Lengthened the development `SECRET_KEY` default by one word.* It was 31 bytes, and PyJWT warns
+  below 32 for HMAC-SHA256, so every token operation emitted an `InsecureKeyLengthWarning`. Real
+  deployments override it anyway, but a warning that fires constantly in dev is a warning nobody
+  reads when it matters.
+
+**What I had to correct:**
+
+- **The audit log recorded a change on every save, including saves that changed nothing.** Two tests
+  failed together: an update to `priority` reported `{"priority", "updated_at"}` rather than just
+  `priority`, and a bare `ticket.save()` wrote a row. The cause is that `updated_at` is `auto_now=True`,
+  so Django rewrites it on *every* save — which meant "changed fields only" never actually meant
+  anything, and the log would have grown on no-op saves. Fixed by skipping `auto_now` fields in the
+  diff for the same reason `last_login` was already excluded. Nothing is lost: the `AuditLog` row
+  carries its own `created_at`.
+- **`is_authenticated` cannot be assigned on a `User`** — it is a read-only property. The
+  "authenticated but role-less" test tried to set it. An unsaved `User` instance already reports
+  `True`, so the assignment was unnecessary and the test was more genuine without it.
+- **The `--flush` path bypassed `audit_disabled()`.** The plan says to wrap the seeding transaction;
+  I wrapped it, then noticed `_flush()` runs *before* that block and deletes every audited model,
+  firing `post_delete` on each. A flush logging thousands of deletions defeats the guard exactly as
+  thoroughly as seeding would. The context manager now covers both.
+- **The stale container hid a fix.** After lengthening `SECRET_KEY`, the warning persisted in Docker
+  because the running container still held the old environment variable. `docker compose up -d`
+  recreated it. Worth remembering: editing `.env` does nothing until the container is recreated.
+
+**Two deliberate deviations from the intake, recorded as the plan requires:**
+
+1. **Login accepts a username *or* an email.** The intake says "login with email + password". Taken
+   literally that means `admin@demo.local`, while the README tells reviewers `admin@demo`. Rather
+   than break the documented credentials or force a `USERNAME_FIELD` migration on top of story 02's,
+   the field resolves either — username first, so a username that looks like an address is never
+   shadowed by someone else's email.
+2. **The endpoint-level role matrix is deferred to story 04.** The intake's criterion 9 asks for
+   "every role against every scoped endpoint", but this story ships no scoped endpoints — story 04
+   builds them. The scoping functions are tested directly at queryset level here, and story 04
+   re-asserts the same matrix over real routes.
+
+**What I learned:**
+
+- **The two-layer split is the whole story, and Odoo already taught it.** `ir.model.access` says
+  whether you may touch a model; record rules say which rows. DRF splits along the identical seam —
+  permission classes and `get_queryset()` filtering — and the failure mode is identical too: an agent
+  correctly denied the right to delete customers can still *list* every customer if only the first
+  layer exists. Writing them in two separate modules, named after the Odoo concepts, made the
+  distinction impossible to blur.
+- **Filtering in `get_queryset()` rather than in a list handler is what makes a detail route safe.**
+  The same queryset backs list, retrieve, update and delete, so a record outside the caller's scope
+  is not merely hidden from the list — it does not exist for them. That is also why an out-of-scope
+  detail request returns **404 rather than 403**: a 403 confirms the record exists, which is itself
+  a disclosure.
+- **The `finally` in the actor middleware is not defensive coding.** Server threads are pooled and
+  reused. A worker that finishes without clearing the thread-local hands the previous user's identity
+  to the next request on that thread, and every audit row it writes names the wrong person — silently,
+  intermittently, and only under concurrency.
+- **Locking down DRF broke two endpoints that had nothing to do with auth.**
+  `DEFAULT_PERMISSION_CLASSES = IsAuthenticated` applies to drf-spectacular's own views, so
+  `/api/v1/schema/` and `/api/v1/docs/` would have started returning 401. The plan predicted it; the
+  lesson is that "deny by default" has a blast radius that includes machinery you did not think of
+  as an endpoint. There is now a parametrised regression test over all three public paths.
