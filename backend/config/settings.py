@@ -93,8 +93,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# AUTH_USER_MODEL is deliberately NOT set here. Story 02 introduces accounts.User
-# and sets it in the same pass as the first migration.
+# Set before the first migration ever ran — AUTH_USER_MODEL cannot be changed
+# afterwards without deleting and regenerating every migration file.
+AUTH_USER_MODEL = "accounts.User"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.getenv("TIME_ZONE", "Asia/Riyadh")

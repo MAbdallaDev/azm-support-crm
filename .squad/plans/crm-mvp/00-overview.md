@@ -9,7 +9,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | NN | File | Title | Tracker id | Depends on | Status |
 |----|------|-------|------------|------------|--------|
 | 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
-| 02 | _not yet planned_ | Domain models, Django admin, demo seed | — | Story 01 | — |
+| 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented |
 | 03 | _not yet planned_ | Auth, roles & permissions, audit log | — | Story 02 | — |
 | 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 | — |
 | 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
@@ -43,6 +43,47 @@ Two deviations later stories should know about:
 **`docker compose up --build` is unverified** — Docker is not installed on the dev machine. The
 compose file and both Dockerfiles are written and the YAML parses, but the one-command path is
 untested. Story 10 must run it on a machine with Docker before hand-in.
+
+## Story 02 — as built
+
+Implemented. Eighteen models across `accounts` (4), `customers` (3), `tickets` (9) and `kb` (2);
+`AUTH_USER_MODEL = "accounts.User"` set before the first migration; five migration files that apply
+clean to an empty database, with `makemigrations --check --dry-run` reporting no pending changes.
+All eighteen models registered in Django admin with real list columns, filters, search and inlines.
+`manage.py seed_demo` creates 150 tickets over 90 days plus 10 customers, 18 users, a 10-article
+bilingual knowledge base, 7 canned replies and 12 SLA policies — idempotent, with `--flush`.
+**Verified on PostgreSQL:** 59 tests pass with nothing skipped, migrate runs clean into an empty
+database, `makemigrations --check` reports no changes, and two consecutive `seed_demo` runs leave
+identical counts. On the host SQLite loop, 58 pass and the concurrency test skips with its reason.
+
+Five things later stories should know about:
+
+- **Ticket numbering is `unique=True` plus a bounded `IntegrityError` retry**, not
+  `select_for_update` and not a database sequence — the intake suggested those and the reasoning for
+  rejecting all three alternatives is in a comment block above `next_ticket_number` in
+  `apps/tickets/models.py`. Story 04 should not "fix" it. Supplying `number` explicitly preserves it,
+  which is what `seed_demo` keys on.
+- **The retry loop's backoff is load-bearing — do not simplify it away.** PostgreSQL blocks a second
+  writer on the unique index until the first commits, which releases every loser at the same instant
+  to recompute the same next number. Without the jittered sleep and the widening random offset on
+  retries, sixteen concurrent creates exhaust the attempt budget and raise. This was a real failure
+  under `docker compose exec api pytest`, invisible on SQLite; the comments in `Ticket.save()`
+  explain it.
+- **`accounts` has two migration files, not one.** `0001_initial` creates the models and
+  `0002_initial` adds the FKs that close the circular `User ↔ customers.Customer` reference. Django
+  generated the ordering itself; do not hand-edit it.
+- **The intake's prose says "seventeen models"; its own list has eighteen.** `tests/test_admin_smoke.py`
+  asserts all eighteen are registered.
+- **The dev database volume from story 01 must be dropped once.** Story 01's container migrated
+  `django.contrib.auth` before `accounts.User` existed, so an existing `pgdata` volume raises
+  `InconsistentMigrationHistory: Migration admin.0001_initial is applied before its dependency
+  accounts.0001_initial`. That is the expected consequence of introducing a custom user model, not a
+  defect in the migrations — they apply cleanly to an empty database. The one-time fix is
+  `docker compose down -v && docker compose up -d`, after which `seed_demo` populates it. Anyone
+  cloning the repo fresh never sees this.
+
+Story 03 consumes `User.role` for its permission classes and `AuditLog` for its signals; both are in
+place and empty of business logic by design.
 
 ## Dependency notes
 
