@@ -6,7 +6,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-crm}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm}
     ports:
-      - "5432:5432"
+      # Host port is configurable and defaults AWAY from 5432: a developer or
+      # reviewer with a local PostgreSQL already owns that port, and the bind
+      # fails outright. Nothing in the app uses this mapping — the api reaches
+      # the database at db:5432 over the compose network. Bound to loopback so
+      # the database is not exposed on the LAN.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
