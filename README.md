@@ -196,22 +196,33 @@ development: every story has an intake under `.squad/stories/` and a generated p
 
 ## Status
 
-**This is story 03 of 10 — authentication, roles and the audit trail.**
+**This is story 04 of 10 — the customers and tickets REST API.**
 
-What exists now: the dockerized stack and health endpoint (story 01), the complete domain model,
-Django admin back-office and `seed_demo` (story 02), and now JWT authentication, four-role access
-control and an automatic audit log.
+What exists now: the dockerized stack and health endpoint (story 01), the full domain model, Django
+admin back-office and `seed_demo` (story 02), JWT auth with two-layer RBAC and an audit trail
+(story 03), and now the REST API that stories 07 and 08 will consume.
 
-**Access control is two layers, deliberately.** Permission classes in `apps/accounts/permissions.py`
-decide whether a role may touch a model at all; scoping functions in `apps/accounts/scoping.py`
-decide which rows it may see. Those are Odoo's `ir.model.access` and record rules respectively, and
-building only the first is the classic mistake — an agent correctly denied the right to delete
-customers can still list every customer unless the queryset is filtered too.
+Endpoints, all requiring a bearer token and the agent, manager or admin role:
 
-Every write to a ticket, customer, KB article or user now leaves an audit row naming the actor and
-the fields that changed. Passwords never appear in it.
+| Route | What it does |
+|---|---|
+| `/api/v1/tickets/` | the queue — filter by `status`, `priority`, `channel`, `escalated`, `breached`, `unassigned`, `q`; ordering and pagination |
+| `/api/v1/tickets/{id}/messages/` | conversation and internal notes |
+| `/api/v1/tickets/{id}/events/` | the Activity log, append-only |
+| `/api/v1/tickets/{id}/attachments/` | upload, type-checked and size-capped |
+| `/api/v1/tickets/{id}/{assign,status,escalate,resolve}/` | the transition actions |
+| `/api/v1/customers/`, `/contacts/` | customer 360 data, with `/customers/{id}/notes/` |
+| `/api/v1/categories/`, `/tags/`, `/canned-replies/` | reference data, read-only |
 
-**There is still no resource API and no real UI.** Beyond `/api/v1/auth/*` and `/api/v1/health/`
-there are no endpoints — the customers and tickets API is story 04, the rest of the backend is story
-05, and the first real screens are story 06. `/login` and `/app/dashboard` remain placeholders.
-Progress per story is recorded in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+**Status changes go through one service function**, `apps/tickets/services/ticket_service.py`, which
+validates the move against an explicit transition map, stamps the right timestamps and writes the
+Activity log entry. No viewset assigns `ticket.status`. An invalid move returns 400 naming both
+states.
+
+Browse it all at [`/api/v1/docs/`](http://localhost:8000/api/v1/docs/) — the schema generates with no
+warnings and every action carries a typed request body.
+
+**There is still no real UI.** `/login` and `/app/dashboard` remain placeholders. SLA computation,
+the knowledge base API, reports, the mocked AI service and the customer portal are story 05; the
+first real screens are story 06. Progress per story is recorded in
+[`docs/AI_USAGE.md`](docs/AI_USAGE.md).

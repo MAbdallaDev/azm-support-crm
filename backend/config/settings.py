@@ -143,6 +143,17 @@ SPECTACULAR_SETTINGS = {
     # which would make /api/v1/schema/ and /api/v1/docs/ return 401 — a regression
     # invisible until a reviewer opens the link. Public, and deliberately so.
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    # Several models share the same choice set — `en|ar` on both User and
+    # Customer, and the Priority vocabulary on Category, SLAPolicy and Ticket.
+    # Without these, drf-spectacular emits LanguageEnum / LanguageEnum2 and the
+    # generated client in story 06 gets two names for one concept.
+    # The class itself, not `.choices`: drf-spectacular's deep_import_string
+    # cannot reach the metaclass property, and its loader calls `.choices` for a
+    # Choices subclass anyway.
+    "ENUM_NAME_OVERRIDES": {
+        "LanguageEnum": "apps.accounts.models.User.Language",
+        "PriorityEnum": "apps.tickets.models.Priority",
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")

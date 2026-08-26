@@ -10,6 +10,7 @@ import io
 
 import pytest
 from django.core.management import call_command
+from django.db import transaction
 
 from apps.accounts.models import User
 from apps.accounts.scoping import (
@@ -28,9 +29,14 @@ def seeded(django_db_setup, django_db_blocker):
     """Seeded once for the module — seed_demo takes several seconds and every
     test here reads the same immutable dataset.
     """
-    with django_db_blocker.unblock():
+    with django_db_blocker.unblock(), transaction.atomic():
         call_command("seed_demo", stdout=io.StringIO(), stderr=io.StringIO())
         yield
+        # Rolled back at teardown rather than committed. Without this the seeded
+        # departments and branches outlive the module and every later test file
+        # that creates its own `billing` department collides on the unique code —
+        # a failure that depends on file ordering and is miserable to diagnose.
+        transaction.set_rollback(True)
 
 
 @pytest.fixture

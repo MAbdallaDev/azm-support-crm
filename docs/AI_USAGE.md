@@ -453,3 +453,99 @@ role-based access control as two distinct layers, and add an automatic audit tra
   `/api/v1/schema/` and `/api/v1/docs/` would have started returning 401. The plan predicted it; the
   lesson is that "deny by default" has a blast radius that includes machinery you did not think of
   as an endpoint. There is now a parametrised regression test over all three public paths.
+
+---
+
+## Story 04 — Customers & tickets REST API          (elapsed: ~30m)
+
+**What I asked for:** implement the generated plan for story 04 — the REST API for customers and
+tickets, with status changes as a real state machine and a queue endpoint that does not fall over on
+150 rows.
+
+**What the AI built:**
+
+- `backend/apps/tickets/services/ticket_service.py` — the **only** writer of `Ticket.status`. An
+  explicit `ALLOWED_TRANSITIONS` map, `transition_status`, `assign`, `escalate`, `resolve`,
+  `record_first_response`, and `log_event` as the single `TicketEvent` writer. `InvalidTransition` is
+  a plain exception, not a DRF one, so management commands and story 05's SLA logic can call this
+  module without dragging HTTP into business logic.
+- `backend/apps/tickets/serializers.py` — split list / detail / write. `status` is absent from the
+  write serializer, so the transition endpoints are the only way in.
+- `backend/apps/tickets/filters.py`, `pagination.py`, `views.py`, `urls.py` — the queue filters
+  (`q`, `escalated`, `breached`, `unassigned`), 25/100 pagination, `TicketViewSet` with
+  `messages`/`events`/`attachments`/`assign`/`status`/`escalate`/`resolve` actions, and the three
+  read-only lookup viewsets.
+- `backend/apps/customers/serializers.py`, `filters.py`, `views.py`, `urls.py` — customers, contacts
+  and the notes action.
+- Tests: `test_transitions.py` (68), `test_first_response.py` (6), `test_queue_performance.py` (5),
+  `test_attachments.py` (21), `test_scoping_endpoints.py` (10), `test_customers_api.py` (14).
+  **241 passing on PostgreSQL**, 240 + 1 skipped on host SQLite.
+
+**Decisions the AI made on its own:**
+
+- *Added an `unassigned` filter the plan did not list.* Story 07's queue has an *Unassigned* tab and
+  story 02 seeded 20 such tickets deliberately; without the filter the tab would have had no query
+  to make.
+- *`escalate` increments the level even when the ticket is already escalated*, skipping the status
+  move rather than raising. A second escalation is a real event and story 07 renders the level;
+  `ESCALATED → ESCALATED` is not a transition, so refusing the whole call would have been wrong.
+- *`ContactViewSet` scopes through its parent customer* rather than getting its own scoping function.
+  A contact has no branch or tier of its own, so reusing `scope_customers` on the parent is what
+  keeps the two consistent — a contact must never be visible when its customer is not.
+- *`is_breached` lives in one helper shared by the serializer and the filter.* Two copies of that
+  expression would eventually disagree, and the row badge contradicting the queue tab is exactly the
+  bug nobody reports because it looks like a refresh problem.
+- *Added `ENUM_NAME_OVERRIDES` to the schema settings.* `User.Language` and `Customer.Language` are
+  the same `en|ar` vocabulary declared twice, and `Priority` is shared by three models — without the
+  override drf-spectacular emitted `LanguageEnum` and `LanguageEnum2`, and story 06's generated
+  client would have had two names for one concept.
+
+**What I had to correct:**
+
+- **`is_breached` silently vanished from the ticket detail payload.** I had written
+  `is_breached = TicketListSerializer.get_is_breached` — assigning a method as a bare class
+  attribute, which DRF does not register as a field, and it was not in the `fields` tuple either.
+  It serialised without error and simply was not there. Extracted into a module-level helper both
+  serializers call. **The lesson: a missing serializer field is silent.** Only checking the actual
+  output caught it.
+- **The 68 transition tests passed alone and failed in the full suite.** `UNIQUE constraint failed:
+  accounts_department.code`. The cause was mine, from story 03: the module-scoped `seed_demo`
+  fixture in `test_scoping.py` **commits** its data and never removes it, so the seeded `billing`
+  department outlived the module and collided with every later fixture that created one. Story 03
+  only escaped this because its own files happened to run in a lucky alphabetical order. Fixed by
+  wrapping both seed fixtures in `transaction.atomic()` with `set_rollback(True)` at teardown.
+  **A test that passes in isolation and fails in the suite is almost always shared state, not the
+  test.**
+- **`django_assert_num_queries(None)` does not mean "just count".** It asserts against `None` and
+  fails on the first query. The performance tests use `CaptureQueriesContext` instead, which is the
+  tool that actually counts without asserting.
+- **The HTTP transition tests returned 404, not the 400 I expected.** My fixture built tickets with
+  no department, so they fell outside the agent's scope and `get_queryset()` correctly excluded them.
+  The scoping was right and the fixture was wrong — a satisfying failure, since it is exactly the
+  404-not-403 behaviour story 03 built.
+- **`OpenApiParameter` is not a response type.** I used it as the 400 entry in `@extend_schema`, and
+  drf-spectacular fell back to a free-form object. Replaced with `OpenApiResponse(description=...)`.
+- **`deep_import_string` cannot reach `.choices` on a `TextChoices` class** — it is a metaclass
+  property. The override has to name the class itself; drf-spectacular calls `.choices` for a
+  `Choices` subclass on its own.
+
+**What I learned:**
+
+- **A state machine belongs in one function, and the value shows up immediately in the tests.**
+  Driving `test_transitions.py` from `ALLOWED_TRANSITIONS` itself gives 68 tests from one map — every
+  allowed pair succeeds, every forbidden pair raises — and the test cannot drift from the
+  implementation when a transition is added later. This is the Odoo lesson too: state logic in the
+  view is the thing that makes an audit trail develop holes.
+- **`source=` beats `SerializerMethodField` for related values, for a reason that is not style.** A
+  method field touching `obj.customer` still fires a query per row unless `select_related` covers it,
+  and it hides that requirement from the next reader. A `source="customer.name"` path makes the
+  needed `select_related` obvious at the point of use.
+- **Asserting query-count *equality* between 5 rows and 50 is a better test than a magic number.** A
+  hard-coded count breaks whenever middleware or auth changes and teaches nothing; equality tests the
+  property that actually matters — that the cost does not grow with the data.
+- **The conditional UPDATE for `first_response_at` is the same lesson as story 02's ticket
+  numbering:** when two requests can race, push the decision into the database's own atomicity rather
+  than into a Python `if`. Both look like stylistic choices in the diff and neither is.
+- **Filename sanitising protects a column, not a path.** Django's `upload_to` already handles the
+  filesystem; the `filename` column is ours and story 07 echoes it into the browser, which makes an
+  unsanitised value a stored-XSS vector rather than an untidy string.

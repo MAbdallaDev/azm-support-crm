@@ -11,7 +11,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
 | 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented |
 | 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | ✅ implemented |
-| 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 | — |
+| 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
 | 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
 | 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
 | 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
@@ -118,6 +118,41 @@ What stories 04 and 05 consume from this:
 Two deliberate deviations from the intake, both recorded in the journal: login accepts username or
 email (the intake says email, the README documents the username), and the endpoint-level role matrix
 is deferred to story 04, which is the first story that has endpoints to matrix.
+
+## Story 04 — as built
+
+Implemented. The REST API for customers and tickets: `TicketViewSet` with `messages`, `events`,
+`attachments`, `assign`, `status`, `escalate` and `resolve` actions; `CustomerViewSet` with a `notes`
+action; `ContactViewSet`; and read-only `categories`, `tags` and `canned-replies`. Queue filters
+(`q`, `status`, `priority`, `channel`, `escalated`, `breached`, `unassigned`, date range), ordering,
+and 25/100 pagination. **241 tests pass on PostgreSQL**, 240 + 1 skipped on host SQLite, and the
+OpenAPI schema generates with **zero warnings**.
+
+What story 05 and the frontend stories consume:
+
+- **`services/ticket_service.py` is the only writer of `Ticket.status`.** Story 05's SLA and
+  round-robin logic must call `transition_status` / `assign` rather than setting fields, or the
+  Activity log develops holes. `InvalidTransition` is deliberately a plain exception, not a DRF one,
+  so the service stays callable from management commands; the viewset translates it to a 400 at the
+  boundary.
+- **`breached` is derived from the stored due timestamps, not the `sla_*_breached` columns.** Nothing
+  writes those yet. `filters.breached_q()` and `serializers.is_breached()` share one expression, and
+  **story 05 should lift that expression into `sla_service` rather than add a third copy** — a row
+  badge that disagrees with the queue tab is a bug nobody reports because it looks like a refresh
+  problem.
+- **`record_first_response` is a conditional UPDATE, not a read-then-write.** Do not "simplify" it to
+  an `if`; two agents replying simultaneously would both see None and the later write would move the
+  timestamp, flattering the SLA number story 09 reports.
+- **Sub-resources are `@action(detail=True)`, not a nested router** — `drf-nested-routers` would be a
+  new dependency and the stack is fixed. Follow the same pattern in story 05's portal endpoints.
+- **`@extend_schema` with an explicit `request` serializer is mandatory on every `@action`.** DRF
+  infers `{}` otherwise, and story 06 types its client from this schema. There are four small inline
+  request serializers for exactly this reason.
+
+One trap fixed here that later stories inherit: **the module-scoped `seed_demo` test fixtures now
+roll back at teardown** (`transaction.atomic()` + `set_rollback(True)`). Previously they committed,
+so seeded departments outlived the module and collided with any later fixture creating its own —
+a failure that depended on file ordering. Any new module-scoped seed fixture must do the same.
 
 ## Dependency notes
 
