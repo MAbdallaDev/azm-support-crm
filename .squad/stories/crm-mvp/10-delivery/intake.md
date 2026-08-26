@@ -106,6 +106,17 @@ DOCUMENTATION
       - honest limitations: AI is mocked; email, WhatsApp, SMS and live chat are labels;
         SLA uses wall-clock rather than business hours; search is icontains
       - what Phase 2 would tackle first and why
+      - **an "Ownership and corrections" section** — the company scores "Technical Understanding
+        & Ownership: explains decisions, debugs, adapts the solution and avoids blind AI
+        dependency" (weight 5). The evidence is scattered through AI_USAGE.md and no reviewer
+        will assemble it. Collect every moment the AI was corrected, overruled or verified, each
+        naming the decision, who made it and why. Already on record: the stack changed from the
+        AI's FastAPI recommendation to Django once the timeline was fixed; a stale brief was
+        caught contradicting the plan; the journal was made per-story rather than written at the
+        end; story 01's health-check exception was widened from OperationalError to
+        django.db.Error and running the container later proved it necessary; story 02's plan
+        deviates from its own intake on ticket numbering with the reasoning recorded; and story
+        01's Docker verification found a port-collision bug that static review had missed.
 
 FINAL VERIFICATION
 15. Fresh clone into an empty directory, docker compose up --build, migrate, seed_demo, then
