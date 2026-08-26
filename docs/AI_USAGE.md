@@ -157,3 +157,46 @@ Django 5 + DRF API and a React 19 + Vite frontend shell, with no domain models a
 - Odoo's `ir.config_parameter` lives in the database; Django's equivalent lives in the environment
   and is read once at import time. That is why `DATABASE_URL` can select the database engine itself,
   something an in-database setting could never do.
+
+### Addendum — Docker verified after the fact (elapsed: +0h 18m)
+
+The entry above closed with one criterion unexecuted: Docker was not installed, so
+`docker compose up --build` had never run. Docker was installed afterwards and story 01's full
+verification section was executed for real. **It found a defect that only running it could find.**
+
+**The bug:** `docker-compose.yml` published the database on host port `5432`. This machine already
+runs a local PostgreSQL 16 cluster on 5432 — the Odoo development database — so the `db` container
+failed to start outright: *failed to bind host port 0.0.0.0:5432/tcp: address already in use*. Any
+reviewer with PostgreSQL installed hits this on their very first command, which is precisely the
+"loses on first impression" failure story 01 was written to prevent.
+
+**The fix:** the mapping is now `127.0.0.1:${POSTGRES_PORT:-5433}:5432`, with `POSTGRES_PORT`
+documented in `.env.example`. Two improvements in one line — the default moves off the port a local
+PostgreSQL owns, and the bind is restricted to loopback so the database is not exposed on the LAN.
+Nothing in the application is affected: the api reaches the database at `db:5432` over the compose
+network, which never touched the host port. **The local Odoo PostgreSQL was left running and
+untouched throughout** — the container moved, not Odoo.
+
+**Verified after the fix**, all seven steps of the plan's verification section:
+
+| Step | Result |
+|---|---|
+| Stack up | three containers; `api` waited on the db healthcheck before starting |
+| Health 200 | `{"status":"ok","database":"ok"}` |
+| **Health 503** | `docker compose stop db` → `{"status":"degraded","database":"unavailable"}`, HTTP 503 — **not** 500 |
+| Recovery | `docker compose start db` → back to 200 |
+| Swagger / schema / admin | 200 / 200 / 302 |
+| CORS | `access-control-allow-origin: http://localhost:5173` |
+| Backend tests | 4 passed |
+| Frontend build + tests | clean production build, 1 test passed |
+
+**What I learned:** the 503 assertion is what justified broadening the exception to
+`django.db.Error`. Under Docker the api holds a pooled connection (`conn_max_age=600`); when Postgres
+stops, that dead cached connection does not necessarily raise `OperationalError` — the narrower catch
+the plan originally specified could have let it escape and returned a 500. The test suite passed
+either way, because the test monkeypatches the cursor rather than killing a real socket. Only
+stopping an actual container proved the real behaviour.
+
+**Also learned, the practical one:** two of my own leftover dev processes (a `manage.py runserver` on
+8000 and a Vite server on 5173) blocked the containers from binding. Docker and a local dev loop
+compete for the same ports — pick one at a time.
