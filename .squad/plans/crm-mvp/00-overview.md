@@ -6,22 +6,43 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 
 ## Stories
 
-| NN | File | Title | Tracker id | Depends on |
-|----|------|-------|------------|------------|
-| 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None |
-| 02 | _not yet planned_ | Domain models, Django admin, demo seed | — | Story 01 |
-| 03 | _not yet planned_ | Auth, roles & permissions, audit log | — | Story 02 |
-| 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 |
-| 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 |
-| 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas |
-| 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 |
-| 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 |
-| 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 |
-| 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All |
+| NN | File | Title | Tracker id | Depends on | Status |
+|----|------|-------|------------|------------|--------|
+| 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
+| 02 | _not yet planned_ | Domain models, Django admin, demo seed | — | Story 01 | — |
+| 03 | _not yet planned_ | Auth, roles & permissions, audit log | — | Story 02 | — |
+| 04 | _not yet planned_ | Customers & tickets REST API | — | Story 03 | — |
+| 05 | _not yet planned_ | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
+| 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
+| 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
+| 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
+| 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
+| 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
 
 Each story's intake is at `.squad/stories/crm-mvp/<id>/intake.md`. Plans are generated one at a time
 with `/squad-plan`, immediately before that story is implemented — not all ten up front, so each plan
 reflects what the previous story actually produced.
+
+## Story 01 — as built
+
+Implemented. Delivered `backend/` (Django project `config`, seven model-free apps, environment-driven
+settings with a SQLite fallback, `config/health.py`, OpenAPI schema and Swagger UI, pytest with 4
+passing tests), `frontend/` (Vite 6 + React 19, Tailwind 3.4, shadcn/ui Button and Card, router,
+TanStack Query, axios client, i18next `en`/`ar`, 1 passing Vitest test), and root
+`docker-compose.yml`, `.env.example` and `README.md`.
+
+Two deviations later stories should know about:
+
+- **Vite is pinned to 6 and jsdom to 26** because the dev machine runs Node 18. Do not run
+  `npm install <pkg>@latest` blindly in stories 06–10; check the Node requirement first.
+- **`src/index.css` holds shadcn v3 HSL triplet tokens, not v4 `oklch` values.** The `shadcn` CLI
+  emits v4 values that are invalid under the v3 `hsl(var(--x))` config it generates alongside them.
+  If a later story adds components with the CLI and colours vanish, this is why. Story 06 replaces
+  this block with the palette from `docs/design/DesignSystem.dc.html`.
+
+**`docker compose up --build` is unverified** — Docker is not installed on the dev machine. The
+compose file and both Dockerfiles are written and the YAML parses, but the one-command path is
+untested. Story 10 must run it on a machine with Docker before hand-in.
 
 ## Dependency notes
 

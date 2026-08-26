@@ -20,3 +20,10 @@ dist/
 *.sqlite3
 .pytest_cache/
 .coverage
+
+# Build output and local artifacts — added by story 01.
+staticfiles/
+media/
+*.tsbuildinfo
+.vite/
+coverage/

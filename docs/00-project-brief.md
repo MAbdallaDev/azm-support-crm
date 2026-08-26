@@ -72,7 +72,8 @@ crm/
 │  └─ SUMMARY.md              final hand-in document
 ├─ backend/
 │  ├─ manage.py  requirements.txt  pytest.ini  Dockerfile
-│  ├─ config/            settings.py, urls.py
+│  ├─ config/            settings.py, urls.py, health.py
+│  ├─ tests/             cross-app API tests
 │  └─ apps/
 │     ├─ accounts/       User, Department, Branch, AuditLog, JWT views
 │     ├─ customers/      Customer, Contact, CustomerNote
@@ -82,7 +83,7 @@ crm/
 │     ├─ ai/             services/{base,mock,claude}.py + views
 │     ├─ reports/        aggregation views
 │     └─ portal/         portal-scoped viewsets
-└─ frontend/src/{api,components/ui,features,i18n,routes,lib}
+└─ frontend/src/{api,components/ui,features,i18n,routes,lib,test}
 ```
 
 Two apps, one frontend codebase: the **agent/manager app** under `/app/*` and the **customer
