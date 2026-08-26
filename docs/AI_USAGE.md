@@ -200,3 +200,152 @@ stopping an actual container proved the real behaviour.
 **Also learned, the practical one:** two of my own leftover dev processes (a `manage.py runserver` on
 8000 and a Vite server on 5173) blocked the containers from binding. Docker and a local dev loop
 compete for the same ports — pick one at a time.
+
+---
+
+## Story 02 — Domain models, Django admin, demo seed          (elapsed: ~45m)
+
+**What I asked for:** implement the generated plan for story 02 — define the whole data model in one
+migration pass, register every model in Django admin as a real back-office rather than a debug aid,
+and write a `seed_demo` command that fills the database with credible bilingual demo data.
+
+**What the AI built:**
+
+- `backend/apps/accounts/models.py` — `Department`, `Branch`, `User` (an `AbstractUser` carrying
+  `role`, `department`, `branch`, `tier`, `language`, `is_available` and a nullable `customer` FK for
+  portal logins), and an append-only `AuditLog`.
+- `backend/config/settings.py` — `AUTH_USER_MODEL = "accounts.User"`, replacing story 01's
+  placeholder comment. Done **before** the first `makemigrations`, which is the one ordering
+  constraint in this story that cannot be fixed afterwards.
+- `backend/apps/customers/models.py` — `Customer`, `Contact`, `CustomerNote`.
+- `backend/apps/tickets/models.py` — the shared `Priority` / `Status` / `Channel` vocabularies, then
+  `Category`, `Tag`, `SLAPolicy`, `CannedReply`, `Ticket`, `TicketMessage`, `TicketEvent`,
+  `Attachment`, `CSATRating`.
+- `backend/apps/kb/models.py` — `KBCategory`, `KBArticle`.
+- Five migration files (`accounts` needs two — see below), migrating clean from an empty database.
+- Four `admin.py` files covering all eighteen models, with `list_display`, `list_filter`,
+  `search_fields`, `ordering`, message and attachment inlines on `Ticket`, contact and note inlines
+  on `Customer`, readonly system fields, and `list_select_related` / `prefetch_related` on the
+  changelists that would otherwise issue a query per row.
+- `backend/apps/tickets/demo_content.py` — the bilingual corpus: ten KB articles, seven canned
+  replies, ten customers, contacts, notes, conversation fragments. Every Arabic string is written
+  Arabic, not machine-translated placeholder text.
+- `backend/apps/tickets/management/commands/seed_demo.py` — 150 tickets over 90 days, all 5 channels,
+  all 8 statuses, all 4 priorities, an SLA spread computed against `timezone.now()`, conversation
+  threads mixing public replies and internal notes, an event trail, and CSAT on ~60 % of the
+  resolved and closed tickets. Idempotent, with `--flush`.
+- Tests: `apps/tickets/tests/test_numbering.py`, `apps/tickets/tests/test_seed_demo.py`,
+  `backend/tests/test_admin_smoke.py`. **59 passing on PostgreSQL**; 58 passing and 1 skipped on the
+  host SQLite loop, the skip being the concurrency test SQLite cannot run.
+- `README.md` — a Demo data and logins section, and the two-command test story.
+
+**Decisions the AI made on its own:**
+
+- *Ticket numbering does not use `select_for_update` or a database sequence*, which is what the
+  intake suggested. A counter row would need a nineteenth model against an intake that says "exactly
+  these models, no more"; locking the last `Ticket` row instead is gap-prone under READ COMMITTED;
+  and a Postgres sequence would break the SQLite fallback story 01 built. What is used is
+  `unique=True` on `number` plus a bounded retry on `IntegrityError` — the constraint is what
+  actually guarantees "never reused", and the loop only handles the collision. The retry re-raises
+  immediately unless a ticket with that exact number now exists, so a bad FK does not get retried
+  nine times and then reported as a numbering failure. The reasoning is in a comment block in the
+  model file so it does not read as having overlooked the intake.
+- *`TicketEvent` is not an inline on `TicketAdmin`.* The activity log is append-only and long; it
+  gets its own read-only changelist instead of bloating every ticket form. Same treatment for
+  `AuditLog` — `has_add_permission` and `has_change_permission` both return `False`, because an
+  audit trail that can be edited is not an audit trail.
+- *Twelve SLA policies rather than the four the plan asked for as a minimum.* The model has a unique
+  constraint on `(customer_tier, priority)` and there are exactly twelve such pairs; filling all of
+  them means every seeded ticket resolves to a real policy instead of some falling through to a
+  hard-coded default. The four names the design shows — `Enterprise-P1`, `Premium-P1`,
+  `Enterprise-Normal`, `Standard-Normal` — are among them.
+- *Idempotency is implemented as delete-and-rebuild for ticket children*, not as matching on message
+  bodies. Messages and events have no natural key, so the command clears a ticket's thread and
+  regenerates it from the seeded RNG. Counts stay identical across runs — which is what the test
+  asserts — and the timestamps get recomputed against a fresh `now`.
+- *A portal login is created for every customer, not just `customer@demo`.* Tickets on the `web`
+  channel need an author who is not a member of staff, and "created by nobody" would have looked
+  like a bug in story 07's UI.
+
+**What I had to correct:**
+
+- **The first seed produced 39 breached tickets out of 150 — a 26 % breach rate.** The cause was
+  structural rather than a typo: ticket age was spread over 90 days independently of status, so a
+  ticket created 60 days ago could still be `open` against a 24-hour resolution target and was
+  therefore breached by arithmetic. The fix pulls still-open tickets forward so most sit comfortably
+  inside their window, while deliberately letting roughly one in eight breach naturally — the
+  Breaching tab should not consist solely of the four tickets pinned for the demo. Resolved and
+  closed tickets keep the full 90-day spread, which is what story 09's report actually charts.
+- **The plan's assignment split did not survive contact with the data.** It asked for roughly a
+  third of tickets assigned and the rest unassigned. But two thirds of a 90-day queue is resolved
+  and closed work, and a resolved ticket with no owner is not believable — it would also have made
+  the agent-performance report meaningless. The rule implemented instead: `new` is never assigned,
+  half of the live statuses are left unassigned, and everything resolved or closed has an owner.
+  That lands at 22 unassigned tickets, enough to populate the Unassigned tab honestly.
+- **`--flush` failed its own test.** pytest-django forces `DEBUG=False`, and the command refuses to
+  flush in that state by design. The test now opts back in explicitly via the `settings` fixture
+  rather than the guard being weakened to make the test pass.
+- **The plan says four `0001_initial` migrations; `accounts` produced two files.** That is Django
+  resolving the circular `User ↔ customers.Customer` reference — `0001_initial` creates the models
+  and `0002_initial` adds the FKs that close the cycle. The plan explicitly says not to hand-edit
+  the swappable-dependency ordering, so the extra file was left as generated.
+- **The intake says "seventeen models"; there are eighteen.** Counted from its own list. The admin
+  smoke test asserts all eighteen are registered and the miscount is noted in its docstring.
+- **The concurrency test failed the moment it ran against real PostgreSQL — and it was a genuine
+  bug, not a flaky test.** The first pass of this story was verified only on the host SQLite loop,
+  because this account was not yet in the `docker` group; the 50-thread numbering test skipped
+  itself with a printed reason rather than passing without racing. Once Docker access was granted
+  the test ran and blew up with `duplicate key value violates unique constraint`, escaping the retry
+  loop entirely.
+
+  The cause: PostgreSQL blocks a second writer on a unique index until the first commits, so **every
+  loser wakes at exactly the same instant, re-reads the same `MAX(number)` and computes the same
+  next value.** Only one thread can win per round, so sixteen concurrent creates need up to fifteen
+  retries — and the budget was ten. The whole attempt allowance was being spent on lockstep rather
+  than on progress.
+
+  Two changes fixed it. A **jittered backoff** staggers the wake-ups so losers pick up each other's
+  committed rows instead of colliding again, and **retries after the first draw from a widening
+  random window** rather than all fighting over one slot — fifty losers spread across fifty slots
+  almost all succeed. The budget went from 10 to 25. The trade is an occasional gap in the sequence
+  under heavy load, which is acceptable: the requirement is that a number is never *reused*, and a
+  PostgreSQL sequence would leave gaps too. Attempt 0 still takes the next number exactly, so a
+  quiet system numbers TK-0001, TK-0002, TK-0003 with no gaps at all.
+
+  Verified afterwards: **59 passed, 0 skipped on PostgreSQL** (the concurrency test running for
+  real), 58 passed 1 skipped on host SQLite, and a throwaway 120-create / 50-thread stress run
+  produced 120 distinct numbers three times over.
+
+**What I learned:**
+
+- **`auto_now_add` cannot be set on create, and that shapes the whole seed.** In Odoo you assign
+  `create_date` in the `create()` values and move on. Django's `auto_now_add` overwrites whatever
+  you pass, so backdating means writing the row first and then
+  `Ticket.objects.filter(pk=…).update(created_at=…)` — `update()` goes straight to SQL and skips the
+  field's `pre_save`. Every one of the ~150 tickets, ~690 messages and ~700 events is backdated that
+  way.
+- **A seed with hard-coded dates rots silently.** It looks right the day it is written and, a week
+  later, shows every ticket breached. Deriving every timestamp from `timezone.now()` at run time is
+  what makes `seed_demo` still demo-ready whenever the reviewer runs it — and it is why idempotency
+  had to be defined as stable *identities* rather than stable rows.
+- **`random.Random(seed)` as an instance, not `random.seed()`.** The global module RNG is shared
+  process-wide; seeding it from a management command changes behaviour anywhere else in the process
+  that uses `random`. A seeded instance gives reproducible data without that side effect.
+- **A skipped test is a debt, not a pass — and this one came due immediately.** Skipping the
+  concurrency test on SQLite was the honest call, but it meant the single most load-bearing piece of
+  logic in the story was unverified while everything around it was green. The bug it was written to
+  catch was sitting there the whole time. Sixty-odd green tests said nothing about the one thing
+  that actually needed proving.
+- **PostgreSQL's unique-index blocking is a synchroniser, not just a guard.** I had assumed a
+  collision would scatter the losers. It does the opposite: it holds them all until the winner
+  commits and then releases them together, perfectly in step. Any retry loop that recomputes from
+  the current maximum has to break that lockstep deliberately, which is what the jitter and the
+  widening window are for. This is invisible on SQLite because it serialises writes and the race
+  never happens.
+- **The Odoo→Django admin mapping is closer than expected but inverted in one place.** Odoo generates
+  a list and form view from the model and you subtract from them with XML. Django gives you nothing
+  by default and you add columns, filters and search fields explicitly — which is why `list_display`
+  and `search_fields` are a *feature* here rather than tidying. The N+1 that Odoo's ORM prefetches
+  away automatically is also manual: `list_select_related` plus a `get_queryset` prefetch is the
+  difference between 25 queries and several hundred on a 25-row page, and there is now a test
+  pinning it.
