@@ -19,4 +19,10 @@ urlpatterns = [
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.customers.urls")),
     path("api/v1/", include("apps.tickets.urls")),
+    path("api/v1/", include("apps.kb.urls")),
+    path("api/v1/", include("apps.reports.urls")),
+    path("api/v1/", include("apps.ai.urls")),
+    # The portal is a separate trust boundary, so it gets its own prefix rather
+    # than sharing the agent routes with a filter.
+    path("api/v1/portal/", include("apps.portal.urls")),
 ]

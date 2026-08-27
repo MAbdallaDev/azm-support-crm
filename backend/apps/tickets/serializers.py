@@ -6,8 +6,15 @@ block. `get_serializer_class()` picks per action.
 """
 
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.tickets.services.sla_service import (
+    RESOLUTION,
+    RESPONSE,
+    is_breached,
+    sla_state,
+)
 from apps.tickets.models import (
     Attachment,
     CannedReply,
@@ -21,27 +28,17 @@ from apps.tickets.models import (
 )
 
 
-def is_breached(ticket, now=None) -> bool:
-    """SLA breach derived from the stored due timestamps.
+class SLAStateSerializer(serializers.Serializer):
+    """The shape of one SLA clock. Declared for the schema, never used to write.
 
-    Not from the `sla_response_breached` / `sla_resolution_breached` columns:
-    nothing writes those yet — story 05 owns SLA — so reading them would report
-    False for every row and story 07's Breaching tab would look empty with no
-    error. This matches story 05's computed-on-read design, and the identical
-    expression lives in `filters.py` so the filter and the field agree.
+    `seconds_remaining` is signed and nullable: negative when overdue, null when
+    the ticket has no policy and therefore no deadline to be measured against.
     """
-    now = now or timezone.now()
-    if (
-        ticket.sla_response_due_at
-        and ticket.sla_response_due_at < now
-        and not ticket.first_response_at
-    ):
-        return True
-    return bool(
-        ticket.sla_resolution_due_at
-        and ticket.sla_resolution_due_at < now
-        and not ticket.resolved_at
-    )
+
+    state = serializers.ChoiceField(choices=["ok", "approaching", "breached"])
+    seconds_remaining = serializers.IntegerField(allow_null=True)
+    target_minutes = serializers.IntegerField(allow_null=True)
+    policy_name = serializers.CharField(allow_blank=True)
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -126,6 +123,8 @@ class TicketDetailSerializer(serializers.ModelSerializer):
     sla_policy_name = serializers.CharField(source="sla_policy.name", read_only=True, default="")
     watcher_count = serializers.SerializerMethodField()
     is_breached = serializers.SerializerMethodField()
+    response_sla = serializers.SerializerMethodField()
+    resolution_sla = serializers.SerializerMethodField()
     csat_score = serializers.IntegerField(source="csat.score", read_only=True, default=None)
 
     class Meta:
@@ -143,6 +142,7 @@ class TicketDetailSerializer(serializers.ModelSerializer):
             "sla_response_breached", "sla_resolution_breached",
             "ai_summary", "ai_suggested_category",
             "watcher_count", "csat_score", "is_breached",
+            "response_sla", "resolution_sla",
             "created_at", "updated_at",
         )
 
@@ -151,6 +151,15 @@ class TicketDetailSerializer(serializers.ModelSerializer):
 
     def get_is_breached(self, obj) -> bool:
         return is_breached(obj, self.context.get("now"))
+
+    @extend_schema_field(SLAStateSerializer)
+    def get_response_sla(self, obj) -> dict:
+        """Feeds the first progress bar in the design's right-pane SLA block."""
+        return sla_state(obj, RESPONSE, self.context.get("now"))
+
+    @extend_schema_field(SLAStateSerializer)
+    def get_resolution_sla(self, obj) -> dict:
+        return sla_state(obj, RESOLUTION, self.context.get("now"))
 
 
 class TicketWriteSerializer(serializers.ModelSerializer):

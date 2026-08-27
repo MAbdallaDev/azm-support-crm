@@ -196,33 +196,45 @@ development: every story has an intake under `.squad/stories/` and a generated p
 
 ## Status
 
-**This is story 04 of 10 — the customers and tickets REST API.**
+**This is story 05 of 10 — the backend is complete.**
 
-What exists now: the dockerized stack and health endpoint (story 01), the full domain model, Django
-admin back-office and `seed_demo` (story 02), JWT auth with two-layer RBAC and an audit trail
-(story 03), and now the REST API that stories 07 and 08 will consume.
+Five stories are on `main`: the dockerized stack and health endpoint, the full domain model with
+Django admin and `seed_demo`, JWT auth with two-layer RBAC and an audit trail, the customers and
+tickets API, and now SLA, the knowledge base, reports, AI and the customer portal.
 
-Endpoints, all requiring a bearer token and the agent, manager or admin role:
+**42 endpoints**, all typed in the OpenAPI schema at
+[`/api/v1/docs/`](http://localhost:8000/api/v1/docs/). **347 backend tests pass** against PostgreSQL.
 
-| Route | What it does |
-|---|---|
-| `/api/v1/tickets/` | the queue — filter by `status`, `priority`, `channel`, `escalated`, `breached`, `unassigned`, `q`; ordering and pagination |
-| `/api/v1/tickets/{id}/messages/` | conversation and internal notes |
-| `/api/v1/tickets/{id}/events/` | the Activity log, append-only |
-| `/api/v1/tickets/{id}/attachments/` | upload, type-checked and size-capped |
-| `/api/v1/tickets/{id}/{assign,status,escalate,resolve}/` | the transition actions |
-| `/api/v1/customers/`, `/contacts/` | customer 360 data, with `/customers/{id}/notes/` |
-| `/api/v1/categories/`, `/tags/`, `/canned-replies/` | reference data, read-only |
+All of them need a bearer token; `health`, `schema` and `docs` are the only public routes.
 
-**Status changes go through one service function**, `apps/tickets/services/ticket_service.py`, which
-validates the move against an explicit transition map, stamps the right timestamps and writes the
-Activity log entry. No viewset assigns `ticket.status`. An invalid move returns 400 naming both
-states.
+| Route | Role | What it does |
+|---|---|---|
+| `/api/v1/auth/{login,refresh,me}/` | any | JWT; login accepts a username or an email |
+| `/api/v1/tickets/` | agent+ | the queue — `status`, `priority`, `channel`, `escalated`, `breached`, `unassigned`, `q`, ordering, pagination |
+| `/api/v1/tickets/{id}/{messages,events,attachments}/` | agent+ | conversation, Activity log, uploads |
+| `/api/v1/tickets/{id}/{assign,status,escalate,resolve}/` | agent+ | the transition actions |
+| `/api/v1/customers/`, `/contacts/` | agent+ | customer 360, with `/customers/{id}/notes/` |
+| `/api/v1/categories/`, `/tags/`, `/canned-replies/` | agent+ | reference data, read-only |
+| `/api/v1/kb/articles/`, `/kb/categories/` | any | knowledge base, bilingual `?q=` search |
+| `/api/v1/reports/{overview,volume,agents,csat}/` | manager, admin | `?days=7\|30\|90` |
+| `/api/v1/ai/{summarize,suggest-reply,categorize}/` | agent+ | advisory only — see below |
+| `/api/v1/portal/{tickets,csat,kb/articles}/` | customer | the portal, a separate trust boundary |
 
-Browse it all at [`/api/v1/docs/`](http://localhost:8000/api/v1/docs/) — the schema generates with no
-warnings and every action carries a typed request body.
+Four things worth knowing about how this backend works:
 
-**There is still no real UI.** `/login` and `/app/dashboard` remain placeholders. SLA computation,
-the knowledge base API, reports, the mocked AI service and the customer portal are story 05; the
-first real screens are story 06. Progress per story is recorded in
-[`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+- **SLA runs without a scheduler.** Due timestamps are written once, on create or on a priority
+  change; breach and escalation state are derived on read. No Celery, no broker, no window where the
+  database disagrees with reality.
+- **The AI is mocked behind a real interface.** No Anthropic key exists for this project, so
+  `MockAIBackend` is the default — deterministic per ticket, different between tickets, and it drafts
+  replies in the customer's preferred language. `ClaudeAIBackend` has the real signatures and the
+  intended prompts; switching is one environment variable. Nothing the AI returns is applied
+  automatically: an agent always approves.
+- **The customer portal is a separate trust boundary**, not the agent endpoints with fields hidden.
+  It has its own serializers and imports nothing from the agent app, and a test recurses every portal
+  response by key name to prove no internal field ever appears.
+- **Status changes go through one service function** that validates against an explicit transition
+  map, stamps the timestamps and writes the Activity log.
+
+**The frontend is still story 01's shell.** `/login` and `/app/dashboard` are placeholders; the real
+screens are stories 06–09. Progress per story is in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
