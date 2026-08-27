@@ -153,7 +153,18 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "LanguageEnum": "apps.accounts.models.User.Language",
         "PriorityEnum": "apps.tickets.models.Priority",
+        # Two unrelated "status" vocabularies. Left to resolve itself,
+        # drf-spectacular emits hash-suffixed names like `Status68aEnum`, which
+        # is stable but meaningless in story 06's generated client.
+        "TicketStatusEnum": "apps.tickets.models.Status",
+        "KBArticleStatusEnum": "apps.kb.models.KBArticle.Status",
     },
 }
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+
+# Which AI implementation apps.ai.services.get_backend() returns. "mock" is a
+# real implementation of the same ABC, not a placeholder — no Anthropic key
+# exists for this project. Selecting "claude" without ANTHROPIC_API_KEY fails at
+# startup rather than on the first request.
+AI_BACKEND = os.getenv("AI_BACKEND", "mock")

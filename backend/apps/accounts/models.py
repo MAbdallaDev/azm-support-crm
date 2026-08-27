@@ -70,7 +70,16 @@ class User(AbstractUser):
     )
     language = models.CharField(max_length=2, choices=Language.choices, default=Language.EN)
     is_available = models.BooleanField(
-        default=True, help_text="Round-robin assignment in story 05 skips unavailable agents."
+        default=True, help_text="Round-robin assignment skips unavailable agents."
+    )
+    last_assigned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When this agent was last given a ticket. The rotation tiebreak in "
+            "tickets.services.ticket_service.pick_next_agent orders on it, so two "
+            "agents at equal load alternate instead of the lower id always winning."
+        ),
     )
     # String reference: customers.Customer also points back at User, so the two apps
     # are mutually dependent. Django resolves the migration order itself.

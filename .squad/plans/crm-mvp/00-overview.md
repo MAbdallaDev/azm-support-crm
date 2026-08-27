@@ -11,8 +11,8 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 01 | [01-story-01-foundation.md](01-story-01-foundation.md) | Foundation & scaffold | — | None | ✅ implemented |
 | 02 | [02-story-02-models-admin-seed.md](02-story-02-models-admin-seed.md) | Domain models, Django admin, demo seed | — | Story 01 | ✅ implemented |
 | 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | ✅ implemented |
-| 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented | ✅ implemented |
-| 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | — |
+| 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
+| 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
 | 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
 | 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
 | 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
@@ -153,6 +153,50 @@ One trap fixed here that later stories inherit: **the module-scoped `seed_demo` 
 roll back at teardown** (`transaction.atomic()` + `set_rollback(True)`). Previously they committed,
 so seeded departments outlived the module and collided with any later fixture creating its own —
 a failure that depended on file ordering. Any new module-scoped seed fixture must do the same.
+
+## Story 05 — as built
+
+Implemented. **The backend is complete.** SLA computed on create and derived on read; the knowledge
+base API with bilingual search; four reporting aggregations; the pluggable AI service; and the
+customer-portal endpoints. **347 tests pass on PostgreSQL** (346 + 1 skipped on host SQLite), and the
+OpenAPI schema covers **42 endpoints with zero warnings**.
+
+What the frontend stories consume:
+
+- **`sla_service` owns the breach expression outright.** `filters.breached_q` and
+  `serializers.is_breached` are now imports, not copies — a test asserts identity. A third definition
+  anywhere is a regression.
+- **`response_sla` / `resolution_sla` on the ticket detail** give story 07 everything the design's
+  right-pane SLA block needs: `state` (ok / approaching / breached), a **signed**
+  `seconds_remaining` so one number renders both "2h left" and "Breached 14m", `target_minutes` and
+  `policy_name`.
+- **`sla_state` and `breached_q` disagree about resolved tickets on purpose.** The first reports what
+  happened (a late resolution reads `breached` forever, which the compliance report needs); the
+  second reports what needs attention now and excludes resolved work, so the Breaching tab does not
+  fill with closed tickets.
+- **The portal has its own serializers and imports nothing from the agent app.** Do not "DRY" them
+  together — `apps/portal/tests/test_portal_boundary.py` recurses every response by key name and will
+  fail, which is the point. It also carries a not-vacuous guard so it cannot pass by the forbidden
+  names having disappeared from the agent API.
+- **`MockAIBackend` is deterministic per ticket and varies between tickets**, and drafts replies in
+  the customer's preferred language. Story 07's AI panel can be evaluated by eye because two tickets
+  visibly differ.
+- **AI endpoints write only `ai_summary` and `ai_suggested_category`.** `suggest_reply` persists
+  nothing — the agent edits it and sends it through story 04's messages endpoint. A snapshot test
+  enforces this.
+- **Reports are manager-or-admin, scope-respecting, and aggregate-only.** `?days=` is allow-listed to
+  7/30/90. Durations come back as integer seconds; formatting is the client's job because it depends
+  on the display language.
+
+Two things later work must not undo:
+
+- **The SLA hook lives in `perform_create` / `perform_update`, never a signal or `save()` override.**
+  Either would fire during seeding and overwrite the deliberate breach spread.
+  `test_seed_still_intact.py` exists solely to catch that, and was verified by temporarily removing
+  the guard.
+- **`User.last_assigned_at` was added** (migration `accounts/0003`) because rotation genuinely needs
+  to remember who went last. The plan called the ordering "stateless" while naming that field — the
+  field is the honest reading. Both manual and automatic assignment stamp it.
 
 ## Dependency notes
 

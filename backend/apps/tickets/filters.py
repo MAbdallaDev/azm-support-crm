@@ -9,25 +9,9 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.tickets.models import Channel, Priority, Status, Ticket
-
-
-def breached_q(now=None) -> Q:
-    """Tickets past an SLA deadline they have not met.
-
-    Derived from the stored due timestamps, deliberately — **not** from the
-    `sla_response_breached` / `sla_resolution_breached` boolean columns.
-    Nothing writes those yet (story 05 owns SLA computation), so filtering on
-    them returns zero rows and story 07's *Breaching* tab would render empty
-    with no error to explain why.
-
-    This matches story 05's computed-on-read design, and story 05 can lift this
-    expression into `sla_service` unchanged. `serializers.is_breached` applies
-    the same rule per row, so the filter and the field never disagree.
-    """
-    now = now or timezone.now()
-    return Q(sla_response_due_at__lt=now, first_response_at__isnull=True) | Q(
-        sla_resolution_due_at__lt=now, resolved_at__isnull=True
-    )
+# One definition of "breached", owned by sla_service. A local copy here is how
+# the queue tab and the row badge start disagreeing.
+from apps.tickets.services.sla_service import breached_q
 
 
 class TicketFilterSet(filters.FilterSet):

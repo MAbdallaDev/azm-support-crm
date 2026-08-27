@@ -549,3 +549,114 @@ tickets, with status changes as a real state machine and a queue endpoint that d
 - **Filename sanitising protects a column, not a path.** Django's `upload_to` already handles the
   filesystem; the `filename` column is ours and story 07 echoes it into the browser, which makes an
   unsanitised value a stored-XSS vector rather than an untidy string.
+
+---
+
+## Story 05 — SLA, knowledge base, reports, AI & portal API          (elapsed: ~28m)
+
+**What I asked for:** implement the generated plan for story 05 — SLA logic without a scheduler, the
+knowledge base API, four reporting aggregations, the pluggable AI service, and the customer-portal
+endpoints. The last backend story.
+
+**What the AI built:**
+
+- `backend/apps/tickets/services/sla_service.py` — now the single owner of the breach expression.
+  `breached_q()` moved out of `filters.py` and `is_breached()` out of `serializers.py`; both call
+  sites import from here and hold no copies. Plus `select_policy`, `compute_due_dates` with its
+  guard, `sla_state` returning ok/approaching/breached with signed `seconds_remaining`, and
+  `resolution_met` for the compliance figure.
+- `ticket_service.pick_next_agent` replacing `pick_least_loaded_agent`, with `NoEligibleAgent` →
+  409, plus `User.last_assigned_at` and migration `accounts/0003`.
+- `apps/kb/{serializers,views,urls}.py` — bilingual `icontains` search, drafts staff-only,
+  `view_count` incremented with `F()`.
+- `apps/reports/{serializers,views,urls}.py` — four aggregation-only endpoints, manager-or-admin,
+  scope-respecting, durations as integer seconds.
+- `apps/ai/services/{base,mock,claude}.py` plus `{serializers,views,urls}.py` and an `AppConfig.ready()`
+  that fails at startup if `claude` is selected without a key.
+- `apps/portal/{serializers,views,urls}.py` — its own serializer classes, importing nothing from the
+  agent app.
+- Tests: `test_sla.py` (17), `test_assignment.py` (15), `test_seed_still_intact.py` (4),
+  `test_kb_api.py` (15), `test_report_queries.py` (21), `test_ai_advisory.py` (17),
+  `test_portal_boundary.py` (17). **347 passing on PostgreSQL**, 346 + 1 skipped on host SQLite.
+  OpenAPI: 42 endpoints, **zero warnings**.
+
+**Decisions the AI made on its own:**
+
+- *Added `User.last_assigned_at` and a migration.* The plan's ordering names the field while calling
+  the approach "stateless" — those cannot both be true, and the field does not exist. See the
+  correction below.
+- *`select_policy`'s fallback picks the most **generous** policy for the priority*, ordering by
+  `resolution_minutes` descending. A premium customer with no premium policy must not silently
+  inherit the tightest deadline on the board; inventing a shorter target than anyone configured
+  would manufacture breaches nobody agreed to.
+- *`sla_state` and `breached_q` deliberately disagree about resolved tickets.* `sla_state` reports
+  what *happened* — a ticket resolved late reads `breached` forever, which is the honest history the
+  compliance report needs. `breached_q` reports what needs attention *now* and excludes resolved work
+  entirely, so the Breaching queue tab does not fill with closed tickets. Both behaviours are
+  correct; the asymmetry is documented at both sites.
+- *`resolution_met` was added although the plan did not name it*, so the compliance percentage has
+  one definition rather than being re-expressed inside each report query.
+- *Manual assignment also stamps `last_assigned_at`, not just auto-assignment.* Otherwise the
+  rotation would count only half the work and drift away from reality.
+- *The portal CSAT route resolves its ticket through `scope_tickets`*, so rating someone else's
+  ticket is a 404 rather than a 403 — consistent with every other detail route in the codebase.
+- *Added `TicketStatusEnum` / `KBArticleStatusEnum` overrides.* `Ticket` and `KBArticle` both have a
+  `status`, and drf-spectacular resolved the collision as `Status68aEnum` — stable, but meaningless
+  in story 06's generated client.
+
+**What I had to correct:**
+
+- **The plan asks for something self-contradictory, and I had to pick a side.** It specifies ordering
+  by `(open_ticket_count, last_assigned_at, id)` and, three lines later, calls that ordering
+  "stateless". `last_assigned_at` does not exist on `User`, and remembering who went last *is* state
+  by definition. I added the column — the smallest possible amount of state, one nullable timestamp —
+  because the alternative derivations were worse: `Max(assigned_tickets__updated_at)` moves on any
+  edit, not just assignment, and joining `TicketEvent` on a username string is fragile. The plan's
+  Done Criteria names the field explicitly, so this follows the letter of it; the "stateless"
+  description is the part that is wrong.
+- **`timezone.timedelta` is not public API.** It works because `django.utils.timezone` happens to
+  import `timedelta`, which is an implementation detail. Changed to a direct `datetime` import.
+- **`is_breached` and `breached_q` had to be *moved*, not wrapped.** My first instinct was to leave
+  thin re-export wrappers at the old sites for compatibility. That would have been two more places
+  for the expression to be edited — exactly the failure the consolidation exists to prevent. Both
+  original definitions were deleted outright and the modules now import the real thing; a test
+  asserts identity (`filters.breached_q is sla_service.breached_q`).
+- **The Docker stack had exited overnight** (exit 137/143 — a host shutdown, not a crash), which
+  surfaced mid-verification as `service "api" is not running`. Restarting it re-ran migrations
+  cleanly. Worth noting the breach count then read 36 before re-seeding and 17 after: the database
+  had been sitting for eleven hours while `now` moved on, so tickets had drifted into breach. That
+  is the seed's relative-timestamp design working, not a regression — and it is precisely the rot
+  that a hard-coded seed would have produced permanently.
+
+**Two tests I deliberately tried to break, to check they had teeth:**
+
+- Removing the `compute_due_dates` guard: `test_seed_still_intact.py` failed with
+  *"compute_due_dates overwrote seeded SLA data on ['TK-0150', …]"*. Worth doing, because this is the
+  one failure mode with **no other symptom** — no exception, no failing assertion elsewhere, just a
+  demo that quietly shows "everything comfortable".
+- Adding `assignee` and `escalation_level` to the portal serializer: the boundary test failed with
+  *"portal/tickets/ list leaked internal field(s): ['assignee', 'escalation_level']"*. It also carries
+  a `test_the_forbidden_set_is_not_vacuous` guard, so it cannot pass by the names having quietly
+  disappeared from the agent API.
+
+**What I learned:**
+
+- **"Computed on read" is a design position that has to be defended in code, not just chosen once.**
+  The whole SLA feature is four functions and no infrastructure — no Celery, no broker, no beat
+  schedule, no window where the database disagrees with reality. But the cheapest way to break it is
+  a well-meaning `post_save` signal, so the hook points are two explicit calls in
+  `perform_create`/`perform_update` and there is a test whose only job is to fail if a signal ever
+  appears.
+- **The portal's separateness is enforced by having no shared code, not by discipline.** Reusing an
+  agent serializer with a shorter `fields` tuple works until someone adds a field to the agent
+  version — then it appears in the portal too, silently, because nothing in the code says it must
+  not. Separate classes make every portal-visible field a decision someone made on purpose.
+- **A mock has two requirements that pull against each other.** Tests need determinism; a demo needs
+  variety. Seeding a `random.Random` from a hash of the ticket subject satisfies both — same ticket,
+  same text; different ticket, different text. A constant string would have passed every test and
+  made story 07's AI panel impossible to evaluate, because broken wiring and working wiring would
+  look identical.
+- **The reports' query-count test is the same shape as story 04's queue test, and for the same
+  reason.** With 150 seeded tickets a Python loop returns exactly the right numbers. That is what
+  makes it dangerous: it would pass review, pass every correctness test, and only fail in production.
+  Asserting the count is *identical* for 20 and 150 rows tests the property rather than the output.

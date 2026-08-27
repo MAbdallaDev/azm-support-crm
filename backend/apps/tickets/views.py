@@ -58,7 +58,7 @@ from apps.tickets.serializers import (
     TicketMessageSerializer,
     TicketWriteSerializer,
 )
-from apps.tickets.services import ticket_service
+from apps.tickets.services import sla_service, ticket_service
 
 # ---------------------------------------------------------------------------
 # Attachment upload policy
@@ -147,6 +147,11 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         ticket = serializer.save(created_by=self.request.user)
+        # SLA due dates are computed here and in perform_update below — the only
+        # two points in the codebase. Deliberately not a signal or a save()
+        # override: either would also fire during seeding and overwrite the
+        # breach spread seed_demo manufactures on purpose.
+        sla_service.compute_due_dates(ticket)
         ticket_service.log_event(
             ticket, self.request.user, ticket_service.EVENT_CREATED, new=ticket.status
         )
@@ -155,6 +160,11 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
         before = serializer.instance.priority
         ticket = serializer.save()
         if ticket.priority != before:
+            # A new priority means a new policy, so the deadlines are recomputed
+            # from the original creation time. `force` is what lets this past the
+            # guard in compute_due_dates; the same comparison drives the event
+            # below, so the two can never disagree about whether it moved.
+            sla_service.compute_due_dates(ticket, force=True)
             ticket_service.log_event(
                 ticket,
                 self.request.user,
@@ -278,7 +288,12 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
     @extend_schema(
         summary="Assign a ticket, or auto-assign the least-loaded available agent",
         request=AssignRequestSerializer,
-        responses={200: TicketDetailSerializer},
+        responses={
+            200: TicketDetailSerializer,
+            409: OpenApiResponse(
+                description="No available agent in the ticket's department."
+            ),
+        },
     )
     @action(detail=True, methods=["post"], url_path="assign")
     def assign(self, request, pk=None):
@@ -295,9 +310,17 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
             if assignee is None:
                 raise ValidationError({"assignee": f"No user with id {assignee_id}."})
 
-        ticket = ticket_service.assign(
-            ticket, assignee, request.user, payload.validated_data.get("reason", "")
-        )
+        try:
+            ticket = ticket_service.assign(
+                ticket, assignee, request.user, payload.validated_data.get("reason", "")
+            )
+        except ticket_service.NoEligibleAgent as exc:
+            # 409 rather than 200-with-no-assignee: the request was valid but the
+            # current state of the roster cannot satisfy it, and a 200 would read
+            # as a completed assignment.
+            return Response(
+                {"detail": str(exc)}, status=http_status.HTTP_409_CONFLICT
+            )
         return Response(TicketDetailSerializer(ticket).data)
 
     @extend_schema(
