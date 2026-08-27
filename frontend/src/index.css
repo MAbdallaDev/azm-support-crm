@@ -1,85 +1,62 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
- * shadcn/ui theme tokens, zinc base, expressed as space-separated HSL triplets.
+ * The palette from docs/design/DesignSystem.dc.html, converted to the HSL
+ * triplets tailwind.config.js consumes as `hsl(var(--x))`.
  *
- * They must be triplets, not colour functions: tailwind.config.js consumes them
- * as `hsl(var(--background))`, so a `oklch(...)` value would compile to the
- * invalid `hsl(oklch(...))`. Story 06 replaces this block with the palette from
- * docs/design/DesignSystem.dc.html.
+ * Two rules this block exists to hold:
+ *
+ *  1. Triplets, never colour functions. A `oklch(...)` value here compiles to
+ *     the invalid `hsl(oklch(...))` and every colour silently vanishes. That is
+ *     what the shadcn CLI emits by default; story 01's note explains why.
+ *  2. The hex comment beside each line is the artboard's literal value. When a
+ *     screen looks off, diff against the comment, not against a screenshot.
  */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar: 0 0% 98%;
-    --sidebar-foreground: 240 10% 3.9%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 240 5.9% 90%;
-    --sidebar-ring: 240 5.9% 10%;
-  }
+    /* --- Design-system source tokens (the .dc.html :root, verbatim) -------- */
+    --ink: 223.6 21.6% 10%; /* #14171f */
+    --ink2: 220 12.9% 27.5%; /* #3d434f */
+    --faint: 217.9 10.4% 64.1%; /* #9aa1ad */
+    --line: 217.5 17.4% 91%; /* #e4e7ec */
+    --line2: 220 21.4% 94.5%; /* #eef0f4 */
+    --bg2: 220 23.1% 97.5%; /* #f7f8fa */
+    --bg3: 220 27.3% 95.7%; /* #f1f3f7 */
+    --brand-soft: 232.5 88.9% 96.5%; /* #eef0fe */
+    --brand-strong: 243.1 58.6% 45.5%; /* #3730b8 */
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar: 240 10% 3.9%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 240 4.9% 83.9%;
+    /* --- shadcn's expected shape, mapped onto the above ------------------- */
+    --background: 0 0% 100%; /* --bg  #ffffff */
+    --foreground: 223.6 21.6% 10%; /* --ink #14171f */
+    --card: 0 0% 100%;
+    --card-foreground: 223.6 21.6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 223.6 21.6% 10%;
+    --primary: 243.4 75.4% 58.6%; /* --brand #4f46e5 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 27.3% 95.7%; /* --bg3 */
+    --secondary-foreground: 220 12.9% 27.5%; /* --ink2 */
+    --muted: 220 23.1% 97.5%; /* --bg2 */
+    --muted-foreground: 220.9 8.7% 50.6%; /* --muted #767d8c */
+    --accent: 220 27.3% 95.7%; /* --bg3 */
+    --accent-foreground: 223.6 21.6% 10%;
+    --destructive: 0 66.4% 46.7%; /* --danger #c62828 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 217.5 17.4% 91%; /* --line */
+    --input: 217.5 17.4% 91%; /* --line */
+    --ring: 243.4 75.4% 58.6%; /* --brand */
+    --radius: 0.5rem;
+
+    /* --- Chart series (reports, story 09) -------------------------------- */
+    --chart-1: 243.4 75.4% 58.6%; /* brand */
+    --chart-2: 157.6 78.1% 26.9%; /* ok */
+    --chart-3: 201.2 87% 33.1%; /* sky */
+    --chart-4: 26 90.5% 37.1%; /* warn */
+    --chart-5: 259.8 53% 50.8%; /* violet */
   }
 }
 
@@ -87,7 +64,33 @@
   * {
     @apply border-border;
   }
+
+  html {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+  }
+
+  /*
+   * Arabic gets IBM Plex Sans Arabic first. Keyed off <html lang>, which
+   * LanguageToggle sets alongside dir — one switch, both effects.
+   */
+  html[lang="ar"] {
+    font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer components {
+  /*
+   * Ticket numbers, phone numbers and emails. Mono everywhere, and pinned to
+   * LTR so they stay readable inside an Arabic sentence — the artboard's
+   * `<span dir="ltr">TK-4796</span>`, expressed once.
+   */
+  .mono-ltr {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 }

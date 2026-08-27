@@ -13,7 +13,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | ✅ implemented |
 | 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
 | 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
-| 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
+| 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
 | 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
 | 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
 | 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
@@ -198,6 +198,85 @@ Two things later work must not undo:
   to remember who went last. The plan called the ordering "stateless" while naming that field — the
   field is the honest reading. Both manual and automatic assignment stamp it.
 
+## Story 06 — as built
+
+Implemented. The frontend shell: the axios client with a real refresh flow, the two-shell route tree
+with role-aware guards, `Main.dc.html`'s top chrome, nine shared components, and a complete
+Arabic/English flip. **74 Vitest tests pass**, `npm run build` and `npm run lint` are clean (2
+pre-existing react-refresh warnings, 0 errors), and `npm run check:rtl` reports no directional
+utilities in `src/`. The backend is untouched and still **347 passed**.
+
+Verified against the running stack: `agent@demo` signs in and lands on `/app/dashboard` with the
+health card still green; a `customer@demo` token on `/app/dashboard` is bounced to `/portal` wearing
+`PortalChrome`; a corrupted access token produces **exactly one** `POST /auth/refresh/` in the
+network tab followed by a successful replay; and the chrome measures 56px tall with an 18px gutter,
+a 28px `#14171f` mark, a 300px search field, a 32px toggle and a 30px avatar — the artboard's own
+numbers. Every badge's computed colours match `DesignSystem.dc.html` hex-for-hex.
+
+What stories 07–09 consume:
+
+- **`<SlaBar sla={ticket.response_sla} />` — the prop is the API object, verbatim and snake_case.**
+  The plan's prose named camelCase props while its own done-criterion said the shape must match
+  `response_sla` **verbatim**; verbatim won, so there is no adapter and no rename that can drift
+  between the serializer and the component. `seconds_remaining` stays signed — the sign chooses the
+  sentence ("2h left" vs "Breached 14m"), the magnitude fills it in. The bar ticks on its own
+  `setInterval`, scoped to the component, so fifty rows do not re-render a page each second.
+- **`src/api/queryKeys.ts` is the only place query keys are written.** Extend `qk`; do not invent
+  `["ticket", id]` in a screen. This is what lets one mutation invalidate a list, a detail and every
+  filtered variant without guessing.
+- **`tokenStore` is the only reader/writer of tokens.** No `localStorage.getItem("crm.access")`
+  anywhere else. It caches the **role** beside the tokens because a failed refresh has to pick a
+  login page and cannot ask an API that is already rejecting it.
+- **The refresh `catch` covers the refresh only, never the replay.** A retried request that comes
+  back 500 is a failed request, not a dead session. The first version wrapped both and logged users
+  out on any backend hiccup; `client.test.ts` has the test that caught it, and that test must keep
+  passing.
+- **`ProtectedRoute` is a role check, not a permission check** — it decides which shell you see, not
+  what you may do inside it. Story 03's permission classes and scoping are the real boundary, and
+  the frontend deliberately does not restate them. It picks its login page from the **subtree**,
+  not the cached role, so a first-time visitor pasting a `/portal/*` link is not shown the agent
+  sign-in page.
+- **Nav items are filtered by role before render, never rendered-then-disabled** (`navItems.ts`).
+  `Reports` is manager-or-admin, mirroring story 05's API rule rather than inventing a second one;
+  `Admin` is a plain `<a>` to Django's `/admin/`, because a router `<Link>` there blanks the page.
+- **`toast` is sonner.** One toast library; do not add a second. The shadcn primitive was skipped
+  because its CLI needs Node 20 and this machine runs 18 — for the same reason `dropdown-menu`,
+  `alert-dialog`, `input` and `label` are hand-written against Radix rather than CLI-generated.
+- **`src/lib/format.ts` is the only caller of `Intl.*`.** Numerals stay Western in both languages by
+  pinning the numbering system (`ar-u-nu-latn`), not the locale — Arabic month names, Latin digits.
+  Nothing else should format a date, a duration or a number inline.
+- **`.mono-ltr` is the class for ticket numbers, phone numbers and emails.** Mono, `direction: ltr`,
+  `unicode-bidi: isolate` — the artboard's `<span dir="ltr">TK-4796</span>`, written once.
+
+Three things later work must not undo:
+
+- **`npm run check:rtl` must stay green.** No `ml-*`/`mr-*`/`pl-*`/`pr-*`/`text-left`/`text-right`/
+  `left-*`/`right-*` anywhere in `src/`. It strips comments before matching, because English prose
+  says "left-to-right" constantly and a guard that cries wolf is a guard people bypass; the per-line
+  `rtl-ok` escape hatch exists but is used exactly once, in the test that asserts `text-right` is
+  absent. Every later story's verification should run it.
+- **The kitchen sink is gated at router-construction time on `import.meta.env.DEV`, not at runtime.**
+  A role check would still ship the code. `npm run build` was grepped: no kitchen-sink-only string
+  survives. (Its `kitchen.*` translation keys do ship, with the rest of `en.json`/`ar.json` — a few
+  hundred bytes, and separating them would cost more than it saves.)
+- **The language toggle applies the profile's `language` only when nothing is persisted, and never
+  persists it.** Persisting a profile default makes it indistinguishable from a user's own choice,
+  after which the profile can never change anything again.
+
+Two open items story 07 inherits, both deliberate:
+
+- **The chrome's search field is inert** — rendered so the chrome matches `Main.dc.html`, disabled so
+  it cannot look broken, with a test asserting it. Wire it in story 07, where the list it filters
+  exists.
+- **`/app/tickets`, `/app/customers`, `/app/kb` and `/app/reports` are nav targets with no routes
+  yet.** Clicking one currently renders nothing inside the chrome. Stories 07–09 fill them.
+  (`/app/profile` does have a route — a deliberate no-op placeholder, since editing a profile is
+  Django admin's job in this MVP.)
+
+One environment note: **the `web` container's `node_modules` is an anonymous volume baked from the
+image**, so new dependencies need `docker compose up -d --build --renew-anon-volumes web`, not a
+restart. A fresh clone never sees this — the image build reads the committed lockfile.
+
 ## Dependency notes
 
 **Day 1 is stories 01–05 (backend); day 2 is 06–10 (frontend).**
@@ -214,9 +293,11 @@ failure mode the story 03 plan calls out explicitly.
 
 Story 05 is the last backend story: after it the API is complete and day 2 is purely frontend.
 
-Story 06 establishes the shared component vocabulary (`DataTable`, `StatusBadge`, `PriorityBadge`,
-`ChannelBadge`, `SlaBar`) and the no-directional-utility rule that makes the Arabic RTL flip a
-translation pass in story 10 rather than a rescue. Stories 07–09 assemble from that vocabulary.
+Story 06 established the shared component vocabulary (`DataTable`, `StatusBadge`, `PriorityBadge`,
+`ChannelBadge`, `SlaBar`) and the no-directional-utility rule — now enforced by
+`frontend/scripts/check-rtl.mjs` — that makes the Arabic RTL flip a translation pass in story 10
+rather than a rescue. Stories 07–09 assemble from that vocabulary; read story 06's "as built"
+section above before starting 07, the way this plan read story 05's.
 
 Frontend stories 06–09 each carry the relevant design artboards in their `attachments/` folder.
 Squad-kit's planner reads only the intake and its attachments, so those files must stay attached —

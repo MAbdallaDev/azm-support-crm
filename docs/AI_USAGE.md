@@ -660,3 +660,120 @@ endpoints. The last backend story.
   reason.** With 150 seeded tickets a Python loop returns exactly the right numbers. That is what
   makes it dangerous: it would pass review, pass every correctness test, and only fail in production.
   Asserting the count is *identical* for 20 and 150 rows tests the property rather than the output.
+
+---
+
+## Story 06 — App shell, auth flow, Arabic/English RTL          (elapsed: ~2h 15m)
+
+**What I asked for:** implement the generated plan for story 06 — the API client with a real refresh
+flow, the authenticated route tree, the top chrome from the design, the shared component vocabulary
+stories 07–09 will speak, and a complete Arabic/English flip. The first frontend story; the backend
+was frozen after story 05.
+
+**What the AI built:**
+
+- `src/api/tokenStore.ts` — module state in front of `localStorage`, one get/set pair, plus
+  `loginPathForRole` / `homePathForRole`. Caches the **role** beside the tokens so a failed refresh
+  knows which of the two login pages to land on without a request that could only 401.
+- `src/api/client.ts` — the request interceptor (Bearer header, skipped on the auth routes) and the
+  response interceptor: a module-level `refreshing: Promise<string> | null` so concurrent 401s share
+  one `POST /auth/refresh/`, a single `_retried` replay, and `navigation.redirect` as a testable seam
+  over `window.location.assign`. `getHealth` preserved.
+- `src/api/queryKeys.ts`, `src/api/auth.ts`, `src/api/types.ts` — `qk`, then `useLogin` (seeds the
+  `qk.me` cache from the login response rather than making a second `/auth/me/` call), `useMe`,
+  `useLogout`, and the API types read off the serializers.
+- `src/index.css` + `tailwind.config.js` — the `DesignSystem.dc.html` palette converted to HSL
+  triplets, plus semantic `priority-*`, `channel-*`, `status-*`, `sla-*` and `tier` colour families.
+- `src/components/shell/` — `AppChrome` (56px bar, lockup, role-filtered nav, inert 300px search,
+  language toggle, user chip), `PortalChrome`, `ProtectedRoute`, `LanguageToggle`, `Lockup`,
+  `UserChip`, `navItems.ts`.
+- `src/components/ui/` — `StatusBadge`, `PriorityBadge`, `ChannelBadge`, `SlaBar`, `EmptyState`,
+  `Skeleton`, `ConfirmDialog`, `DataTable`, the `Pill` base, a sonner-backed `toast`, and
+  hand-written `dropdown-menu` / `alert-dialog` / `input` / `label` primitives.
+- `src/routes/` — the real `Login` (two-panel, react-hook-form + zod), `PortalLogin`, `PortalHome`,
+  the `KitchenSink`, and `Dashboard` keeping its health card as the API-client smoke test.
+- `src/lib/format.ts`, `src/i18n/*`, `scripts/check-rtl.mjs`, and 14 test files / **74 tests**.
+
+**Decisions the AI made on its own:**
+
+- *`SlaBar` takes the API object as a single `sla` prop, in snake_case.* The plan named camelCase
+  props (`secondsRemaining`) while the done-criterion said the shape must match `response_sla`
+  **verbatim** — those two cannot both hold. Verbatim won, so story 07 writes
+  `<SlaBar sla={ticket.response_sla} />` with genuinely no adapter and no rename to drift.
+- *`ProtectedRoute` picks its login page from the subtree, not the cached role.* A first-time visitor
+  pasting a `/portal/*` link has no cached role at all, and the cached-role answer would put the
+  agent sign-in page in front of a customer. The interceptor still uses the cached role — it runs
+  outside the router and has no subtree to ask.
+- *sonner over shadcn's own toast primitive* — recorded here so stories 07–09 do not introduce a
+  second. The shadcn toast comes from a CLI that needs Node 20 (this machine is on 18), and its
+  Radix provider is the fiddly piece under React 19. sonner is one self-contained component that
+  reads direction from the document.
+- *The shadcn CLI was not used at all.* `dropdown-menu`, `alert-dialog`, `input` and `label` are
+  hand-written against the Radix primitives, for the same Node 18 reason.
+- *`check-rtl.mjs` strips comments before matching.* English prose says "left-to-right" and
+  "right-hand column" constantly; a guard that fails the build on those is a guard people start
+  bypassing. There is also a per-line `rtl-ok` escape hatch, used exactly once — in the DataTable
+  test that asserts `text-right` is *absent*.
+- *The kitchen sink renders both languages side by side via two cloned i18next instances*, so a
+  reviewer sees the flip without toggling, and the chrome's own toggle is unaffected.
+- *The search field is inert this story.* There is no global search endpoint, and the tickets list it
+  filters does not exist until story 07. It is rendered so the chrome matches the artboard, disabled
+  so it cannot look broken, and there is a test asserting it is disabled.
+
+**What I had to correct:**
+
+- **The refresh interceptor logged the user out on any failed retry.** The first version wrapped both
+  the refresh *and* the replayed request in one `try/catch`, so a replay that came back 500 — or 401
+  again — cleared the session and redirected. A test that returned the *same* dead token from a
+  "successful" refresh caught it; the fix scopes the `catch` to the refresh alone. This is the bug
+  the story would most likely have shipped: it only shows up when the backend is unhealthy, which is
+  exactly when being thrown to a login page is most confusing.
+- **`vi.useFakeTimers()` in a file-level `beforeEach` deadlocked the whole `SlaBar` suite.** Testing
+  Library's auto-cleanup awaits React 19's `act` queue, which cannot drain while the clock is frozen,
+  so every test after the first timed out *in its hook* — a failure that looks nothing like its
+  cause, and which first presented as "found multiple elements" from leaked DOM. Fake timers now
+  install inside the two tests that advance the clock and unmount explicitly.
+- **A test that faked an axios error with a plain object passed for the wrong reason.** `Login`
+  narrows on `instanceof AxiosError` before reading the status, so the look-alike silently took the
+  "server unavailable" branch and the 401 banner assertion failed. The helper now throws a real
+  `AxiosError` — which is also what proved the 401-vs-outage split works at all.
+- **I nearly shipped a comment asserting something I had not checked.** After seeing English text in
+  what I thought was the Arabic column, I added `changeLanguage()` calls to the cloned i18next
+  instances and wrote a comment explaining why they were necessary. They were not — my *selector* was
+  wrong (`document.documentElement` already carries `dir="rtl"`, so `[dir=rtl] …` matched the LTR
+  column's badge first). Removing the calls and re-checking confirmed `cloneInstance({lng})` resolves
+  on its own. The calls and the comment are gone.
+- **`npm run build` failed on a root-owned `dist/`** left behind by an earlier Docker build writing
+  into the bind mount. Not a code problem, and not fixable without root on the host — but the web
+  container runs as root on the same mount, so `docker compose exec web rm -rf /app/dist` cleared it.
+- **The web container needed a rebuild, not just a restart.** Its `node_modules` is an anonymous
+  volume baked from the image, so `lucide-react`/Radix/sonner installed on the host were invisible
+  to it. `docker compose up -d --build --renew-anon-volumes web` is the fix; a fresh clone never
+  sees it because the image build reads the committed `package-lock.json`.
+- **A killed `pytest` run left an orphaned `test_crm` database** holding an idle transaction, so the
+  next run failed at `CREATE DATABASE` with *"is being accessed by other users"*. The catch:
+  `docker compose exec` only kills the **local client** — the `pytest` process keeps running inside
+  the container and keeps its connection, so terminating the Postgres backend and dropping the
+  database was not enough on its own. The processes had to be killed inside the container first
+  (the image has no `ps` or `pkill`, so via `/proc/*/cmdline`). Worth knowing because the symptom is
+  a wall of `E`s that looks exactly like a broken test suite: the real backend run afterwards was
+  **347 passed** with nothing skipped, untouched by this story as expected.
+
+**What I learned:**
+
+- **A refresh flag has to be a promise, not a boolean.** A boolean tells you a refresh is happening;
+  it does not give the other nine callers anything to wait *on*. The promise is simultaneously the
+  lock, the queue and the result — and clearing it in a `finally` rather than on success is what
+  stops a resolved promise from being reused an hour later against a token that has since died.
+- **"No directional utility anywhere" is cheap to hold and expensive to retrofit** — which is exactly
+  why it needs a script rather than a code-review habit. The whole guard is 70 lines and no
+  dependencies, and it has already caught two real slips plus one piece of prose. The prose false
+  positive was the useful part: a guard nobody trusts is a guard nobody runs.
+- **The Odoo parallel for `ProtectedRoute` is the menu, not `ir.model.access`.** Filtering nav items
+  by role is the same job as `groups=` on a menuitem: it decides what you *see*, and it is never the
+  thing that protects the data. Story 03's permission classes and record-rule scoping are the real
+  boundary, and the front end deliberately does not restate them — two copies of an access rule
+  eventually disagree, and the one people trust is the one that is wrong.
+- **Rendering both languages side by side finds things toggling does not.** Half the layout problems
+  I would have shipped were only visible with the two columns adjacent — a badge that looked fine
+  alone read as misaligned next to its mirror.
