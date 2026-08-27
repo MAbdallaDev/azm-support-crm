@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-crm}
+      POSTGRES_USER: ${POSTGRES_USER:-crm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm}
+    ports:
+      # Host port is configurable and defaults AWAY from 5432: a developer or
+      # reviewer with a local PostgreSQL already owns that port, and the bind
+      # fails outright. Nothing in the app uses this mapping — the api reaches
+      # the database at db:5432 over the compose network. Bound to loopback so
+      # the database is not exposed on the LAN.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crm} -d ${POSTGRES_DB:-crm}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-crm}:${POSTGRES_PASSWORD:-crm}@db:5432/${POSTGRES_DB:-crm}
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key-change-me-in-production}
+      DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      TIME_ZONE: ${TIME_ZONE:-Asia/Riyadh}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        # A real healthcheck gate, not a sleep: the api container does not start
+        # until Postgres actually accepts connections.
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Anonymous volume: stops the host bind mount above from shadowing the
+      # node_modules installed inside the image. Without it the container has
+      # no dependencies at all.
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

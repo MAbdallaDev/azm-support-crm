@@ -29,14 +29,35 @@ designed up front, and split into squad-kit stories so each runs as its own scop
 
 ## How this project is graded
 
-The company scores four things. Each one is a deliverable, not a by-product:
+The company's real rubric — obtained from their assessment sheet — is **ten weighted criteria
+totalling 100**, each scored 1–5. It is broader than the four-point paraphrase this plan was
+originally written against. Full table and per-criterion mapping in `docs/00-project-brief.md` §5.
 
-| # | Criterion | How this plan satisfies it |
+| Block | Criterion | Weight |
 |---|---|---|
-| 1 | **SDD via squad-kit** — stories and plans exist | `.squad/` lives in the repo and ships with it: 10 intakes under `stories/crm-mvp/`, 10 generated plans under `plans/crm-mvp/`, plus `00-overview.md` and `00-index.md`. The commit history shows plan-then-implement order, one story per session |
-| 2 | **Full-stack implementation** | Django + DRF backend, React + TS frontend, PostgreSQL, Docker Compose, tests both sides, OpenAPI docs. The `docs/DEMO.md` path exercises portal → agent → manager end to end |
-| 3 | **Productivity** | Measured by output per hour. The levers: Django admin replaces every admin CRUD screen, `seed_demo` replaces manual data entry, one scoped session per story avoids context bloat. `docs/AI_USAGE.md` records elapsed time per story so the number is visible, not claimed |
-| 4 | **Visible AI usage** — he must understand what happened during implementation, in plain language, plus a final summary | **A running journal, written as we go — not reconstructed at the end.** See below |
+| AI & SDD Application | Requirement & Specification | 10 |
+| | **Planning & Task Breakdown** | **20** |
+| | AI Usage & Verification | 10 |
+| Software Engineering & Full-Stack | Engineering Foundations (incl. Git, testing, debugging) | 10 |
+| | Backend / API / Database | 10 |
+| | Frontend & End-to-End Flow | 10 |
+| | Productivity | 10 |
+| Quality & Understanding | Correctness & Maintainability | 10 |
+| | Testing, Security & Edge Cases | 5 |
+| | Technical Understanding & Ownership | 5 |
+
+**Three consequences for how this build is run:**
+
+1. **Planning & Task Breakdown is 20 points — double any other line, and the SDD block is 40% of the
+   total.** The squad-kit intakes and plans are the largest single scoring surface, not overhead.
+   Generate a real plan for every story, especially when time pressure makes skipping to code tempting.
+2. **Security is explicitly scored.** Three tests exist specifically for it and must not be dropped:
+   the internal-note leak regression (story 03), path traversal on attachment filenames (story 04),
+   and the portal trust-boundary assertion that no portal response exposes an assignee, internal note
+   or SLA internal (story 05).
+3. **"Avoids blind AI dependency" is a scored criterion**, and its evidence accumulates in
+   `docs/AI_USAGE.md` where no reviewer will assemble it. `docs/SUMMARY.md` must carry a dedicated
+   section collecting the moments the AI was corrected, overruled or verified.
 
 ### The AI journal (criterion 4)
 
@@ -285,7 +306,7 @@ into the frontend stories' `attachments/` (squad-kit's planner reads only the in
 attachments, so a linked-but-not-attached design would be invisible to it); `docs/AI_USAGE.md`
 opened with its story 00 entry.
 
-### Next: put it under version control, then build story 01
+### ✅ Done — repository setup and story 01 (kept as the record of how it was done)
 
 This is the immediate next step and it is **not optional housekeeping** — criterion 1 is judged
 partly on a commit history showing plan-then-implement order, and there is currently no history at
@@ -346,6 +367,130 @@ committed, the ordering evidence is gone permanently.
 6. **Generate story 01's plan**: `/squad-plan .squad/stories/crm-mvp/01-foundation/intake.md`.
    Review the generated `.squad/plans/crm-mvp/NN-story-*.md`, then commit it — the plan commit must
    land before the implementation commit.
+
+### Story 01 review — accepted, with one unexecuted criterion
+
+Reviewed at commit `20a6f1c`. All 11 acceptance criteria are satisfied in code, and three changes
+improved on the plan rather than merely following it:
+
+- `config/health.py` catches `django.db.Error`, not the narrower `OperationalError` the plan
+  specified. Correct: with `conn_max_age=600` a dead cached connection surfaces as `InterfaceError`,
+  which would have escaped the handler and returned 500 instead of the required 503.
+- A test was added for the **503 branch**. The plan only specified the happy path, leaving the
+  "`database` is not a constant" requirement hand-verifiable but not CI-verifiable.
+- Three bugs in shadcn's generated output were caught and fixed — v4 `oklch()` values written into a
+  v3 config that consumes them as `hsl(var(--x))`, a missing `destructive-foreground` pair, and an
+  `init` that aborted after writing config but before installing `clsx`/`cva`/`tailwind-merge`.
+
+Independently verified: no build artifacts tracked (`.venv`, `dist/`, `db.sqlite3`, `.pytest_cache`
+all ignored); seven apps registered with dotted `AppConfig.name`; **every `models.py` empty with no
+migrations** — the exact precondition story 02 needs; `AUTH_USER_MODEL` deliberately unset with an
+explanatory comment; full `en`/`ar` key parity with real Arabic; and **zero directional Tailwind
+utilities**, so story 06's RTL rule starts clean. The Alpine/musl Rollup trap (`npm ci` on
+`node:22-alpine` against a glibc lockfile) was checked specifically and does not apply — the lockfile
+records `@rollup/rollup-linux-x64-musl`.
+
+**The one gap: Docker is not installed on the machine**, so `docker compose up --build` was never
+executed. Acceptance criterion 1 and verification steps 1, 2, 3 and 6 are unrun. The compose file and
+both Dockerfiles are statically sound, but sound is not verified — and the definition of done for the
+two days is that `docker compose up` is the only setup step.
+
+---
+
+### Next: install Docker, verify story 01 for real, then plan story 02
+
+1. **Install Docker Engine + the Compose plugin** (needs `sudo`; Mostafa runs this, not the session):
+
+   ```bash
+   curl -fsSL https://get.docker.com | sudo sh
+   sudo usermod -aG docker "$USER"
+   ```
+
+   Log out and back in (or `newgrp docker`) so the group applies without `sudo` on every command.
+
+2. **Run story 01's verification section for real** — all seven steps in
+   `.squad/plans/crm-mvp/01-story-01-foundation.md`. Step 2 is the one that matters: `docker compose
+   stop db`, then confirm health returns **503** with `"database":"unavailable"`, then
+   `docker compose start db`. Fix anything that surfaces on a story-01 branch, merged the same way as
+   the rest.
+
+3. **Then generate story 02's plan**: `/squad-plan .squad/stories/crm-mvp/02-models-admin-seed/intake.md`.
+
+Story 02 does not strictly depend on Docker — it is models, admin and seed, all exercisable on the
+verified SQLite path. Docker is being resolved first because a compose bug discovered on day 2 has
+nowhere to go.
+
+### Story 02 — planned approach (to be written into `.squad/plans/crm-mvp/`)
+
+**Context.** Story 01 delivered seven registered but empty Django apps and left an explicit comment
+reserving `AUTH_USER_MODEL`. Story 02 fills every `models.py` in a single migration pass, registers
+all seventeen models in Django admin — **which is this product's entire back-office**, so admin
+config is a feature, not a debug aid — and writes `seed_demo`, the command that makes every later
+story demonstrable.
+
+**Ordering constraint that cannot be got wrong.** `accounts.User` must exist and `AUTH_USER_MODEL`
+must be set *before* the first `makemigrations`. There are currently no migrations anywhere, so the
+window is clean — but only once. Define `User` first, set the setting, then generate migrations for
+all seven apps in one pass.
+
+**Circular foreign keys.** `accounts.User.customer` → `customers.Customer` while
+`customers.Customer.created_by` → `AUTH_USER_MODEL`. Both use string references and `null=True`;
+Django emits `swappable_dependency` and resolves the order itself. Do not try to break the cycle by
+moving a model between apps.
+
+**Ticket numbering — a deliberate deviation from the intake.** The intake suggests
+"`select_for_update` or a DB sequence". Both are problematic here:
+
+- A counter row to lock would need an **eighteenth model**, and the intake says *"exactly these
+  models, no more"*.
+- Locking the last `Ticket` row instead is gap-prone: under READ COMMITTED two transactions can
+  resolve "the last row" differently around an in-flight insert.
+- A Postgres sequence breaks the SQLite fallback story 01 built and verified.
+
+Use instead: **`unique=True` on `number`, plus a bounded retry-on-`IntegrityError` loop.** The unique
+constraint is what actually guarantees "never reused" — the database enforces it regardless of
+isolation level or engine; the loop merely handles the collision. Engine-agnostic, no extra model,
+and it survives the 50-thread test. Record the reasoning in a code comment so it does not read as
+having missed the intake's suggestion.
+
+**Test target — decided.** `docker compose exec api pytest` becomes the canonical command
+(Postgres). The concurrency test uses `transaction=True` and **skips with an explicit reason when the
+engine is not PostgreSQL**, so the fast host-side SQLite loop stays green and honest rather than
+silently weaker. Update the README's test section accordingly.
+
+**Seed design — 150 tickets across 90 days.** Chosen so story 09's 7/30/90-day report ranges and the
+agent-performance table have real curves, rather than rebuilding the seed under time pressure in
+story 10.
+
+The non-obvious requirement: **every SLA timestamp must be computed relative to `timezone.now()` at
+run time, never hard-coded.** A seed with fixed dates shows every ticket breached the day after it
+was run, and the demo degrades silently. The breach spread — comfortable, within 10% of target,
+already breached, escalated — has to be re-derived on each run. Idempotency therefore means *stable
+identities* (natural keys via `get_or_create`), not stable timestamps.
+
+**Admin quality bar.** `list_display`, `list_filter`, `search_fields` chosen per model;
+`TicketMessage` and `Attachment` inlines on `Ticket`; system fields (`number`, timestamps, SLA due
+dates) readonly; `list_select_related` and `prefetch_related` on every changelist that shows a
+related field — with 150 seeded tickets an N+1 is immediately visible rather than theoretical.
+
+**Verification.** `makemigrations --check --dry-run` clean after the pass; `migrate` clean against an
+empty Postgres; `seed_demo` then `seed_demo` again produces identical object counts; every changelist
+loads; `pytest` green in the container.
+
+---
+
+### Branching and release cadence
+
+Chosen flow, now in use:
+
+- One branch per story: `story/NN-<slug>` → push → PR → **merge into `dev`**.
+- **`dev` → `main` at milestones**: after story 05 (backend complete, end of day 1) and after
+  story 10 (delivery).
+- `main` therefore lags `dev` during a day. That is deliberate — but it means anyone opening the
+  repo between milestones sees a `main` without that day's code. Acceptable given the two merges
+  are scheduled; **`main` must be current before the work is handed in.**
+
+---
 
 ### Then, per story, in order
 

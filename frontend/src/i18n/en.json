@@ -1,0 +1,5 @@
+{
+  "app": { "name": "AZM Squad Support CRM" },
+  "nav": { "dashboard": "Dashboard", "login": "Sign in" },
+  "health": { "api": "API", "database": "Database", "checking": "Checking…", "unreachable": "Unreachable" }
+}

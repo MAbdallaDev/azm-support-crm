@@ -1,0 +1,17 @@
+"""Report routes, mounted at /api/v1/ by config/urls.py."""
+
+from django.urls import path
+
+from apps.reports.views import (
+    AgentsReportView,
+    CSATReportView,
+    OverviewReportView,
+    VolumeReportView,
+)
+
+urlpatterns = [
+    path("reports/overview/", OverviewReportView.as_view(), name="report-overview"),
+    path("reports/volume/", VolumeReportView.as_view(), name="report-volume"),
+    path("reports/agents/", AgentsReportView.as_view(), name="report-agents"),
+    path("reports/csat/", CSATReportView.as_view(), name="report-csat"),
+]
