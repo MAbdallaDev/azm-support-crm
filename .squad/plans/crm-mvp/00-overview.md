@@ -14,7 +14,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
 | 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
 | 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
-| 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
+| 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
 | 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
 | 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
 | 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
