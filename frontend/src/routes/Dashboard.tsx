@@ -2,18 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { getHealth } from "@/api/client";
+import { qk } from "@/api/queryKeys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * Placeholder. The real agent dashboard is story 07.
  *
- * The one live call below proves the whole chain in a single glance:
- * browser -> Vite -> axios -> CORS -> DRF -> Postgres.
+ * The health card stays: it is this story's own smoke test that the API client
+ * still works now that a request interceptor and a refresh flow sit in front
+ * of it. Browser → Vite → axios (+ Authorization header) → CORS → DRF →
+ * Postgres, in one glance.
  */
 export default function Dashboard() {
   const { t } = useTranslation();
   const { data, isPending, isError } = useQuery({
-    queryKey: ["health"],
+    queryKey: qk.health,
     queryFn: getHealth,
   });
 
@@ -24,11 +27,11 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">{t("nav.dashboard")}</h1>
-      <Card className="w-full max-w-sm">
+    <div className="p-6">
+      <h1 className="text-[22px] font-bold tracking-[-0.01em]">{t("nav.dashboard")}</h1>
+      <Card className="mt-5 w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{t("app.name")}</CardTitle>
+          <CardTitle className="text-[15px]">{t("app.name")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between gap-4">
@@ -41,6 +44,6 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

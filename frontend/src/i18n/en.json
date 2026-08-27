@@ -1,5 +1,139 @@
 {
-  "app": { "name": "AZM Squad Support CRM" },
-  "nav": { "dashboard": "Dashboard", "login": "Sign in" },
-  "health": { "api": "API", "database": "Database", "checking": "Checking…", "unreachable": "Unreachable" }
+  "app": {
+    "name": "AZM Squad Support CRM",
+    "brand": "AZM Squad",
+    "product": "Support CRM",
+    "portalProduct": "Support"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "tickets": "Tickets",
+    "customers": "Customers",
+    "kb": "Knowledge base",
+    "reports": "Reports",
+    "admin": "Admin",
+    "search": "Search tickets, customers",
+    "portalRequests": "My requests",
+    "portalArticles": "Help articles",
+    "primary": "Primary"
+  },
+  "user": {
+    "tier": "Tier {{tier}}",
+    "menu": "Account menu",
+    "profile": "Profile",
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "subtitle": "Agent and manager access.",
+    "portalSubtitle": "Customer portal access.",
+    "usernameLabel": "Username or email",
+    "usernamePlaceholder": "agent@demo",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "required": "This field is required",
+    "failed": "Check your username and password.",
+    "unavailable": "Could not reach the server. Try again.",
+    "demoTitle": "Demo logins",
+    "demoAccounts": "admin@demo · manager@demo · agent@demo · customer@demo",
+    "demoPassword": "Shared password: {{password}}",
+    "pitchTitle": "Every request, answered on time.",
+    "pitchBody": "One queue for email, WhatsApp, SMS, live chat and the customer portal — with SLA timers that make the promise visible before it is broken.",
+    "pitchMultichannel": "Multi-channel",
+    "pitchSla": "SLA tracking",
+    "pitchAi": "AI assist",
+    "pitchBilingual": "عربي / English",
+    "customerHint": "Customer? Use the customer portal instead.",
+    "agentHint": "Agent or manager? Sign in to the CRM instead.",
+    "language": "Language",
+    "checking": "Checking your session…",
+    "retry": "Retry",
+    "sessionError": "We could not load your profile. The server may be unavailable."
+  },
+  "status": {
+    "new": "New",
+    "open": "Open",
+    "pending": "Pending",
+    "on_hold": "On hold",
+    "escalated": "Escalated",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "reopened": "Reopened"
+  },
+  "priority": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "channel": {
+    "web": "Portal",
+    "email": "Email",
+    "whatsapp": "WhatsApp",
+    "sms": "SMS",
+    "chat": "Live chat"
+  },
+  "sla": {
+    "ok": "OK",
+    "approaching": "Approaching",
+    "breached": "Breached",
+    "left": "{{duration}} left",
+    "over": "Breached {{duration}}",
+    "none": "No SLA policy",
+    "target": "Target {{duration}}"
+  },
+  "table": {
+    "sortAscending": "Sort ascending",
+    "sortDescending": "Sort descending",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}",
+    "rowCount": "{{count}} rows"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "body": "When there is something to show, it will appear here."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "language": "Language"
+  },
+  "portal": {
+    "home": "My requests",
+    "placeholder": "The customer portal arrives in story 09."
+  },
+  "kitchen": {
+    "title": "Kitchen sink",
+    "subtitle": "Every shared component in every documented state.",
+    "statuses": "Status badges",
+    "priorities": "Priority badges",
+    "channels": "Channel badges",
+    "sla": "SLA bars",
+    "table": "Data table",
+    "states": "Empty, skeleton and dialog",
+    "populated": "Populated",
+    "loading": "Loading",
+    "emptyState": "Empty",
+    "openDialog": "Open confirm dialog",
+    "toast": "Show toast",
+    "toastMessage": "Saved.",
+    "confirmTitle": "Delete this ticket?",
+    "confirmBody": "This cannot be undone.",
+    "colNumber": "Ticket",
+    "colSubject": "Subject",
+    "colPriority": "Priority"
+  },
+  "health": {
+    "api": "API",
+    "database": "Database",
+    "checking": "Checking…",
+    "unreachable": "Unreachable"
+  },
+  "notFound": {
+    "title": "Not built yet",
+    "body": "There is no screen at {{path}} — it arrives in a later story.",
+    "back": "Back to the dashboard"
+  }
 }

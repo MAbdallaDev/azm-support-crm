@@ -1,5 +1,139 @@
 {
-  "app": { "name": "نظام دعم عملاء أزم سكواد" },
-  "nav": { "dashboard": "لوحة التحكم", "login": "تسجيل الدخول" },
-  "health": { "api": "الواجهة البرمجية", "database": "قاعدة البيانات", "checking": "جارٍ التحقق…", "unreachable": "غير متصل" }
+  "app": {
+    "name": "نظام دعم عملاء أزم سكواد",
+    "brand": "AZM Squad",
+    "product": "دعم العملاء",
+    "portalProduct": "الدعم"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "tickets": "التذاكر",
+    "customers": "العملاء",
+    "kb": "قاعدة المعرفة",
+    "reports": "التقارير",
+    "admin": "الإدارة",
+    "search": "ابحث في التذاكر والعملاء",
+    "portalRequests": "طلباتي",
+    "portalArticles": "مقالات المساعدة",
+    "primary": "التنقل الرئيسي"
+  },
+  "user": {
+    "tier": "المستوى {{tier}}",
+    "menu": "قائمة الحساب",
+    "profile": "الملف الشخصي",
+    "signOut": "تسجيل الخروج"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "subtitle": "دخول الوكلاء والمديرين.",
+    "portalSubtitle": "دخول بوابة العملاء.",
+    "usernameLabel": "اسم المستخدم أو البريد الإلكتروني",
+    "usernamePlaceholder": "agent@demo",
+    "passwordLabel": "كلمة المرور",
+    "submit": "تسجيل الدخول",
+    "submitting": "جارٍ تسجيل الدخول…",
+    "required": "هذا الحقل مطلوب",
+    "failed": "تحقق من اسم المستخدم وكلمة المرور.",
+    "unavailable": "تعذّر الوصول إلى الخادم. حاول مرة أخرى.",
+    "demoTitle": "حسابات تجريبية",
+    "demoAccounts": "admin@demo · manager@demo · agent@demo · customer@demo",
+    "demoPassword": "كلمة المرور المشتركة: {{password}}",
+    "pitchTitle": "كل طلب، يُجاب في وقته.",
+    "pitchBody": "قائمة واحدة للبريد وواتساب والرسائل النصية والدردشة المباشرة وبوابة العملاء — مع مؤقتات اتفاقية مستوى الخدمة التي تُظهر الوعد قبل أن يُخلَف.",
+    "pitchMultichannel": "قنوات متعددة",
+    "pitchSla": "تتبع مستوى الخدمة",
+    "pitchAi": "مساعدة ذكية",
+    "pitchBilingual": "عربي / English",
+    "customerHint": "عميل؟ استخدم بوابة العملاء بدلاً من ذلك.",
+    "agentHint": "وكيل أو مدير؟ سجّل الدخول إلى النظام بدلاً من ذلك.",
+    "language": "اللغة",
+    "checking": "جارٍ التحقق من جلستك…",
+    "retry": "إعادة المحاولة",
+    "sessionError": "تعذّر تحميل ملفك الشخصي. قد يكون الخادم غير متاح."
+  },
+  "status": {
+    "new": "جديدة",
+    "open": "مفتوحة",
+    "pending": "قيد الانتظار",
+    "on_hold": "معلّقة",
+    "escalated": "مُصعّدة",
+    "resolved": "تم حلها",
+    "closed": "مغلقة",
+    "reopened": "أُعيد فتحها"
+  },
+  "priority": {
+    "low": "منخفض",
+    "normal": "عادي",
+    "high": "مرتفع",
+    "urgent": "عاجل"
+  },
+  "channel": {
+    "web": "البوابة",
+    "email": "البريد",
+    "whatsapp": "واتساب",
+    "sms": "رسالة نصية",
+    "chat": "دردشة مباشرة"
+  },
+  "sla": {
+    "ok": "ضمن المدة",
+    "approaching": "على وشك التجاوز",
+    "breached": "تم التجاوز",
+    "left": "متبقٍ {{duration}}",
+    "over": "تجاوز بـ {{duration}}",
+    "none": "لا توجد اتفاقية خدمة",
+    "target": "المدة المستهدفة {{duration}}"
+  },
+  "table": {
+    "sortAscending": "ترتيب تصاعدي",
+    "sortDescending": "ترتيب تنازلي",
+    "previous": "السابق",
+    "next": "التالي",
+    "page": "صفحة {{page}} من {{pages}}",
+    "rowCount": "{{count}} صف"
+  },
+  "empty": {
+    "title": "لا يوجد شيء بعد",
+    "body": "عندما يتوفر ما يُعرض، سيظهر هنا."
+  },
+  "common": {
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "language": "اللغة"
+  },
+  "portal": {
+    "home": "طلباتي",
+    "placeholder": "بوابة العملاء تصل في القصة 09."
+  },
+  "kitchen": {
+    "title": "معرض المكوّنات",
+    "subtitle": "كل مكوّن مشترك في كل حالة موثّقة.",
+    "statuses": "شارات الحالة",
+    "priorities": "شارات الأولوية",
+    "channels": "شارات القناة",
+    "sla": "أشرطة مستوى الخدمة",
+    "table": "جدول البيانات",
+    "states": "الفراغ والتحميل والحوار",
+    "populated": "ممتلئ",
+    "loading": "جارٍ التحميل",
+    "emptyState": "فارغ",
+    "openDialog": "افتح حوار التأكيد",
+    "toast": "أظهر التنبيه",
+    "toastMessage": "تم الحفظ.",
+    "confirmTitle": "حذف هذه التذكرة؟",
+    "confirmBody": "لا يمكن التراجع عن هذا.",
+    "colNumber": "التذكرة",
+    "colSubject": "الموضوع",
+    "colPriority": "الأولوية"
+  },
+  "health": {
+    "api": "الواجهة البرمجية",
+    "database": "قاعدة البيانات",
+    "checking": "جارٍ التحقق…",
+    "unreachable": "غير متصل"
+  },
+  "notFound": {
+    "title": "لم يُبنَ بعد",
+    "body": "لا توجد شاشة في {{path}} — ستصل في قصة لاحقة.",
+    "back": "العودة إلى لوحة التحكم"
+  }
 }
