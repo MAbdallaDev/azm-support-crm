@@ -12,6 +12,7 @@ import "./i18n";
 import "./index.css";
 import Dashboard from "./routes/Dashboard";
 import Login from "./routes/Login";
+import NotFound from "./routes/NotFound";
 import PortalHome from "./routes/PortalHome";
 import PortalLogin from "./routes/PortalLogin";
 import Profile from "./routes/Profile";
@@ -57,6 +58,9 @@ const router = createBrowserRouter([
   },
   { path: "/login", element: <Login /> },
   { path: "/portal/login", element: <PortalLogin /> },
+  // Anything outside both shells: send it through "/" so the cached role picks
+  // the right front door rather than guessing at a chrome to render it in.
+  { path: "*", element: <Navigate to="/" replace /> },
   {
     path: "/app",
     element: (
@@ -69,6 +73,10 @@ const router = createBrowserRouter([
       { path: "dashboard", element: <Dashboard /> },
       { path: "profile", element: <Profile /> },
       ...devOnlyRoutes,
+      // Catch-all *inside* the layout, so an unbuilt screen leaves the chrome
+      // standing instead of throwing React Router's error page over the top
+      // of it. Stories 07-09 add real routes above this one.
+      { path: "*", element: <NotFound /> },
     ],
   },
   {
@@ -78,7 +86,10 @@ const router = createBrowserRouter([
         <PortalChrome />
       </ProtectedRoute>
     ),
-    children: [{ index: true, element: <PortalHome /> }],
+    children: [
+      { index: true, element: <PortalHome /> },
+      { path: "*", element: <NotFound home="/portal" /> },
+    ],
   },
 ]);
 

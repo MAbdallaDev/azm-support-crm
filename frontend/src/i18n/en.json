@@ -130,5 +130,10 @@
     "database": "Database",
     "checking": "Checking…",
     "unreachable": "Unreachable"
+  },
+  "notFound": {
+    "title": "Not built yet",
+    "body": "There is no screen at {{path}} — it arrives in a later story.",
+    "back": "Back to the dashboard"
   }
 }

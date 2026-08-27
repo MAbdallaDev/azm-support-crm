@@ -269,7 +269,10 @@ Two open items story 07 inherits, both deliberate:
   it cannot look broken, with a test asserting it. Wire it in story 07, where the list it filters
   exists.
 - **`/app/tickets`, `/app/customers`, `/app/kb` and `/app/reports` are nav targets with no routes
-  yet.** Clicking one currently renders nothing inside the chrome. Stories 07–09 fill them.
+  yet.** A catch-all `{ path: "*" }` **inside** each layout renders `NotFound` ("not built yet")
+  with the chrome still standing — stories 07–09 add their real routes *above* that entry, which is
+  all they need to do. Without the catch-all, clicking an unbuilt nav item threw React Router's own
+  error page over the whole shell, which reads as a crash rather than as unfinished work.
   (`/app/profile` does have a route — a deliberate no-op placeholder, since editing a profile is
   Django admin's job in this MVP.)
 
