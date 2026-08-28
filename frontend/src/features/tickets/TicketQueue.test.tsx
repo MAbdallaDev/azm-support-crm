@@ -100,7 +100,8 @@ describe("URL as the source of truth", () => {
     });
 
     await waitFor(() => expect(listRequests().length).toBeGreaterThan(before));
-    expect(listRequests().at(-1)).toContain("priority=urgent");
+    const requests = listRequests();
+    expect(requests[requests.length - 1]).toContain("priority=urgent");
   });
 
   it("clears every filter at once", async () => {
@@ -110,7 +111,8 @@ describe("URL as the source of truth", () => {
     fireEvent.click(screen.getByTestId("queue-clear-filters"));
 
     await waitFor(() => {
-      const latest = listRequests().at(-1) ?? "";
+      const requests = listRequests();
+      const latest = requests[requests.length - 1] ?? "";
       expect(latest).not.toContain("priority=urgent");
       expect(latest).not.toContain("status=open");
     });

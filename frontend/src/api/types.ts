@@ -251,7 +251,7 @@ export type Contact = {
   name: string;
   email: string;
   phone: string;
-  role: string;
+  position: string;
   is_primary: boolean;
 };
 
@@ -311,4 +311,118 @@ export type AiSuggestedReply = {
   backend: string;
   suggested_reply: string;
   language: "en" | "ar";
+};
+
+// ---------------------------------------------------------------------------
+// Story 08 — customer 360, knowledge base, and the two reference lists a
+// dropdown needed (branches, departments).
+// ---------------------------------------------------------------------------
+
+/**
+ * `CustomerListSerializer` — the `/app/customers` table.
+ *
+ * `last_activity` is annotated (`Max("tickets__updated_at")`), not computed
+ * per row — **nullable**, because a customer with no tickets has none, and
+ * the client renders a dash rather than fabricating a date.
+ */
+export type CustomerListRow = {
+  id: number;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  tier: string;
+  branch: number | null;
+  branch_name: string;
+  preferred_language: "en" | "ar";
+  open_ticket_count: number;
+  last_activity: string | null;
+  created_at: string;
+};
+
+/**
+ * `CustomerAttachmentSerializer` — every file across a customer's tickets,
+ * story 08's attachment chip row. Distinct from the ticket-scoped
+ * `Attachment` type: this one carries `ticket_number` so a chip can name its
+ * source ticket without a second lookup.
+ */
+export type CustomerAttachment = {
+  id: number;
+  ticket: number;
+  ticket_number: string;
+  filename: string;
+  size: number;
+  uploaded_by_name: string;
+  created_at: string;
+};
+
+/** `BranchSerializer` / `DepartmentSerializer` — unpaginated reference lists. */
+export type Branch = { id: number; code: string; name_en: string; name_ar: string };
+export type Department = { id: number; code: string; name_en: string; name_ar: string };
+
+export const KB_STATUSES = ["draft", "published"] as const;
+export type KBStatus = (typeof KB_STATUSES)[number];
+
+/** `KBCategorySerializer`. `article_count` is annotated, not computed per row. */
+export type KBCategory = {
+  id: number;
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  order: number;
+  article_count: number;
+};
+
+/**
+ * `KBArticleListSerializer` — the browse list. Bodies are deliberately
+ * absent; `has_arabic` is `bool(title_ar and body_ar)`, computed on the
+ * server so the client never re-derives the same rule and drifts from it.
+ */
+export type KBArticleListRow = {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  category: string | null;
+  category_name: string;
+  status: KBStatus;
+  has_arabic: boolean;
+  view_count: number;
+  helpful_count: number;
+  updated_at: string;
+};
+
+/** `KBArticleDetailSerializer`. */
+export type KBArticleDetail = {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  body_en: string;
+  body_ar: string;
+  category: string | null;
+  category_name: string;
+  status: KBStatus;
+  author: number | null;
+  author_name: string;
+  has_arabic: boolean;
+  view_count: number;
+  helpful_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * `KBArticleWriteSerializer`. **`slug` is writable and required** — the
+ * editor auto-generates it from `title_en` on create and freezes it on edit,
+ * since changing a slug breaks every link already inserted into a reply.
+ */
+export type KBArticleWrite = {
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  body_en: string;
+  body_ar: string;
+  category: number | null;
+  status: KBStatus;
 };

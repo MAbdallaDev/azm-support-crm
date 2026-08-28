@@ -8,20 +8,22 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django.db.models import ProtectedError
+from django.db.models import Max, ProtectedError
 
 from apps.accounts.permissions import IsAgentOrAbove
-from apps.accounts.scoping import ScopedQuerySetMixin, scope_customers
+from apps.accounts.scoping import ScopedQuerySetMixin, scope_customers, scope_tickets
 from apps.customers.filters import CustomerFilterSet
 from apps.customers.models import Contact, Customer, CustomerNote
 from apps.customers.serializers import (
     ContactSerializer,
+    CustomerAttachmentSerializer,
     CustomerDetailSerializer,
     CustomerListSerializer,
     CustomerNoteSerializer,
     CustomerWriteSerializer,
     annotate_open_ticket_count,
 )
+from apps.tickets.models import Attachment, Ticket
 from apps.tickets.pagination import StandardPagination
 
 
@@ -41,8 +43,12 @@ class CustomerViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset().select_related("branch")
         if self.action == "list":
-            # One join rather than a count query per row.
-            return annotate_open_ticket_count(qs)
+            # One join rather than a count query per row, for both counters —
+            # a `SerializerMethodField` computing `last_activity` per row
+            # would be one extra query per customer on a 25-row page.
+            return annotate_open_ticket_count(qs).annotate(
+                last_activity=Max("tickets__updated_at")
+            )
         if self.action == "retrieve":
             return qs.prefetch_related("contacts")
         return qs
@@ -74,6 +80,31 @@ class CustomerViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
                     )
                 }
             ) from exc
+
+    @extend_schema(
+        summary="Every attachment across this customer's tickets",
+        responses={200: CustomerAttachmentSerializer(many=True)},
+    )
+    @action(detail=True, methods=["get"], url_path="attachments")
+    def attachments(self, request, pk=None):
+        """Customer 360's attachment chip row — one request instead of one
+        per ticket (37 for the seeded Omari Contracting).
+
+        **Scoped through `scope_tickets`, not just `scope_customers`.**
+        `ScopedQuerySetMixin` on this viewset scopes the *customer* row; it
+        says nothing about which of that customer's tickets the caller may
+        see. Without this an agent who can open a customer (scoped by branch)
+        would reach attachments on tickets outside their own department —
+        the ticket relation has to be scoped independently.
+        """
+        customer = self.get_object()
+        visible_tickets = scope_tickets(Ticket.objects.all(), request.user)
+        qs = (
+            Attachment.objects.filter(ticket__customer=customer, ticket__in=visible_tickets)
+            .select_related("ticket", "uploaded_by")
+            .order_by("-created_at")
+        )
+        return Response(CustomerAttachmentSerializer(qs, many=True).data)
 
     @extend_schema(
         summary="Internal notes on a customer",

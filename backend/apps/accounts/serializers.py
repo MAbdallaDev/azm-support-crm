@@ -9,7 +9,21 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .models import Branch, Department
+
 User = get_user_model()
+
+
+class BranchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Branch
+        fields = ("id", "code", "name_en", "name_ar")
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ("id", "code", "name_en", "name_ar")
 
 
 class MeSerializer(serializers.ModelSerializer):

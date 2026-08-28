@@ -1,5 +1,6 @@
 import type {
   CustomerDetail,
+  KBArticleDetail,
   Me,
   Sla,
   TicketDetail,
@@ -124,5 +125,26 @@ export const customer = (over: Partial<CustomerDetail> = {}): CustomerDetail => 
   created_by: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
+  ...over,
+});
+
+
+export const kbArticle = (over: Partial<KBArticleDetail> = {}): KBArticleDetail => ({
+  id: 1,
+  slug: "why-sms-notifications-are-delayed",
+  title_en: "Why are my SMS notifications delayed?",
+  title_ar: "لماذا تتأخر إشعارات الرسائل النصية؟",
+  body_en: "Delivery delays on the SMS channel almost always come from the carrier queue.",
+  body_ar: "التأخير في قناة الرسائل النصية يأتي غالبًا من طابور مزود الشبكة.",
+  category: "notifications",
+  category_name: "Notifications",
+  status: "published",
+  author: 3,
+  author_name: "Mona Saeed",
+  has_arabic: true,
+  view_count: 1204,
+  helpful_count: 96,
+  created_at: "2026-08-01T09:00:00Z",
+  updated_at: "2026-08-24T09:00:00Z",
   ...over,
 });

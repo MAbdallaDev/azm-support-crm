@@ -15,7 +15,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
 | 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
 | 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
-| 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | — |
+| 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | ✅ implemented |
 | 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
 | 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
 
@@ -365,6 +365,76 @@ Story 06's two open items are both closed: the chrome's search field is wired (i
 queue's URL parameter, debounced 300 ms), and `/app/tickets` and `/app/tickets/:id` are real routes
 above the in-layout catch-all. `/app/customers/:id` is linked from the context pane and still renders
 "not built yet" until story 08.
+
+## Story 08 — as built
+
+Implemented. Customer 360, the three-pane knowledge base (browse / reader / editor), the new-ticket
+form, and **four backend additions**. Frontend: **179 Vitest tests** (up from 145), `check:rtl`
+green, `npm run build` and `npm run lint` clean. Backend: **383 tests** (up from 370), OpenAPI schema
+still **zero warnings**.
+
+Verified against the running stack as `agent@demo`: the tier and branch filters narrow the server
+query correctly; the second agent `sara@demo` cannot see `manager@demo`'s draft, the author and
+`manager@demo` both can; publishing an English-only article warns, naming Arabic, and proceeds on
+confirm; the seeded English-only article ("ticket-priorities-explained") shows the fallback notice in
+Arabic with the English body beneath; a KB link inserted mid-sentence in the composer preserves the
+surrounding draft exactly; and a new ticket with no department picked would have been invisible to its
+own creator until the form was given one.
+
+**A frontend story grew the API again, and three bugs were the same shape.** Each addition:
+
+- **Draft visibility narrowed to author/manager/admin** (`scope_kb_articles`) — previously any staff
+  member saw every draft. Rewrote the two existing tests (story 05's and story 03's) that pinned the
+  wider rule; both rewrites are in the same commit as the behaviour change.
+- **`customers/<id>/attachments/`**, scoped through `scope_tickets` on the ticket relation — the
+  viewset's own `ScopedQuerySetMixin` only scopes the customer row, not the tickets hanging off it.
+- **`last_activity`** on the customer list, annotated so the query count stays constant.
+- **`branches/` / `departments/`** — unpaginated reference lists two different screens needed the
+  same week; story 09's reports reuse the department one.
+- **`department` on the new-ticket form** — not in the plan's own field list. A ticket created with no
+  department is invisible to its own creator (`scope_tickets` requires department, assignee or
+  watcher), found by creating one and getting a 404 on its own detail page. Defaults to the agent's
+  own department via `useMe()`'s department **code** matched against the new `departments/` list —
+  the same code-to-pk pattern story 07 solved with `department_code`.
+
+**Three separate mutations poisoned their own cache the same way**, and all three were found by using
+the feature rather than by a test: `TicketViewSet.create()`, `CustomerViewSet.update()`, and
+`KBArticleViewSet.create()`/`update()` all dispatch to their **write** serializer via
+`get_serializer_class()` — a narrower shape than the detail serializer the very next render reads.
+Story 07's ticket actions (assign/status/escalate/resolve/messages) are safe to seed from because
+they explicitly build `TicketDetailSerializer(ticket).data`; the plain `ModelViewSet` create/update
+verbs do not, and typing their response as the full detail type doesn't make it one. All three now
+**invalidate** rather than seed — a fresh GET against the real serializer, not a partial object
+written straight into the cache. **Any future mutation must check what its specific action actually
+returns before deciding whether to seed or invalidate; "this viewset's actions seed their cache" is
+not a safe generalisation.**
+
+What stories 09–10 consume:
+
+- **`useBlocker`'s boolean argument is a snapshot from the render that created it**, not a live read.
+  `setDirty(false)` immediately followed by a synchronous `navigate()` in the same handler still sees
+  the *previous* render's `dirty=true` and blocks its own successful save. Use the function form
+  (`useBlocker(() => ref.current)`) with a ref mutated synchronously wherever a flag changes and
+  navigates in the same tick — `KBEditor.tsx` is the reference implementation.
+- **`common.english` / `common.arabic`** are real keys now (they were referenced since story 07's
+  `TicketContext.tsx` but never defined, silently printing the raw key). Self-referential in both
+  `en.json` and `ar.json` — a language's own name is not translated, matching the login screen's
+  switcher.
+- **`src/test/utils.tsx` has two render helpers.** `renderWithProviders` (plain `MemoryRouter`) is
+  right for anything that does not call `useBlocker` or read `useParams()` itself. `renderWithDataRouter`
+  (`createMemoryRouter` + `RouterProvider`, with a catch-all route) is required for both — reading
+  `:slug`/`:id` inside the component under test, not receiving it as a prop, is the tell.
+- **`main.tsx` exports `appRouteChildren`** separately from its default render, guarded behind
+  `if (document.getElementById("root"))`, specifically so a route-ordering claim ("tickets/new" above
+  "tickets/:id") can be proven by resolving a real route rather than by reading array order.
+- **Customer 360's stats strip is three cells** (Open, Lifetime, SLA met), not the artboard's five.
+  `Avg resolution` and `CSAT` have no single-customer aggregate and would need a per-ticket detail
+  request to compute honestly — the same N+1 story 04's queue test forbids. `SLA met` stays because
+  `resolution_sla.state` is already on every list row (story 07) and costs nothing extra; it names the
+  count it is based on rather than implying full-lifetime coverage.
+- **KB's "No" (not helpful) feedback button persists nothing.** The API has only `helpful_count`, no
+  negative counter — adding one was out of scope for this story's four backend tasks. The button
+  acknowledges the click and says thanks; it is not wired to an endpoint.
 
 ## Dependency notes
 

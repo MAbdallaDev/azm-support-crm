@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import type { RenderOptions } from "@testing-library/react";
 import * as React from "react";
 import { I18nextProvider } from "react-i18next";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, createMemoryRouter, RouterProvider } from "react-router-dom";
 
 import i18n from "@/i18n";
 
@@ -47,4 +47,46 @@ export function renderWithProviders(
   );
 
   return { queryClient, ...render(ui, { wrapper: Wrapper, ...options }) };
+}
+
+
+/**
+ * Render inside a **data** router rather than the declarative `<MemoryRouter>`
+ * above. `useBlocker` (KBEditor's unsaved-changes guard) throws outside a data
+ * router — this is a real capability the plain wrapper cannot provide, not a
+ * style choice.
+ */
+export type RenderWithDataRouterOptions = {
+  route?: string;
+  path?: string;
+  queryClient?: QueryClient;
+};
+
+export function renderWithDataRouter(
+  element: React.ReactElement,
+  { route = "/", path = "/", queryClient = makeQueryClient() }: RenderWithDataRouterOptions = {},
+) {
+  const router = createMemoryRouter(
+    [
+      { path, element },
+      // A second, explicit route so a blocked/unblocked navigation has
+      // somewhere recognisable to land, plus a catch-all so navigating to
+      // wherever the component under test *actually* redirects on success
+      // (its own real absolute path, e.g. "/app/kb/:slug") does not crash
+      // the test router with an unmatched-route error.
+      { path: "/elsewhere", element: <div>elsewhere</div> },
+      { path: "*", element: <div>navigated</div> },
+    ],
+    { initialEntries: [route] },
+  );
+
+  const Wrapper = () => (
+    <QueryClientProvider client={queryClient}>
+      <I18nextProvider i18n={i18n}>
+        <RouterProvider router={router} />
+      </I18nextProvider>
+    </QueryClientProvider>
+  );
+
+  return { queryClient, router, ...render(<Wrapper />) };
 }
