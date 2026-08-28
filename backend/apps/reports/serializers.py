@@ -64,3 +64,32 @@ class CSATReportSerializer(serializers.Serializer):
     average = serializers.FloatField(allow_null=True)
     count = serializers.IntegerField()
     distribution = CSATBucketSerializer(many=True)
+
+
+class MySummarySerializer(serializers.Serializer):
+    """The agent dashboard's four tiles plus the CSAT card, in one response.
+
+    Separate from `OverviewReportSerializer` because the audience is different:
+    every figure here is about **the caller**, and the endpoint is reachable by
+    an agent, whereas the four manager reports are manager-or-admin only.
+
+    Each of the first four numbers has a matching queue filter, named in the
+    field comments below, so a dashboard tile and the queue its link opens
+    cannot disagree — a tile whose count differs from the list it opens is
+    worse than no tile at all.
+    """
+
+    # ?assignee=<me>&status=<open statuses>
+    my_open = serializers.IntegerField()
+    # ?assignee=<me>&due_within_minutes=60
+    breaching_within_hour = serializers.IntegerField()
+    # ?unassigned=true&department_code=<my department>
+    unassigned_in_department = serializers.IntegerField()
+    # ?assignee=<me>&resolved_after=<today 00:00>
+    resolved_by_me_today = serializers.IntegerField()
+
+    awaiting_first_reply = serializers.IntegerField()
+    already_breached = serializers.IntegerField()
+    csat_average = serializers.FloatField(allow_null=True)
+    csat_count = serializers.IntegerField()
+    csat_distribution = CSATBucketSerializer(many=True)

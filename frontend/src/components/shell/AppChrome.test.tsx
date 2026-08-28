@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -86,9 +86,14 @@ describe("AppChrome", () => {
     expect(screen.getByText("Tier 2 · billing")).toBeInTheDocument();
   });
 
-  it("renders the search field inert until story 07 wires it", () => {
+  it("renders a WIRED search field — story 06 shipped it inert, story 07 wired it", async () => {
     renderChrome("agent");
 
-    expect(screen.getByLabelText(en.nav.search)).toBeDisabled();
+    const field = screen.getByLabelText(en.nav.search);
+    expect(field).toBeEnabled();
+
+    // Typing writes `q` into the queue's own URL parameter, after the debounce.
+    fireEvent.change(field, { target: { value: "invoice" } });
+    expect(field).toHaveValue("invoice");
   });
 });

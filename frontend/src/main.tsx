@@ -16,6 +16,7 @@ import NotFound from "./routes/NotFound";
 import PortalHome from "./routes/PortalHome";
 import PortalLogin from "./routes/PortalLogin";
 import Profile from "./routes/Profile";
+import Tickets from "./routes/Tickets";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -71,6 +72,10 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
       { path: "dashboard", element: <Dashboard /> },
+      // One component for both: opening a ticket must not unmount the queue
+      // and refetch it, and selection is derived from the :id param.
+      { path: "tickets", element: <Tickets /> },
+      { path: "tickets/:id", element: <Tickets /> },
       { path: "profile", element: <Profile /> },
       ...devOnlyRoutes,
       // Catch-all *inside* the layout, so an unbuilt screen leaves the chrome

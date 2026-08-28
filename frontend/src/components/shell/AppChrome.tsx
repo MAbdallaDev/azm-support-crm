@@ -1,8 +1,8 @@
-import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useMe } from "@/api/auth";
+import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { Lockup } from "@/components/shell/Lockup";
 import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { appNavItems, visibleNavItems } from "@/components/shell/navItems";
@@ -54,21 +54,7 @@ export default function AppChrome() {
 
         <div className="flex-1" />
 
-        {/*
-          Inert this story: there is no global search endpoint to call, and the
-          tickets list it would filter does not exist until story 07. Rendered
-          now so the chrome matches the artboard; wired there.
-        */}
-        <label className="hidden w-[300px] items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 lg:flex">
-          <Search aria-hidden className="h-3.5 w-3.5 text-faint" />
-          <input
-            type="search"
-            disabled
-            placeholder={t("nav.search")}
-            aria-label={t("nav.search")}
-            className="h-[34px] w-full bg-transparent text-[12.5px] outline-none placeholder:text-faint"
-          />
-        </label>
+        <GlobalSearch />
 
         <LanguageToggle profileLanguage={me?.language} />
 

@@ -41,7 +41,13 @@ export const formatNumber = (value: number): string =>
   new Intl.NumberFormat(activeLocale()).format(value);
 
 /**
- * A duration in seconds as the design writes it: `4h 05m`, `38m`, `2d 3h`.
+ * A duration in seconds as the design writes it: `4h 05m`, `38m`, `2d 3h` —
+ * and `4س 05د` in Arabic.
+ *
+ * **The unit letters are translated, the digits are not.** `h`/`m`/`d` left in
+ * an Arabic sentence is the last visibly English thing on an otherwise flipped
+ * screen, and it appears in the SLA countdown, which is the number an agent
+ * looks at most. The digits stay Western per the design (see `localeFor`).
  *
  * Takes the **absolute** value on purpose. SLA seconds are signed, and the
  * sign chooses the sentence ("2h left" vs "Breached 14m"), not the number —
@@ -53,10 +59,14 @@ export const formatDuration = (seconds: number): string => {
   const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
 
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
-  if (minutes > 0) return `${minutes}m`;
-  return `${total}s`;
+  // i18n.t rather than the useTranslation hook: this is a plain function
+  // called from render bodies and from tests, not a component.
+  const unit = (key: "d" | "h" | "m" | "s") => i18n.t(`duration.${key}`);
+
+  if (days > 0) return `${days}${unit("d")} ${hours}${unit("h")}`;
+  if (hours > 0) return `${hours}${unit("h")} ${String(minutes).padStart(2, "0")}${unit("m")}`;
+  if (minutes > 0) return `${minutes}${unit("m")}`;
+  return `${total}${unit("s")}`;
 };
 
 /** "2 hours ago" / "in 20 minutes", same numeral rule. */
