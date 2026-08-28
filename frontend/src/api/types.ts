@@ -490,9 +490,9 @@ export type PortalTicket = {
   id: number;
   number: string;
   subject: string;
-  status: string;
+  status: TicketStatus;
   category: string;
-  channel: string;
+  channel: TicketChannel;
   created_at: string;
   target_date: string | null;
   resolved_at: string | null;

@@ -15,15 +15,18 @@ import { formatDate } from "@/lib/format";
  * `/portal` — `PortalHome.dc.html`: the customer's own tickets, open and
  * closed, a prominent submit action, and a KB search box.
  *
- * A closed status here is whatever `PortalTicketSerializer.status` (a
- * `get_status_display` string, e.g. "Resolved" or "Closed") reports — open vs
- * closed is decided on that text rather than on the raw enum key the portal
- * serializer deliberately never exposes.
+ * `PortalTicketSerializer.status`/`.channel` are the raw enum keys (`"open"`,
+ * `"email"`), the same values `TicketListSerializer` exposes on the agent
+ * side — not `get_..._display()` text, which is English-only regardless of
+ * the customer's language and showed up as an orphaned English word under an
+ * Arabic session during story 10's sweep. Translated here via the existing
+ * `status.*`/`channel.*` keys instead.
  */
 
-const CLOSED_LABELS = new Set(["Resolved", "Closed"]);
+const CLOSED_STATUSES = new Set(["resolved", "closed"]);
 
 function TicketRow({ ticket }: { ticket: PortalTicket }) {
+  const { t } = useTranslation();
   return (
     <Link
       to={`/portal/tickets/${ticket.id}`}
@@ -34,11 +37,8 @@ function TicketRow({ ticket }: { ticket: PortalTicket }) {
       <span className="hidden w-[110px] flex-none text-[11.5px] text-muted-foreground sm:block">
         {formatDate(ticket.created_at)}
       </span>
-      <Pill className="bg-surface-3 text-slate-600">{ticket.status}</Pill>
-      {/* `ticket.channel` is already `get_channel_display()`'s text ("Portal",
-          "Email"), not an enum key — there is no `channel.<key>` to look up,
-          so this renders the server's own string rather than mistranslating it. */}
-      <span className="hidden text-[11px] text-muted-foreground md:block">{ticket.channel}</span>
+      <Pill className="bg-surface-3 text-slate-600">{t(`status.${ticket.status}`)}</Pill>
+      <span className="hidden text-[11px] text-muted-foreground md:block">{t(`channel.${ticket.channel}`)}</span>
     </Link>
   );
 }
@@ -50,8 +50,8 @@ export default function PortalHome() {
 
   const { data, isPending } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
   const tickets = data?.results ?? [];
-  const open = tickets.filter((ticket) => !CLOSED_LABELS.has(ticket.status));
-  const closed = tickets.filter((ticket) => CLOSED_LABELS.has(ticket.status));
+  const open = tickets.filter((ticket) => !CLOSED_STATUSES.has(ticket.status));
+  const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
 
   const onSearch = (event: React.FormEvent) => {
     event.preventDefault();

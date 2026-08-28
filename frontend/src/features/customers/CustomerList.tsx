@@ -32,7 +32,8 @@ const TIER_CLASS: Record<string, string> = {
 };
 
 export default function CustomerList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
   const filters = useUrlFilters({ keys: FILTER_KEYS });
   const { data: branches } = useBranches();
 
@@ -135,7 +136,7 @@ export default function CustomerList() {
           <option value="">{t("customers.anyBranch")}</option>
           {(branches ?? []).map((branch) => (
             <option key={branch.id} value={branch.id}>
-              {branch.name_en}
+              {isArabic ? branch.name_ar : branch.name_en}
             </option>
           ))}
         </select>

@@ -60,7 +60,8 @@ const completeness = (title: string, body: string): "empty" | "titleOnly" | "com
 };
 
 export default function KBEditor() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
   const navigate = useNavigate();
   const { slug: editingSlug } = useParams();
   const isEditing = editingSlug !== undefined;
@@ -208,7 +209,7 @@ export default function KBEditor() {
           <option value="">{t("editor.noCategory")}</option>
           {(categories ?? []).map((category) => (
             <option key={category.slug} value={category.id}>
-              {category.name_en}
+              {isArabic ? category.name_ar : category.name_en}
             </option>
           ))}
         </select>
