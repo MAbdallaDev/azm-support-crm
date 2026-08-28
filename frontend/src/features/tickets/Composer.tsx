@@ -243,7 +243,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
             className="flex h-7 items-center gap-1.5 rounded-full border border-line px-[11px] text-[12px] text-ink-2 hover:border-[#c9cfda] hover:bg-surface-2"
           >
             <BookOpen aria-hidden className="h-3 w-3" />
-            {t("composer.insertKbLink")}
+            {t("kb.insertKbLink")}
           </button>
         </div>
       </div>

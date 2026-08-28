@@ -17,7 +17,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
 | 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | ✅ implemented |
 | 09 | [09-story-09-reports-portal-ui.md](09-story-09-reports-portal-ui.md) | Manager reports & customer portal | — | Stories 05, 08 | ✅ implemented |
-| 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
+| 10 | [10-story-10-delivery.md](10-story-10-delivery.md) | Delivery: RTL sweep, docs, summary | — | All | ✅ implemented |
 
 Each story's intake is at `.squad/stories/crm-mvp/<id>/intake.md`. Plans are generated one at a time
 with `/squad-plan`, immediately before that story is implemented — not all ten up front, so each plan
@@ -500,6 +500,71 @@ What stories 10 reads before continuing:
 - **A registration/self-service response should reuse the login response's own token-building code**
   rather than re-deriving `role`/`name` claims a second time — `RegisterResponseSerializer.build`
   calls `LoginSerializer.get_token` directly.
+
+## Story 10 — as built
+
+Implemented. The Arabic sweep, a responsive pass, an i18n key-parity guard, a real error boundary, a
+states audit, a seed audit (nothing needed changing), and the four hand-in documents (README
+rewrite, `DEMO.md`, `SUMMARY.md`, this section). No backend work was planned; one landed anyway
+because the demo rehearsal found a bug serious enough that fixing it in place was the only honest
+option. Frontend: **208 Vitest tests** (up from 202). Backend: **392 tests** (up from 391), OpenAPI
+schema still zero warnings, `makemigrations --check` clean.
+
+**The most serious bug of the whole project was found by rehearsing `docs/DEMO.md` for real**, not
+by reading code: a ticket submitted through the customer portal was invisible to every agent and
+manager. `PortalTicketViewSet.perform_create` never set a `department`, and `scope_tickets` matches
+an agent's queue on department, assignee, or watcher — none of which a portal ticket had. Only an
+admin (unfiltered) could ever see it. This is story 08's "a ticket with no department is invisible
+to its own creator" bug's twin, on the other side of the trust boundary, and it survived the whole
+of story 09 because nothing in that story's own tests ever completed the loop of "submit as a
+customer, then look for it as an agent" — each story's own tests were individually correct; the bug
+lived entirely in the gap between them. Fixed by defaulting new portal tickets to the "general"
+department, with a dedicated regression test (`test_story10_department_routing.py`).
+
+**The Arabic sweep found five more real bugs, fixed in the same commits as found:**
+
+- `PortalTicketSerializer.status`/`.channel` used `get_..._display()` text — English-only regardless
+  of session language, unlike every other serializer in the app. Changed to raw enum keys, matching
+  the agent-facing `TicketListSerializer`, translated client-side via existing `status.*`/`channel.*`
+  keys.
+- Four reference-list dropdowns (customer list's branch filter, KB editor's category picker,
+  new-ticket form's category and department pickers) rendered `name_en` unconditionally instead of
+  switching on the active language.
+- `Register.tsx` had no language toggle at all, unlike every other unauthenticated screen.
+
+**The i18n `missingKeyHandler` (thrown in development, added specifically to catch exactly this
+class of bug) immediately caught a real one**: `composer.insertKbLink` had never existed — the
+correct key, `kb.insertKbLink`, had existed since story 07, and the composer's "Insert KB link"
+button had been silently printing the raw key string on screen for three stories, because
+i18next's default behaviour on a miss is to render the key, not fail. Two *deliberate*
+missing-key-as-fallback patterns in `ActivityLog.tsx` had to be rewritten to use `i18n.exists()`
+instead, since the new throw-on-miss handler would otherwise fire on legitimately-absent keys those
+patterns exist specifically to tolerate.
+
+**The responsive pass found the ticket workspace's context pane was not hidden, it was
+unreachable** below 1280px — `hidden ... xl:flex` with no toggle anywhere. Split into
+`TicketContextPanel` (shared content) and added a dialog-based drawer below `xl`. The whole
+three-pane workspace also overflowed badly below 768px; fixed by stacking the queue and detail pane
+into two full-width "pages" with a back-to-queue link, and by collapsing `AppChrome`'s six-item nav
+into a menu button below `lg` (it overflowed the header at 375px independent of the ticket
+workspace entirely).
+
+**The states audit found three screens with no error state at all** — `ReportsPage`,
+`CustomerList`, and `PortalHome` all destructured `isPending` but never `isError`; a failed request
+left stale or empty data on screen with no indication anything had gone wrong. Added a
+`role="alert"` retry-wired banner to each.
+
+**Screenshots** (`docs/design/*.png`, all twelve artboards) were captured by installing Chromium
+inside the `web` container (Alpine has no bundled browser, and Playwright's own hard Node-20
+requirement blocks it on this project's pinned Node 18 host) and driving it with `puppeteer-core`
+via a small local reverse proxy forwarding the container's own `localhost:8000` to the real `api`
+service — the frontend bundle's `VITE_API_URL` is baked in for a *host* browser, and resolves
+differently from inside the container it is served from. One screenshot (the dev-only
+`_kitchen-sink` route, mapped to `DesignSystem.dc.html`) renders Arabic text as tofu boxes in this
+specific headless-Chromium/Alpine-font combination on its bilingual side-by-side comparison cards
+only — every real Arabic screen in the same screenshot set (`TicketWorkspaceRTL.png`,
+`PortalTicket.png`) renders Arabic correctly, confirming this is a capture-environment font gap on
+one dev-only page, not a product regression.
 
 ## Dependency notes
 

@@ -105,7 +105,17 @@ function FilterSelect({
   );
 }
 
-export function TicketQueue({ selectedId }: { selectedId: number | null }) {
+export function TicketQueue({
+  selectedId,
+  className,
+}: {
+  selectedId: number | null;
+  /** Below `md`, `Tickets.tsx` toggles this between full-width (nothing
+   *  selected) and `hidden` (a ticket is open) — a fixed 300px column has no
+   *  honest mobile rendering next to a detail pane, so the two panes become
+   *  two full-width "pages" instead below that width. */
+  className?: string;
+}) {
   const { t, i18n } = useTranslation();
   const { data: me } = useMe();
   const filters = useTicketFilters(me?.id);
@@ -120,7 +130,7 @@ export function TicketQueue({ selectedId }: { selectedId: number | null }) {
   const linkFor = (id: number) => `/app/tickets/${id}?${filters.search.toString()}`;
 
   return (
-    <aside className="flex w-[300px] flex-none flex-col border-e border-line bg-background">
+    <aside className={cn("flex w-full flex-col border-e border-line bg-background md:w-[300px] md:flex-none", className)}>
       <div className="px-4 pt-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-bold">{t("tickets.queue")}</h2>

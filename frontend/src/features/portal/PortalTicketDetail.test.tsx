@@ -16,9 +16,9 @@ const baseTicket: PortalTicket = {
   id: 5,
   number: "TK-0005",
   subject: "Cannot access invoice portal",
-  status: "Resolved",
+  status: "resolved",
   category: "Billing",
-  channel: "Portal",
+  channel: "web",
   created_at: "2026-08-20T09:00:00Z",
   target_date: "2026-08-27T09:00:00Z",
   resolved_at: "2026-08-25T09:00:00Z",
@@ -79,7 +79,7 @@ describe("CSAT — survives a reload rather than only the current session", () =
   });
 
   it("does not show the widget before the ticket is resolved or closed", async () => {
-    setup({ ...baseTicket, status: "Open", resolved_at: null });
+    setup({ ...baseTicket, status: "open", resolved_at: null });
     await screen.findByText("Cannot access invoice portal");
 
     expect(screen.queryByTestId("csat-input")).not.toBeInTheDocument();

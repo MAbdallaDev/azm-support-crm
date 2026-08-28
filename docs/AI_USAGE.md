@@ -1094,3 +1094,100 @@ general ones, the opposite order that reads naturally on the page.
   container sizing depends on layout jsdom never performs. Exporting `pivotByDayChannel` and
   `buildAgentsCsv` from `ReportsPage.tsx` for direct unit tests was cheaper and more honest than
   trying to coax Recharts into rendering real SVG under `ResponsiveContainer` at 0×0.
+
+## Story 10 — Delivery: RTL sweep, docs, summary          (elapsed: ~3h 30m)
+
+**Model:** Claude Sonnet 5 via Claude Code. **Plan:** `.squad/plans/crm-mvp/10-story-10-delivery.md`.
+
+Turning a working application into a submitted project: the Arabic sweep, a responsive pass, an
+i18n key-parity guard, a real error boundary, a states audit, `seed_demo` audited against
+criterion 8, and the four hand-in documents (README rewrite, `DEMO.md`, `SUMMARY.md`,
+`00-overview.md`'s tenth "as built" section). **No new endpoint, model or migration was planned** —
+one landed anyway, because the demo rehearsal found a bug serious enough that fixing it in place
+was the only honest option. Frontend: **208 Vitest tests** (up from 202). Backend: **392 tests** (up
+from 391), OpenAPI schema still zero warnings, `makemigrations --check` clean.
+
+### The seed audit — nothing needed changing
+
+Walked all five sub-points of criterion 8 against a fresh `docker compose down -v && up --build`,
+`migrate`, `seed_demo`: 150 tickets across an 86-day span (already satisfies "90-day, non-trivial"),
+9 already breached / 4 within 10% of breach / 5 escalated (all SLA states visible at once), 54 CSAT
+ratings with a genuine 1–5 spread (not all 5s — `{5:21, 4:19, 3:9, 2:4, 1:1}`), and one deliberately
+English-only KB article among ten real bilingual ones. **Every sub-point was already met; nothing in
+`seed_demo` was touched.** Padding it for the appearance of more work would have been exactly the
+kind of effort the intake warns against spending on a requirement already satisfied.
+
+### `check:i18n`, and what `missingKeyHandler` immediately caught
+
+Added `scripts/check-i18n.mjs` (flattens both JSON files to dotted keys, diffs both directions) and
+configured i18next's `missingKeyHandler` to throw in development. The very first test run under the
+new handler crashed the composer: `i18next: missing key "composer.insertKbLink"` — a story-07 typo
+(the correct key, `kb.insertKbLink`, existed all along) that had been rendering as a raw key string
+on screen for three stories because i18next's default behaviour on a miss is to print the key, not
+fail. Two **deliberate** missing-key patterns in `ActivityLog.tsx` (an unknown enum value or event
+type falling back to a generic label) had to be rewritten from "call `t()` and compare to the key"
+to `i18n.exists()` checks, since the new throw-on-miss handler would otherwise fire on every
+legitimately-absent key those patterns exist specifically to tolerate.
+
+### The Arabic sweep found five real bugs, fixed in the same commits as found
+
+- `PortalTicketSerializer.status`/`.channel` used `get_..._display()` text — English-only
+  regardless of session language, unlike every other serializer in the app. Every portal ticket
+  showed "Open"/"Email" under Arabic. Changed to raw enum keys (matching the agent-facing
+  `TicketListSerializer`), translated client-side.
+- Four reference-list dropdowns (customer list's branch filter, KB editor's category picker,
+  new-ticket form's category and department pickers) rendered `name_en` unconditionally instead of
+  switching on the active language — fixable without touching the backend, since those endpoints
+  already return both `name_en`/`name_ar`.
+- `Register.tsx` had no language toggle at all, unlike every other unauthenticated screen — a
+  customer with no session yet had no way to reach Arabic on that specific route.
+
+### The responsive pass found the context pane was not "hidden," it was gone
+
+`TicketContext`'s `hidden ... xl:flex` classing meant the customer/SLA/assignment information was
+**unreachable, not merely tucked away**, below 1280px — there was no toggle, just `display:none`.
+Split the panel's content into `TicketContextPanel` and added a dialog-based drawer reached via a
+toggle button below `xl`. Separately, the whole three-pane workspace overflowed badly below 768px (a
+fixed 300px queue next to a detail pane with its own minimum width does not fit at 375px) — fixed by
+stacking the queue and the detail pane into two full-width "pages" with a back-to-queue link, and by
+collapsing `AppChrome`'s six-item nav into a menu button below `lg` (it overflowed the header at
+375px on its own, independent of the ticket workspace).
+
+### The states audit found three screens with no error state at all
+
+`ReportsPage`, `CustomerList`, and `PortalHome` all destructured `isPending` from their queries but
+never `isError` — a failed request left stale or empty data on screen with no indication anything
+had gone wrong, which is worse than a raw exception message: at least a raw error says something
+broke. Added a `role="alert"` banner with a retry button wired to `refetch()` to each. `ActivityLog`
+also returned `null` while its events query was pending (a genuine blank flash), replaced with three
+skeleton rows.
+
+### The demo rehearsal found the most serious bug of the project
+
+Registering as a customer, submitting a ticket, then searching for it in `agent@demo`'s queue: **it
+was not there.** `PortalTicketViewSet.perform_create` never set a `department`, and `scope_tickets`
+shows an agent only work in their own department, assigned to them, or watched by them — a ticket
+with none of the three is invisible to every agent and manager, visible only to an admin. This is
+the story-08 department bug's twin, on the other side of the trust boundary, and it went unnoticed
+through the whole of story 09 because nothing in that story's own testing ever completed the loop
+of "submit as a customer, then look for it as an agent." Fixed by defaulting new portal tickets to
+the "general" department, with a dedicated regression test asserting a fresh portal ticket is
+visible to at least one non-admin queue. **This is exactly why `DEMO.md` has to be rehearsed for
+real and not written from memory of how the app is supposed to behave** — a plan-only or
+code-review-only pass reads `perform_create` and sees nothing wrong, because the bug is in what the
+function does *not* set, not in anything it does incorrectly.
+
+### What I learned
+
+- **A missing i18n key is a silent bug until something is configured to treat it as a loud one.**
+  `missingKeyHandler` existed as an i18next option the whole project; it just was never turned on
+  until the story whose job was specifically to look for exactly this class of bug.
+- **"Hidden below a breakpoint" and "unreachable below a breakpoint" are different claims**, and the
+  Tailwind class list alone does not distinguish them — `hidden xl:flex` reads, at a glance, like a
+  responsive design decision. It takes actually resizing the viewport and checking what happens to
+  the information that pane carried to tell the two apart.
+- **An end-to-end rehearsal finds bugs that neither a passing test suite nor a code review can**,
+  because both of those operate story-by-story on code that is individually correct — the portal
+  department bug was invisible to story 09's own tests because nothing in that story's scope ever
+  played both roles (customer, then agent) against the same ticket in sequence. The bug lived
+  entirely in the gap between two stories that were each, on their own terms, done correctly.

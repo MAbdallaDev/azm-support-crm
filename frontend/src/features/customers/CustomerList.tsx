@@ -32,7 +32,8 @@ const TIER_CLASS: Record<string, string> = {
 };
 
 export default function CustomerList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
   const filters = useUrlFilters({ keys: FILTER_KEYS });
   const { data: branches } = useBranches();
 
@@ -43,7 +44,7 @@ export default function CustomerList() {
     return params;
   }, [filters.search, sort]);
 
-  const { data, isPending } = useCustomerList(apiParams);
+  const { data, isPending, isError, refetch } = useCustomerList(apiParams);
   const rows = data?.results ?? [];
   const pageCount = data ? Math.max(1, Math.ceil(data.count / 25)) : 1;
 
@@ -95,6 +96,18 @@ export default function CustomerList() {
         <h1 className="text-[22px] font-bold tracking-[-0.01em]">{t("customers.title")}</h1>
       </div>
 
+      {isError ? (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-priority-urgent/30 bg-priority-urgent-bg px-3.5 py-2.5 text-[12.5px] font-medium text-priority-urgent"
+        >
+          <span>{t("customers.loadFailed")}</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            {t("auth.retry")}
+          </Button>
+        </div>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
           type="search"
@@ -135,7 +148,7 @@ export default function CustomerList() {
           <option value="">{t("customers.anyBranch")}</option>
           {(branches ?? []).map((branch) => (
             <option key={branch.id} value={branch.id}>
-              {branch.name_en}
+              {isArabic ? branch.name_ar : branch.name_en}
             </option>
           ))}
         </select>

@@ -107,6 +107,7 @@
   },
   "portal": {
     "home": "My requests",
+    "loadFailed": "Your requests could not be loaded.",
     "openTickets": "Open",
     "closedTickets": "Closed",
     "noOpenTickets": "No open requests",
@@ -171,6 +172,11 @@
     "database": "Database",
     "checking": "Checking…",
     "unreachable": "Unreachable"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This screen hit an unexpected error. Reloading usually fixes it; the error has been logged.",
+    "reload": "Reload"
   },
   "notFound": {
     "title": "Not built yet",
@@ -334,6 +340,7 @@
   },
   "customers": {
     "title": "Customers",
+    "loadFailed": "The customer list could not be loaded.",
     "search": "Search name, company, email or phone",
     "anyBranch": "Any branch",
     "colName": "Name",
@@ -456,6 +463,7 @@
   },
   "reports": {
     "title": "Reports",
+    "loadFailed": "Some figures could not be loaded.",
     "range": "Date range",
     "rangeDays": "{{count}}d",
     "periodDays": "last {{count}} days",

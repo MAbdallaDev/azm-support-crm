@@ -7,6 +7,7 @@ import { tokenStore } from "./api/tokenStore";
 import AppChrome from "./components/shell/AppChrome";
 import PortalChrome from "./components/shell/PortalChrome";
 import { ProtectedRoute } from "./components/shell/ProtectedRoute";
+import RouteErrorBoundary, { RouteErrorElement } from "./components/shell/RouteErrorBoundary";
 import { Toaster } from "./components/ui/toast";
 import "./i18n";
 import "./index.css";
@@ -115,19 +116,25 @@ const router = createBrowserRouter([
   {
     path: "/app",
     element: (
-      <ProtectedRoute audience="staff">
-        <AppChrome />
-      </ProtectedRoute>
+      <RouteErrorBoundary>
+        <ProtectedRoute audience="staff">
+          <AppChrome />
+        </ProtectedRoute>
+      </RouteErrorBoundary>
     ),
+    errorElement: <RouteErrorElement />,
     children: appRouteChildren,
   },
   {
     path: "/portal",
     element: (
-      <ProtectedRoute audience="customer">
-        <PortalChrome />
-      </ProtectedRoute>
+      <RouteErrorBoundary>
+        <ProtectedRoute audience="customer">
+          <PortalChrome />
+        </ProtectedRoute>
+      </RouteErrorBoundary>
     ),
+    errorElement: <RouteErrorElement />,
     children: [
       { index: true, element: <PortalHome /> },
       { path: "new", element: <SubmitTicket /> },

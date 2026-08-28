@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { useRegister } from "@/api/portal";
 import { homePathForRole } from "@/api/tokenStore";
+import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,6 +116,14 @@ export default function Register() {
             {t("auth.signIn")}
           </Link>
         </p>
+
+        {/* Every other unauthenticated screen (Login) offers this — a
+            registering customer with no session yet has no other way to
+            reach Arabic on this specific route. */}
+        <div className="mt-5 flex items-center justify-center gap-2">
+          <span className="text-[12px] text-muted-foreground">{t("auth.language")}</span>
+          <LanguageToggle />
+        </div>
       </div>
     </div>
   );

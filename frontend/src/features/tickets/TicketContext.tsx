@@ -301,7 +301,14 @@ function AssignmentBlock({ ticket }: { ticket: TicketDetail }) {
   );
 }
 
-export function TicketContext({ ticket }: { ticket: TicketDetail }) {
+/**
+ * The tabs + body shared by the desktop `<aside>` and the narrower-viewport
+ * drawer — the same three tabs, SLA bars and assignment block either way.
+ * Split out so `TicketContext` (xl and up, a fixed 336px column) and
+ * `TicketContextDrawer` (below xl, a `Dialog` reached via a toggle button)
+ * never carry two copies of this content to drift apart.
+ */
+export function TicketContextPanel({ ticket }: { ticket: TicketDetail }) {
   const { t } = useTranslation();
   const [tab, setTab] = React.useState<ContextTab>("customer");
 
@@ -323,7 +330,7 @@ export function TicketContext({ ticket }: { ticket: TicketDetail }) {
   );
 
   return (
-    <aside className="hidden w-[336px] flex-none flex-col overflow-y-auto border-s border-line bg-background xl:flex">
+    <>
       <div className="flex flex-none gap-5 px-[18px] pt-4">
         {tabButton("customer", t("context.customer"))}
         {tabButton("history", t("context.history"))}
@@ -350,6 +357,14 @@ export function TicketContext({ ticket }: { ticket: TicketDetail }) {
           </>
         ) : null}
       </div>
+    </>
+  );
+}
+
+export function TicketContext({ ticket }: { ticket: TicketDetail }) {
+  return (
+    <aside className="hidden w-[336px] flex-none flex-col overflow-y-auto border-s border-line bg-background xl:flex">
+      <TicketContextPanel ticket={ticket} />
     </aside>
   );
 }

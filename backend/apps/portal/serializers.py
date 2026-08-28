@@ -38,8 +38,14 @@ class PortalTicketSerializer(serializers.ModelSerializer):
     """
 
     category = serializers.CharField(source="category.name_en", read_only=True, default="")
-    channel = serializers.CharField(source="get_channel_display", read_only=True)
-    status = serializers.CharField(source="get_status_display", read_only=True)
+    # Raw enum keys, not `get_..._display()` text — the display text is
+    # English-only regardless of the customer's language (Django's choice
+    # labels are not translated here), which showed up as an orphaned English
+    # word ("Open", "Email") under an Arabic-language portal session. The
+    # frontend already has `status.*`/`channel.*` translations for exactly
+    # these keys, the same ones the agent-facing TicketListSerializer exposes.
+    channel = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
     target_date = serializers.DateTimeField(source="sla_resolution_due_at", read_only=True)
     message_count = serializers.SerializerMethodField()
     csat = serializers.SerializerMethodField()

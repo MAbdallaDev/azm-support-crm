@@ -15,13 +15,15 @@ import { formatDate } from "@/lib/format";
  * `/portal` — `PortalHome.dc.html`: the customer's own tickets, open and
  * closed, a prominent submit action, and a KB search box.
  *
- * A closed status here is whatever `PortalTicketSerializer.status` (a
- * `get_status_display` string, e.g. "Resolved" or "Closed") reports — open vs
- * closed is decided on that text rather than on the raw enum key the portal
- * serializer deliberately never exposes.
+ * `PortalTicketSerializer.status`/`.channel` are the raw enum keys (`"open"`,
+ * `"email"`), the same values `TicketListSerializer` exposes on the agent
+ * side — not `get_..._display()` text, which is English-only regardless of
+ * the customer's language and showed up as an orphaned English word under an
+ * Arabic session during story 10's sweep. Translated here via the existing
+ * `status.*`/`channel.*` keys instead.
  */
 
-const CLOSED_LABELS = new Set(["Resolved", "Closed"]);
+const CLOSED_STATUSES = new Set(["resolved", "closed"]);
 
 function TicketRow({ ticket }: { ticket: PortalTicket }) {
   const { t } = useTranslation();
@@ -35,8 +37,8 @@ function TicketRow({ ticket }: { ticket: PortalTicket }) {
       <span className="hidden w-[110px] flex-none text-[11.5px] text-muted-foreground sm:block">
         {formatDate(ticket.created_at)}
       </span>
-      <Pill className="bg-surface-3 text-slate-600">{ticket.status}</Pill>
-      <span className="hidden text-[11px] text-muted-foreground md:block">{t(`channel.${ticket.channel}`, ticket.channel)}</span>
+      <Pill className="bg-surface-3 text-slate-600">{t(`status.${ticket.status}`)}</Pill>
+      <span className="hidden text-[11px] text-muted-foreground md:block">{t(`channel.${ticket.channel}`)}</span>
     </Link>
   );
 }
@@ -46,10 +48,10 @@ export default function PortalHome() {
   const navigate = useNavigate();
   const [query, setQuery] = React.useState("");
 
-  const { data, isPending } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
+  const { data, isPending, isError, refetch } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
   const tickets = data?.results ?? [];
-  const open = tickets.filter((ticket) => !CLOSED_LABELS.has(ticket.status));
-  const closed = tickets.filter((ticket) => CLOSED_LABELS.has(ticket.status));
+  const open = tickets.filter((ticket) => !CLOSED_STATUSES.has(ticket.status));
+  const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
 
   const onSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -67,6 +69,18 @@ export default function PortalHome() {
           </Link>
         </Button>
       </div>
+
+      {isError ? (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-priority-urgent/30 bg-priority-urgent-bg px-3.5 py-2.5 text-[12.5px] font-medium text-priority-urgent"
+        >
+          <span>{t("portal.loadFailed")}</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            {t("auth.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <form onSubmit={onSearch} className="mt-4 flex items-center gap-2">
         <div className="relative flex-1">

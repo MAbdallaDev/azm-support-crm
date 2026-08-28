@@ -45,7 +45,8 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function NewTicket() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language.startsWith("ar");
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const queryClient = useQueryClient();
@@ -196,7 +197,7 @@ export default function NewTicket() {
               <option value="">{t("newTicket.noCategory")}</option>
               {(categories ?? []).map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.name_en}
+                  {isArabic ? category.name_ar : category.name_en}
                 </option>
               ))}
             </select>
@@ -221,7 +222,7 @@ export default function NewTicket() {
             <option value="">{t("newTicket.noDepartment")}</option>
             {(departments ?? []).map((department) => (
               <option key={department.id} value={department.id}>
-                {department.name_en}
+                {isArabic ? department.name_ar : department.name_en}
               </option>
             ))}
           </select>

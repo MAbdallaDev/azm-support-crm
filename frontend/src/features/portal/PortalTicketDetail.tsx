@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
  * criterion 14's portal-endpoint-only test exists to catch.
  */
 
-const RATEABLE = new Set(["Resolved", "Closed"]);
+const RATEABLE = new Set(["resolved", "closed"]);
 
 function CsatWidget({ ticketId, existing }: { ticketId: number; existing: { score: number; comment: string } | null }) {
   const { t } = useTranslation();
@@ -153,7 +153,7 @@ export default function PortalTicketDetail() {
 
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
         <h1 className="text-[19px] font-bold tracking-[-0.01em]">{ticket.subject}</h1>
-        <Pill className="bg-surface-3 text-slate-600">{ticket.status}</Pill>
+        <Pill className="bg-surface-3 text-slate-600">{t(`status.${ticket.status}`)}</Pill>
       </div>
       <p className="mono-ltr mt-1 text-[12px] text-muted-foreground">{ticket.number}</p>
 
@@ -164,7 +164,7 @@ export default function PortalTicketDetail() {
         </div>
         <div>
           <dt className="text-faint">{t("newTicket.channel")}</dt>
-          <dd className="mt-0.5 font-medium">{ticket.channel}</dd>
+          <dd className="mt-0.5 font-medium">{t(`channel.${ticket.channel}`)}</dd>
         </div>
         <div>
           <dt className="text-faint">{t("portal.createdOn")}</dt>

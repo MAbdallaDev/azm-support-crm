@@ -231,7 +231,10 @@ def test_customer_supplied_privileged_fields_are_dropped_not_rejected(
         ticket = Ticket.objects.get(number=response.data["number"])
         assert ticket.assignee is None
         assert ticket.status == Status.NEW
-        assert ticket.department_id is None
+        # The ticket does get a department — every portal ticket does, so it
+        # is visible to some agent's queue — but never the customer-supplied
+        # one. Proven here by it not being the agent's own department.
+        assert ticket.department_id != agent.department_id
         assert ticket.priority == "normal", "priority must be clamped, not honoured"
         assert ticket.customer_id == user.customer_id, "customer comes from the session"
 
