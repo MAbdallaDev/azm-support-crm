@@ -107,6 +107,7 @@
   },
   "portal": {
     "home": "طلباتي",
+    "loadFailed": "تعذّر تحميل طلباتك.",
     "openTickets": "المفتوحة",
     "closedTickets": "المغلقة",
     "noOpenTickets": "لا توجد طلبات مفتوحة",
@@ -339,6 +340,7 @@
   },
   "customers": {
     "title": "العملاء",
+    "loadFailed": "تعذّر تحميل قائمة العملاء.",
     "search": "ابحث بالاسم أو الشركة أو البريد أو الهاتف",
     "anyBranch": "أي فرع",
     "colName": "الاسم",
@@ -461,6 +463,7 @@
   },
   "reports": {
     "title": "التقارير",
+    "loadFailed": "تعذّر تحميل بعض الأرقام.",
     "range": "الفترة الزمنية",
     "rangeDays": "{{count}} يوم",
     "periodDays": "آخر {{count}} يومًا",

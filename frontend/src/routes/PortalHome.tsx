@@ -48,7 +48,7 @@ export default function PortalHome() {
   const navigate = useNavigate();
   const [query, setQuery] = React.useState("");
 
-  const { data, isPending } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
+  const { data, isPending, isError, refetch } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
   const tickets = data?.results ?? [];
   const open = tickets.filter((ticket) => !CLOSED_STATUSES.has(ticket.status));
   const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
@@ -69,6 +69,18 @@ export default function PortalHome() {
           </Link>
         </Button>
       </div>
+
+      {isError ? (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-priority-urgent/30 bg-priority-urgent-bg px-3.5 py-2.5 text-[12.5px] font-medium text-priority-urgent"
+        >
+          <span>{t("portal.loadFailed")}</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            {t("auth.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <form onSubmit={onSearch} className="mt-4 flex items-center gap-2">
         <div className="relative flex-1">

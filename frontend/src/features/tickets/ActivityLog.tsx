@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import type { TicketEvent } from "@/api/types";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -36,7 +37,15 @@ export function ActivityLog({
 }) {
   const { t, i18n } = useTranslation();
 
-  if (isPending) return null;
+  if (isPending) {
+    return (
+      <div className="space-y-2.5">
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton key={index} className="h-8 w-full" />
+        ))}
+      </div>
+    );
+  }
 
   if (events.length === 0) {
     return <EmptyState title={t("tickets.noActivity")} description="" />;

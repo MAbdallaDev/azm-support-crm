@@ -44,7 +44,7 @@ export default function CustomerList() {
     return params;
   }, [filters.search, sort]);
 
-  const { data, isPending } = useCustomerList(apiParams);
+  const { data, isPending, isError, refetch } = useCustomerList(apiParams);
   const rows = data?.results ?? [];
   const pageCount = data ? Math.max(1, Math.ceil(data.count / 25)) : 1;
 
@@ -95,6 +95,18 @@ export default function CustomerList() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-[22px] font-bold tracking-[-0.01em]">{t("customers.title")}</h1>
       </div>
+
+      {isError ? (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-priority-urgent/30 bg-priority-urgent-bg px-3.5 py-2.5 text-[12.5px] font-medium text-priority-urgent"
+        >
+          <span>{t("customers.loadFailed")}</span>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            {t("auth.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input

@@ -183,10 +183,18 @@ export default function ReportsPage() {
   const days = (Number(search.get("days")) as (typeof RANGES)[number]) || 30;
   const setDays = (value: number) => setSearch({ days: String(value) }, { replace: false });
 
-  const { data: overview, isPending: overviewPending } = useOverviewReport(days);
-  const { data: volume, isPending: volumePending } = useVolumeReport(days);
-  const { data: agents, isPending: agentsPending } = useAgentsReport(days);
-  const { data: csat, isPending: csatPending } = useCSATReport(days);
+  const { data: overview, isPending: overviewPending, isError: overviewError, refetch: refetchOverview } = useOverviewReport(days);
+  const { data: volume, isPending: volumePending, isError: volumeError, refetch: refetchVolume } = useVolumeReport(days);
+  const { data: agents, isPending: agentsPending, isError: agentsError, refetch: refetchAgents } = useAgentsReport(days);
+  const { data: csat, isPending: csatPending, isError: csatError, refetch: refetchCsat } = useCSATReport(days);
+
+  const anyError = overviewError || volumeError || agentsError || csatError;
+  const retryAll = () => {
+    if (overviewError) void refetchOverview();
+    if (volumeError) void refetchVolume();
+    if (agentsError) void refetchAgents();
+    if (csatError) void refetchCsat();
+  };
 
   const [sort, setSort] = React.useState<SortState>(null);
 
@@ -290,6 +298,18 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
+
+      {anyError ? (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-priority-urgent/30 bg-priority-urgent-bg px-3.5 py-2.5 text-[12.5px] font-medium text-priority-urgent"
+        >
+          <span>{t("reports.loadFailed")}</span>
+          <Button variant="outline" size="sm" onClick={retryAll} data-testid="reports-retry">
+            {t("auth.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
         <Tile
