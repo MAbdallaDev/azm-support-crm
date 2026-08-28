@@ -16,7 +16,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
 | 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
 | 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | ✅ implemented |
-| 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
+| 09 | [09-story-09-reports-portal-ui.md](09-story-09-reports-portal-ui.md) | Manager reports & customer portal | — | Stories 05, 08 | — |
 | 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
 
 Each story's intake is at `.squad/stories/crm-mvp/<id>/intake.md`. Plans are generated one at a time
