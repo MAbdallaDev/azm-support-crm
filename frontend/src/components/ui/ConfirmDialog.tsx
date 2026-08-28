@@ -29,6 +29,13 @@ export type ConfirmDialogProps = {
   cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void;
+  /**
+   * Optional extra field, e.g. the reason an escalation asks for. Rendered
+   * between the description and the actions so the prompt and the input it
+   * asks for stay together — a separate dialog for "and why?" would be a
+   * second click for one sentence.
+   */
+  children?: React.ReactNode;
 };
 
 export function ConfirmDialog({
@@ -40,6 +47,7 @@ export function ConfirmDialog({
   cancelLabel,
   destructive = false,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
 
@@ -55,6 +63,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
             <Button variant="outline">{cancelLabel ?? t("common.cancel")}</Button>

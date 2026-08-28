@@ -777,3 +777,104 @@ was frozen after story 05.
 - **Rendering both languages side by side finds things toggling does not.** Half the layout problems
   I would have shipped were only visible with the two columns adjacent — a badge that looked fine
   alone read as misaligned next to its mirror.
+
+---
+
+## Story 07 — Agent workspace: ticket queue & detail          (elapsed: ~1h 50m)
+
+**Model:** Claude Opus 5 via Claude Code. **Plan:** `.squad/plans/crm-mvp/07-story-07-agent-workspace.md`.
+
+The three-pane workspace, the agent dashboard, and — unusually for a frontend story — **six backend
+additions**. Frontend: **145 Vitest tests** (up from 74), `check:rtl` green, `npm run build` clean,
+lint 0 errors. Backend: **370 tests** (up from 347), OpenAPI schema still **zero warnings**.
+
+### The six backend additions, and why a frontend story grew the API
+
+Every one exists because a criterion could not be met from the API as story 05 froze it. Listing
+them here rather than leaving a reviewer to find them in the diff:
+
+1. **`allowed_transitions` on `TicketDetailSerializer`.** The status dropdown must offer only moves
+   the backend permits. `ALLOWED_TRANSITIONS` lived in `ticket_service` and was never serialised, so
+   the only alternatives were to transcribe the map client-side or to guess. A transcribed map
+   drifts silently and offers moves the API then refuses with a 400 the agent cannot act on.
+2. **`resolution_sla` on `TicketListSerializer`.** Queue rows show a live countdown that turns red on
+   breach, but the list carried only `sla_resolution_due_at` and a boolean. Without this the queue
+   would need a *second* SLA component with its own colour logic — and the queue's colour and the
+   detail pane's would drift the first time either rule changed. Story 04's
+   `test_queue_performance.py` still passes, which is the proof it is not an N+1.
+3. **`due_within_minutes`.** "Breaching within the hour" is not `breached=true` (already breached).
+   The window is `[now, now+N]` and deliberately **excludes** the already-breached, so the two
+   dashboard tiles report disjoint sets rather than double-counting one ticket.
+4. **`resolved_after` / `resolved_before`.** "Resolved by me today" — only `created_at` had a range.
+5. **`department_code`.** `MeSerializer.department` is a `SlugRelatedField` returning a code string,
+   so the client holds no primary key for the existing pk-based `department` filter. Added
+   *alongside* it, so story 04's tests keep passing; codes also make a shared link readable
+   (`?department_code=billing`).
+6. **`reports/my-summary/`.** The four manager reports are `IsManager`-gated, so an agent — the
+   dashboard's audience — gets a 403 from all of them. Four of the five numbers were obtainable from
+   `tickets/` count queries; **`csat_average` was not**, because `csat_score` appears on the detail
+   serializer only. One request instead of five, and the honest home for a figure no filter can
+   express.
+
+### Where the plan and the code disagreed, and which won
+
+- **"the eighteen-entry `ALLOWED_CONTENT_TYPES`"** — the set in `views.py` has **sixteen**. The code
+  won; `attachments.test.ts` pins the count on the client so an edit to either side fails there
+  rather than as a confusing 400 at upload time.
+- **The shared ticker vs story 06's per-component interval.** The plan asked for one timer; story
+  06's as-built note defended one interval per `SlaBar` ("fifty rows must not re-render a page each
+  second"). **Both are right and they were never in conflict** — the expensive thing is a
+  *page-level state update*, not the timer. `useSyncExternalStore` gives the third option: one
+  interval, and each subscriber re-rendering only itself. A test asserts one `setInterval` for three
+  mounted bars, and that no timer runs at all when nothing is counting down.
+
+### Four bugs the work surfaced
+
+- **The activity log was rendering oldest-first.** `TicketEvent.Meta.ordering` is `["-created_at"]`,
+  so the API already returns newest-first; my `[...events].reverse()` was written assuming ascending
+  and silently flipped it. Found by escalating a real ticket and looking at the result, not by a
+  test — the log looked perfectly plausible either way, which is exactly why it survived to that
+  point.
+- **`check:rtl` flagged its own prose.** The stripper tested whether a line *started* with a comment
+  marker, which misses the continuation lines of a JSX block comment — where the English word
+  "left-to-right" sits. Replaced with a stateful scan that tracks `/* … */` across lines. Verified it
+  still catches a planted `ml-2 text-right` in all three comment styles.
+- **"Resolved by me today" started at UTC midnight, not local midnight.** `TIME_ZONE` is
+  `Asia/Riyadh` (UTC+3), so `timezone.now().replace(hour=0)` began "today" three hours late and
+  silently dropped everything an agent resolved between 00:00 and 03:00 their time. The dashboard
+  link already used the browser's local midnight, so the tile and the queue it opens would have
+  disagreed — the one thing these figures must never do. Caught by accident: my own test used
+  `now - 10 minutes`, which lands in *yesterday* when the suite runs within ten minutes of UTC
+  midnight, and the suite happened to run at 00:07. The test is now anchored one minute either side
+  of local midnight, and I verified it fails against the UTC implementation before keeping the fix.
+- **Arabic durations still read `1h 39m`.** `formatDuration` hard-coded `d`/`h`/`m`/`s`. It is the
+  number an agent looks at most, and it was the last visibly English thing on an otherwise flipped
+  screen. Unit letters now translate; **digits stay Western**, per the design.
+
+### Test-harness mistakes worth recording
+
+Three of my own tests failed for reasons that had nothing to do with the code under test, and each
+would have been a bad test even had it passed:
+
+- **`gcTime: 0`** in the shared query client collected cache entries that had no observer, so a test
+  seeding data with `setQueryData` and then asserting on it read as "the mutation did not update the
+  cache". Freshness per test comes from a new client, not from collection.
+- **A fixture body of `"Internal note"`** matched the composer's own mode-tab label, so the assertion
+  passed against the wrong element entirely.
+- **Tile testids built from translated labels** broke the moment `me` was undefined — and would have
+  broken again the first time anyone ran them in Arabic. Now stable keys.
+
+### What I learned
+
+- **"Read it from the API" is a design position that needs a serialiser to exist.** The rule that a
+  state machine must not be transcribed client-side is easy to agree with and impossible to honour
+  if the map is never sent. Four of the six backend additions are that same shape: the frontend
+  constraint was already agreed, and the API simply had no way to express it yet.
+- **Two numbers that must agree should be provable, not asserted in prose.** The dashboard tiles and
+  the queues they open are the clearest case — a tile showing 7 that opens a list of 5 teaches an
+  agent not to trust any of the numbers. `test_my_summary.py` runs both halves and compares them,
+  which is a very different thing from a comment saying they match.
+- **Verifying in the browser found what the tests could not.** Every test passed while the activity
+  log was in the wrong order and Arabic durations said "39m", because both were plausible. The
+  measurements that caught the layout being right — pane widths 300/flex/336, `border-inline-start`
+  resolving to the right edge under RTL — were also only available by looking.

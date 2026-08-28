@@ -14,7 +14,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
 | 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
 | 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
-| 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
+| 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
 | 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
 | 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
 | 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
@@ -279,6 +279,92 @@ Two open items story 07 inherits, both deliberate:
 One environment note: **the `web` container's `node_modules` is an anonymous volume baked from the
 image**, so new dependencies need `docker compose up -d --build --renew-anon-volumes web`, not a
 restart. A fresh clone never sees this — the image build reads the committed lockfile.
+
+## Story 07 — as built
+
+Implemented. The three-pane agent workspace (`Main.dc.html`: queue 300px / conversation flex /
+context 336px), the agent dashboard, and **six backend additions**. Frontend: **145 Vitest tests**
+(up from 74), `check:rtl` green, `npm run build` clean, lint 0 errors. Backend: **370 tests** (up
+from 347), OpenAPI schema still **zero warnings**.
+
+Verified against the running stack as `agent@demo`: all four queue tabs carry non-zero server-side
+counts (99 / 25 / 5 / 16 under agent scoping); a `new` ticket's dropdown offers exactly *Open* and
+*Escalated*, and after escalating offers *Open* and *Resolved*; every dashboard tile's number equals
+the row count of the queue its link opens; and in Arabic the panes mirror (queue at x=1125, context
+at x=0), `border-inline-start` resolves to the right edge, and `TK-0150` stays `dir: ltr`.
+
+**A frontend story grew the API, and that is worth a reviewer's attention.** Each addition exists
+because a criterion could not be met from the API as story 05 froze it:
+
+- **`allowed_transitions`** on the ticket detail — the status dropdown reads the state machine
+  instead of transcribing it. A client-side copy drifts silently and offers moves the API refuses.
+- **`resolution_sla`** on the list serializer — one `sla_state` call feeds both a queue row and the
+  detail pane, so their colours cannot diverge. Story 04's `test_queue_performance.py` still passes,
+  which is the proof it is not an N+1.
+- **`due_within_minutes`** — "breaching within the hour", a set deliberately **disjoint** from
+  `breached=true` so two dashboard tiles never double-count one ticket.
+- **`resolved_after` / `resolved_before`** — "resolved by me today".
+- **`department_code`** — added *alongside* the pk-based `department`, because
+  `MeSerializer.department` is a code string and the client holds no id to filter with.
+- **`reports/my-summary/`** — agent-reachable, unlike the four `IsManager` reports. Four of its five
+  numbers were obtainable from count queries; **`csat_average` was not**, since `csat_score` appears
+  only on the detail serializer.
+
+What stories 08–09 consume:
+
+- **`useSecondsTick` in `src/lib/ticker.ts` is the app's only countdown timer.** One module-level
+  interval, subscribed to via `useSyncExternalStore`; it starts on the first subscriber and stops on
+  the last. Story 06's per-component interval and story 07's "single shared timer" were never in
+  conflict — the expensive thing is a *page-level* state update, not the timer, and an external
+  store gives one timer with each subscriber re-rendering only itself. **Do not add a second
+  interval**; a test asserts one `setInterval` for three mounted `SlaBar`s.
+- **Queue filter state lives in the URL** (`useTicketFilters`), never in component state. A filtered
+  queue is a shareable link that survives reload and the back button. `tabParams` and
+  `buildApiParams` are exported and pure so a tab's **badge count** and its **list** provably use the
+  same filter; the badges request `page_size=1` rather than fetching 25 rows to discard them.
+- **Every tab is a server filter.** Never a client-side pass over a fetched page — the page is 25 of
+  150 rows, so filtering locally produces a convincing list that is simply wrong.
+- **Ticket mutations seed the detail cache from their own response**, then invalidate
+  `qk.tickets.all`. All six actions return the full `TicketDetailSerializer`, so refetching the
+  detail afterwards is a round trip whose answer you already hold. Status/escalate/resolve are
+  optimistic with a snapshot rollback and an error toast; **assign deliberately is not**, because an
+  auto-assign has no predictable outcome to patch in and a 409 is a legitimate answer, not a failure.
+- **The composer's mode is carried by the field itself**, not just a selected tab — the internal-note
+  mode tints the textarea. This is the one control where a mistake is published to a customer. Its
+  test asserts the *class actually changes*, not that a state variable flipped.
+- **Drafts live in `sessionStorage`, keyed by ticket id *and* mode**, so a half-written internal note
+  can never surface in the reply box. They survive navigation and are kept on a failed send — losing
+  what someone just wrote is worse than any error message.
+- **`src/api/attachments.ts` mirrors the backend's limits.** 10 MB and **sixteen** content types (the
+  story-07 plan says eighteen; the set in `views.py` has sixteen — the code is the authority, and
+  `attachments.test.ts` pins the count so an edit to either side fails there rather than at upload).
+- **The Activity log renders translated sentences in the API's own newest-first order.**
+  `TicketEvent.Meta.ordering` is `["-created_at"]`; do not re-sort client-side. Enum values go back
+  through `status.*` / `priority.*`, and an unknown event type falls back to a generic sentence
+  rather than rendering blank.
+- **`src/test/apiMock.ts` stubs the axios *adapter*, not the hooks.** Everything above it runs for
+  real, which is what lets a test assert *about the requests themselves* ("this count came from a
+  server query"). Later registrations override earlier ones, so a test can replace a `beforeEach`
+  default. `makeQueryClient` uses `gcTime: Infinity` — with `0`, a cache entry seeded by
+  `setQueryData` and having no observer is collected between the write and the assertion.
+
+Three things later work must not undo:
+
+- **`reports/my-summary/` counts from LOCAL midnight** (`timezone.localtime`), not UTC.
+  `TIME_ZONE` is `Asia/Riyadh`, so a UTC boundary starts "today" three hours late and makes the tile
+  disagree with the queue its link opens. `test_resolved_by_me_today_starts_at_LOCAL_midnight`
+  anchors one minute either side of the boundary and was verified to fail against the UTC version.
+- **`check:rtl` now strips comments with a stateful block-comment scan**, because a JSX block
+  comment's continuation lines begin with ordinary prose — and English prose says "left-to-right"
+  constantly. Still verified to catch a planted `ml-2 text-right`.
+- **`formatDuration` translates its unit letters** (`h`/`m`/`d` → `س`/`د`/`ي`) while digits stay
+  Western. It is the number an agent looks at most and was the last visibly English thing on an
+  otherwise flipped screen.
+
+Story 06's two open items are both closed: the chrome's search field is wired (it writes `q` into the
+queue's URL parameter, debounced 300 ms), and `/app/tickets` and `/app/tickets/:id` are real routes
+above the in-layout catch-all. `/app/customers/:id` is linked from the context pane and still renders
+"not built yet" until story 08.
 
 ## Dependency notes
 

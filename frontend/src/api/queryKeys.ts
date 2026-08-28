@@ -7,9 +7,41 @@
  * `["ticket", id]` vs `["tickets", "detail", id]` is how a stale queue tab
  * happens, and it is invisible until someone notices the count is wrong.
  *
- * Stories 07–09 extend this file rather than adding keys inline.
+ * Stories 08–09 extend this file rather than adding keys inline.
  */
 export const qk = {
   health: ["health"] as const,
   me: ["auth", "me"] as const,
+
+  tickets: {
+    /**
+     * The prefix every ticket key starts with. `invalidateQueries` matches on
+     * prefix, so invalidating this one catches the list, every filtered
+     * variant, every detail and their sub-resources in a single call.
+     */
+    all: ["tickets"] as const,
+    /**
+     * Keyed on the **serialised query string**, so each filter combination
+     * caches separately — switching tabs back and forth is instant instead of
+     * refetching — while still sitting under `all` for invalidation.
+     */
+    list: (params: string) => ["tickets", "list", params] as const,
+    detail: (id: number) => ["tickets", "detail", id] as const,
+    messages: (id: number) => ["tickets", id, "messages"] as const,
+    events: (id: number) => ["tickets", id, "events"] as const,
+    attachments: (id: number) => ["tickets", id, "attachments"] as const,
+  },
+
+  cannedReplies: ["canned-replies"] as const,
+  categories: ["categories"] as const,
+  tags: ["tags"] as const,
+  agents: ["agents"] as const,
+
+  customers: {
+    all: ["customers"] as const,
+    detail: (id: number) => ["customers", "detail", id] as const,
+    notes: (id: number) => ["customers", id, "notes"] as const,
+  },
+
+  mySummary: ["reports", "my-summary"] as const,
 } as const;

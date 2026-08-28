@@ -14,11 +14,17 @@ import i18n from "@/i18n";
  * A **fresh** QueryClient per render, with retries off — a shared one would
  * leak a resolved `qk.me` from one test into the next, and retries turn a
  * deliberate 500 into a three-second test.
+ *
+ * `gcTime: Infinity` rather than 0: a test that seeds the cache with
+ * `setQueryData` and then asserts on it has no *observer* for that key, so a
+ * zero gc time collects the entry between the write and the assertion — which
+ * reads as "the mutation did not update the cache" and is nothing of the kind.
+ * Freshness per test comes from a new client, not from collection.
  */
 export const makeQueryClient = () =>
   new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: 0, refetchOnWindowFocus: false },
+      queries: { retry: false, gcTime: Infinity, refetchOnWindowFocus: false },
       mutations: { retry: false },
     },
   });
