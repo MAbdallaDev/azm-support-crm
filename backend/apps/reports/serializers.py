@@ -29,12 +29,27 @@ class BucketSerializer(serializers.Serializer):
     count = serializers.IntegerField()
 
 
+class DayChannelBucketSerializer(serializers.Serializer):
+    """One row per (day, channel) — a flat list rather than a nested
+    `{day: {channel: count}}`. Recharts' multi-line input wants one row per
+    x-value with a key per series; pivoting a flat list into that shape is a
+    few lines on the client, and a nested structure would need unpivoting
+    for no benefit over the flat bucket shape the other three groupings
+    already use.
+    """
+
+    day = serializers.CharField()
+    channel = serializers.CharField()
+    count = serializers.IntegerField()
+
+
 class VolumeReportSerializer(serializers.Serializer):
     days = serializers.IntegerField()
     by_status = BucketSerializer(many=True)
     by_priority = BucketSerializer(many=True)
     by_channel = BucketSerializer(many=True)
     by_day = BucketSerializer(many=True)
+    by_day_channel = DayChannelBucketSerializer(many=True)
 
 
 class AgentRowSerializer(serializers.Serializer):

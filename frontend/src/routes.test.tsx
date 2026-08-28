@@ -2,10 +2,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { appRouteChildren } from "@/main";
+import { tokenStore } from "@/api/tokenStore";
 import i18n from "@/i18n";
+import { installApiMock } from "@/test/apiMock";
+import type { ApiMock } from "@/test/apiMock";
 import { makeQueryClient } from "@/test/utils";
 
 /**
@@ -51,5 +54,32 @@ describe("tickets/new is registered above tickets/:id", () => {
     // Tickets.tsx's own empty-queue-selection copy would not appear if "new"
     // had swallowed this path too; a numeric id must still reach Tickets.
     expect(screen.queryByText(/Start this from a customer's page/)).not.toBeInTheDocument();
+  });
+});
+
+describe("story 09's reports route", () => {
+  let mock: ApiMock;
+
+  beforeEach(() => {
+    mock = installApiMock();
+    tokenStore.set({ access: "a", refresh: "r", role: "manager" });
+  });
+
+  afterEach(() => {
+    mock.restore();
+    tokenStore.clear();
+  });
+
+  it("resolves /app/reports to the reports page", () => {
+    const router = createMemoryRouter(appRouteChildren, { initialEntries: ["/reports"] });
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <I18nextProvider i18n={i18n}>
+          <RouterProvider router={router} />
+        </I18nextProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId("report-tile-total")).toBeInTheDocument();
   });
 });

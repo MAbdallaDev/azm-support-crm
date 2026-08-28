@@ -61,4 +61,28 @@ export const qk = {
   departments: ["departments"] as const,
 
   mySummary: ["reports", "my-summary"] as const,
+
+  /** The four manager-only reports. `days` is folded into each key so a range
+   *  change caches independently rather than refetching over the old data's flash. */
+  reports: {
+    overview: (params: string) => ["reports", "overview", params] as const,
+    volume: (params: string) => ["reports", "volume", params] as const,
+    agents: (params: string) => ["reports", "agents", params] as const,
+    csat: (params: string) => ["reports", "csat", params] as const,
+  },
+
+  /** Every portal query key. Distinct namespace from `tickets`/`kb` above —
+   *  `src/api/portal.ts` never imports those files, and this mirrors it. */
+  portal: {
+    tickets: {
+      all: ["portal", "tickets"] as const,
+      list: (params: string) => ["portal", "tickets", "list", params] as const,
+      detail: (id: number) => ["portal", "tickets", "detail", id] as const,
+      messages: (id: number) => ["portal", "tickets", id, "messages"] as const,
+    },
+    kb: {
+      list: (params: string) => ["portal", "kb", "list", params] as const,
+      detail: (slug: string) => ["portal", "kb", "detail", slug] as const,
+    },
+  },
 } as const;

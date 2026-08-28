@@ -193,6 +193,8 @@ def test_volume_groups_and_day_buckets(admin, org, customer):
     assert sum(row["count"] for row in data["by_priority"]) == 5
     assert sum(row["count"] for row in data["by_channel"]) == 5
     assert sum(row["count"] for row in data["by_day"]) == 5
+    assert sum(row["count"] for row in data["by_day_channel"]) == 5
+    assert all({"day", "channel", "count"} == set(row) for row in data["by_day_channel"])
 
 
 @pytest.mark.django_db

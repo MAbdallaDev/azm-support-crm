@@ -997,3 +997,100 @@ customer's whole lifetime.
 - **`useBlocker`'s boolean argument is a snapshot, not a live read.** Anything that flips a flag and
   immediately navigates in the same handler needs the function form (or an equivalent ref) if the flag
   is meant to already reflect the new state by the time the navigation is evaluated.
+
+## Story 09 — Manager reports & customer portal          (elapsed: ~2h 20m)
+
+**Model:** Claude Sonnet 5 via Claude Code. **Plan:** `.squad/plans/crm-mvp/09-story-09-reports-portal-ui.md`.
+
+Two audiences neither previous frontend story served: `/app/reports` for managers, and the whole
+`/portal/*` tree for customers — registration, home, submit, ticket detail with CSAT, and a
+knowledge-base browser. **Five backend additions.** Frontend: **202 Vitest tests** (up from 179).
+Backend: **391 tests** (up from 383), OpenAPI schema still **zero warnings**.
+
+### The five backend additions
+
+1. **Portal registration** (`RegisterView` at `portal/register/`, `AllowAny`) — the one
+   unauthenticated write this app has. Links to an existing `Customer` by email
+   (`email__iexact`) where one matches, otherwise creates one; the uniqueness check is against
+   `accounts.User`, not `Customer`, and a duplicate email gets the *same* generic 400 a malformed
+   one would — never "this email is taken", which is exactly the account-enumeration oracle the
+   plan calls out. The response reuses `LoginSerializer.get_token` rather than re-deriving the
+   token's `role`/`name` claims a second time — one place that stamps those claims, not two that
+   can drift apart.
+2. **`by_day_channel` on the volume report** — a fifth grouped query (`TruncDate` × `channel`),
+   returned as a flat `{day, channel, count}` list rather than nesting by day, because that is
+   exactly the shape a Recharts multi-line series wants and pivoting server-side would just be
+   unpivoted again on the client for the other three groupings' sake.
+3. **Attachments on a portal ticket submission**, validated through the *same*
+   `sanitise_filename` / size / content-type checks `TicketViewSet.attachments` already applies —
+   imported from `apps.tickets.views`, not copied, so the two checks cannot go stale independently.
+4. **Attachments on a portal reply** — the identical treatment, on the `messages` POST branch.
+5. **`csat` exposed on `PortalTicketSerializer`** (`{score, comment}` or `null`), with
+   `select_related("csat")` on the viewset queryset. Without this the POST response was the only
+   place a rating's score ever appeared — reload the page and there was nothing to read it from.
+
+**CSV export (Backend Task 6) is a deliberate frontend-only decision, not a gap.**
+`AgentsReportView` already returns the complete, unpaginated dataset in one response — every row a
+CSV would need is already in the browser's memory by the time an export click happens. A server
+endpoint would re-run the same aggregation for no benefit the client cannot already provide, so the
+CSV is built client-side from the fetched `agents` array and downloaded via a `Blob` + a temporary
+`<a download>`. No network request fires when the button is clicked — asserted directly in
+`ReportsPage.test.tsx`.
+
+### A gap surfaced, not silently worked around: no portal category picker
+
+`PortalTicketCreateSerializer.category` does accept a category id, but **no portal-reachable
+endpoint lists what those ids are.** `src/api/portal.ts` is not allowed to import the agent-facing
+`useCategories()` — that is precisely criterion 14's own constraint, checked by
+`portalEndpoints.test.tsx` sweeping every portal screen's real request URLs — and adding a
+`portal/categories/` endpoint was not among this story's five backend tasks. Building a dropdown
+from nothing would mean either an empty control or a secret import of the agent list, both worse
+than the honest choice: `SubmitTicket.tsx` renders no category picker and submits `category: null`.
+Recorded here rather than left for a reviewer to wonder about.
+
+### The KPI-tile-to-queue links, and where the mapping stops being exact
+
+Four of the six report tiles have an exact `TicketFilterSet` equivalent for the population they
+count (`total` → `created_after`, `open` → `created_after` + `status=`, `resolved today` →
+`created_after` + `resolved_after`, `breached` → `created_after` + `breached=true`) — verified live
+against the running stack: the Reports page showed "9 open" for the seeded 30-day window, and
+clicking through to the queue showed the identical "9 open" header. **SLA compliance % and CSAT
+average do not** — a percentage and an average are not a filterable *population*, so both tiles
+link to the reporting window as a whole rather than pretending a precise filter exists. Named here
+rather than left implicit.
+
+### The by-channel line chart and the SLA donut are designed, not copied from an artboard
+
+`Reports.dc.html` shows two charts (volume-by-status, the SLA donut); criterion 2 asks for four.
+The by-channel line (pivoted from `by_day_channel` via a pure `pivotByDayChannel` function, tested
+directly rather than through Recharts' own SVG output — jsdom's zero-sized `ResponsiveContainer`
+never actually renders a chart, so the series-count assertion has to hit the transform, not the
+DOM) and the CSAT-distribution bar are built to the same token set (`DesignSystem.dc.html`) instead
+of free-styled. RTL verified live: under `ع`, `document.documentElement.dir` is `"rtl"` and the
+volume-by-status chart's Y-axis renders on the chart's right edge (`orientation="right"`), not the
+left — confirmed by reading the actual bounding rect, not assumed from the prop being set.
+
+### `portalEndpoints.test.tsx` caught a substring-matching test bug, not a product bug
+
+Registering `apiMock` handlers broad-to-narrow (`/portal/tickets/` before `/portal/tickets/5/`)
+meant the *narrower* handler, matched via `.includes()`, would still lose to whichever handler was
+registered last — the general list handler's substring matched the specific ticket-detail and
+messages URLs too, so the detail fetch returned a paginated list envelope and `ticket.created_at`
+was `undefined`, crashing `formatDate` inside `PortalTicketDetail` with `RangeError: Invalid time
+value`. Fixed by registering broad-to-narrow in the test's own `beforeEach` — `apiMock`'s own
+contract is "last registration wins," which means specific routes must be registered *after*
+general ones, the opposite order that reads naturally on the page.
+
+### What I learned
+
+- **A registration endpoint's response shape should be the login response's shape, reusing the
+  exact same token-building code.** `RegisterResponseSerializer.build` calls
+  `LoginSerializer.get_token` rather than re-stamping `role`/`name` onto a fresh `RefreshToken` —
+  the two claims only need to be right in one place.
+- **`apiMock`'s `.includes()` matcher makes registration order load-bearing**, and the natural
+  writing order (general routes first, as the fixtures are usually listed) is backwards. Any test
+  mocking a resource **and** its own sub-resources needs the sub-resource routes registered last.
+- **A pure transform is more testable than the chart it feeds**, once a charting library's
+  container sizing depends on layout jsdom never performs. Exporting `pivotByDayChannel` and
+  `buildAgentsCsv` from `ReportsPage.tsx` for direct unit tests was cheaper and more honest than
+  trying to coax Recharts into rendering real SVG under `ResponsiveContainer` at 0×0.

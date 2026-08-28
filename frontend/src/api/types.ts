@@ -426,3 +426,116 @@ export type KBArticleWrite = {
   category: number | null;
   status: KBStatus;
 };
+
+// ---------------------------------------------------------------------------
+// Story 09 — manager reports and the customer portal.
+// ---------------------------------------------------------------------------
+
+/** `OverviewReportSerializer` — the six KPI tiles. */
+export type OverviewReport = {
+  days: number;
+  total: number;
+  open: number;
+  resolved_today: number;
+  breached: number;
+  avg_first_response_seconds: number | null;
+  avg_resolution_seconds: number | null;
+  sla_compliance_percent: number | null;
+  csat_average: number | null;
+};
+
+/** `BucketSerializer` — one grouped count. */
+export type ReportBucket = { key: string; count: number };
+
+/** `DayChannelBucketSerializer` — a flat row, pivoted client-side into Recharts' series shape. */
+export type DayChannelBucket = { day: string; channel: TicketChannel | string; count: number };
+
+/** `VolumeReportSerializer`. */
+export type VolumeReport = {
+  days: number;
+  by_status: ReportBucket[];
+  by_priority: ReportBucket[];
+  by_channel: ReportBucket[];
+  by_day: ReportBucket[];
+  by_day_channel: DayChannelBucket[];
+};
+
+/** `AgentRowSerializer` — one row of the (unpaginated, client-sorted) agent table. */
+export type AgentRow = {
+  id: number;
+  username: string;
+  full_name: string;
+  department: string;
+  assigned: number;
+  resolved: number;
+  avg_first_response_seconds: number | null;
+  sla_compliance_percent: number | null;
+  csat_average: number | null;
+};
+
+/** `AgentsReportSerializer`. */
+export type AgentsReport = { days: number; agents: AgentRow[] };
+
+/** `CSATBucketSerializer` — every score 1–5 present, including zeros. */
+export type CSATBucket = { score: number; count: number };
+
+/** `CSATReportSerializer`. */
+export type CSATReport = { days: number; average: number | null; count: number; distribution: CSATBucket[] };
+
+// -- Portal. Nothing below imports from the agent-facing types above. --------
+
+/** `PortalTicketSerializer`. `csat` is `null` until rated — that null is what
+ *  lets a reload distinguish "not rated yet" from "rated". */
+export type PortalTicket = {
+  id: number;
+  number: string;
+  subject: string;
+  status: string;
+  category: string;
+  channel: string;
+  created_at: string;
+  target_date: string | null;
+  resolved_at: string | null;
+  message_count: number;
+  csat: { score: number; comment: string } | null;
+};
+
+/** `PortalTicketCreateSerializer` — subject/description/category/channel only,
+ *  matching what the submit form is allowed to send. */
+export type PortalTicketCreate = {
+  subject: string;
+  description: string;
+  category: number | null;
+  priority: "low" | "normal";
+  channel: string;
+};
+
+/** `PortalMessageSerializer`. `author_kind` is `"you"` or `"support"` — never a name. */
+export type PortalMessage = {
+  id: number;
+  body: string;
+  author_kind: "you" | "support";
+  created_at: string;
+};
+
+/** `PortalKBArticleSerializer`. */
+export type PortalKBArticle = {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  body_en: string;
+  body_ar: string;
+  category: string;
+  updated_at: string;
+};
+
+/** `RegisterSerializer` request body. */
+export type RegisterRequest = {
+  email: string;
+  password: string;
+  full_name: string;
+  phone?: string;
+};
+
+export type PortalCSATSubmit = { ticket: number; score: number; comment?: string };

@@ -22,6 +22,11 @@ import Customer360 from "./features/customers/Customer360";
 import KBBrowse from "./features/kb/KBBrowse";
 import KBEditor from "./features/kb/KBEditor";
 import NewTicket from "./features/tickets/NewTicket";
+import ReportsPage from "./features/reports/ReportsPage";
+import PortalKB from "./features/portal/PortalKB";
+import PortalTicketDetail from "./features/portal/PortalTicketDetail";
+import Register from "./features/portal/Register";
+import SubmitTicket from "./features/portal/SubmitTicket";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -81,6 +86,7 @@ export const appRouteChildren = [
   { path: "kb/new", element: <KBEditor /> },
   { path: "kb/:slug/edit", element: <KBEditor /> },
   { path: "kb/:slug", element: <KBBrowse /> },
+  { path: "reports", element: <ReportsPage /> },
   { path: "profile", element: <Profile /> },
   ...devOnlyRoutes,
   // Catch-all *inside* the layout, so an unbuilt screen leaves the chrome
@@ -100,6 +106,9 @@ const router = createBrowserRouter([
   },
   { path: "/login", element: <Login /> },
   { path: "/portal/login", element: <PortalLogin /> },
+  // Unauthenticated, alongside the two logins above — outside PortalChrome's
+  // ProtectedRoute subtree, since registering happens before any session exists.
+  { path: "/portal/register", element: <Register /> },
   // Anything outside both shells: send it through "/" so the cached role picks
   // the right front door rather than guessing at a chrome to render it in.
   { path: "*", element: <Navigate to="/" replace /> },
@@ -121,6 +130,10 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <PortalHome /> },
+      { path: "new", element: <SubmitTicket /> },
+      { path: "tickets/:id", element: <PortalTicketDetail /> },
+      { path: "kb", element: <PortalKB /> },
+      { path: "kb/:slug", element: <PortalKB /> },
       { path: "*", element: <NotFound home="/portal" /> },
     ],
   },

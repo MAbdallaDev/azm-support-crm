@@ -194,6 +194,17 @@ class VolumeReportView(ManagerReportView):
             .order_by("day")
         ]
 
+        # A fifth query, still one per grouping regardless of ticket volume —
+        # a flat list of {day, channel, count} triples, not a nested structure.
+        # See DayChannelBucketSerializer for why.
+        by_day_channel = [
+            {"day": row["day"].isoformat(), "channel": row["channel"], "count": row["count"]}
+            for row in qs.annotate(day=TruncDate("created_at"))
+            .values("day", "channel")
+            .annotate(count=Count("id"))
+            .order_by("day", "channel")
+        ]
+
         return Response(
             {
                 "days": days,
@@ -201,6 +212,7 @@ class VolumeReportView(ManagerReportView):
                 "by_priority": group("priority"),
                 "by_channel": group("channel"),
                 "by_day": by_day,
+                "by_day_channel": by_day_channel,
             }
         )
 
