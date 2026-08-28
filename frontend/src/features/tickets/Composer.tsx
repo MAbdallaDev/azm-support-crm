@@ -1,10 +1,11 @@
-import { Loader2, Paperclip, Sparkles } from "lucide-react";
+import { BookOpen, Loader2, Paperclip, Sparkles } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
 import { useSuggestReply } from "@/api/ai";
 import { ATTACHMENT_ACCEPT, validateAttachment } from "@/api/attachments";
 import { useCannedReplies, useSendMessage, useUploadAttachment } from "@/api/tickets";
+import { ArticlePicker } from "@/features/kb/ArticlePicker";
 import type { TicketDetail } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
@@ -51,6 +52,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
   const isArabic = i18n.language.startsWith("ar");
 
   const [internal, setInternal] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const [body, setBody] = React.useState(() => readDraft(draftKey(ticket.id, false)));
   const textarea = React.useRef<HTMLTextAreaElement>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
@@ -215,25 +217,38 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
         )}
       />
 
-      {cannedReplies && cannedReplies.length > 0 ? (
-        <div className="px-3.5 pb-1">
+      <div className="px-3.5 pb-1">
+        {cannedReplies && cannedReplies.length > 0 ? (
           <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-faint">
             {t("composer.quickReplies")}
           </p>
-          <div className="mt-2 flex flex-wrap gap-[7px]">
-            {cannedReplies.slice(0, 6).map((reply) => (
-              <button
-                key={reply.id}
-                type="button"
-                onClick={() => insertAtCursor(isArabic ? reply.body_ar : reply.body_en)}
-                className="flex h-7 items-center rounded-full border border-line px-[11px] text-[12px] text-ink-2 hover:border-[#c9cfda] hover:bg-surface-2"
-              >
-                {isArabic ? reply.title_ar : reply.title_en}
-              </button>
-            ))}
-          </div>
+        ) : null}
+        <div className="mt-2 flex flex-wrap gap-[7px]">
+          {(cannedReplies ?? []).slice(0, 6).map((reply) => (
+            <button
+              key={reply.id}
+              type="button"
+              onClick={() => insertAtCursor(isArabic ? reply.body_ar : reply.body_en)}
+              className="flex h-7 items-center rounded-full border border-line px-[11px] text-[12px] text-ink-2 hover:border-[#c9cfda] hover:bg-surface-2"
+            >
+              {isArabic ? reply.title_ar : reply.title_en}
+            </button>
+          ))}
+          {/* Criterion 9: read here as one family with the canned replies —
+              both insert text at the cursor via the same insertAtCursor. */}
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            data-testid="composer-insert-kb-link"
+            className="flex h-7 items-center gap-1.5 rounded-full border border-line px-[11px] text-[12px] text-ink-2 hover:border-[#c9cfda] hover:bg-surface-2"
+          >
+            <BookOpen aria-hidden className="h-3 w-3" />
+            {t("composer.insertKbLink")}
+          </button>
         </div>
-      ) : null}
+      </div>
+
+      <ArticlePicker open={pickerOpen} onOpenChange={setPickerOpen} onPick={insertAtCursor} />
 
       <div className="flex items-center gap-2 p-3.5">
         <input

@@ -6,12 +6,19 @@ not to a domain.
 """
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import viewsets
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .audit import audit_login_failure, audit_login_success
-from .serializers import LoginSerializer, MeSerializer
+from .models import Branch, Department
+from .serializers import (
+    BranchSerializer,
+    DepartmentSerializer,
+    LoginSerializer,
+    MeSerializer,
+)
 
 
 @extend_schema(
@@ -62,3 +69,35 @@ class MeView(RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+@extend_schema(tags=["accounts"], summary="Every branch")
+class BranchViewSet(viewsets.ReadOnlyModelViewSet):
+    """Six branches that change roughly never — the customer list's branch
+    filter (story 08) needs somewhere to read the options from, since
+    `CustomerFilterSet.branch` filters by primary key and nothing until now
+    listed what those keys are.
+
+    Unpaginated on purpose: a dropdown with six options is not a list that
+    benefits from paging, and a paginated response would make the client do
+    an extra round trip just to populate a `<select>`.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = BranchSerializer
+    queryset = Branch.objects.all()
+    pagination_class = None
+
+
+@extend_schema(tags=["accounts"], summary="Every department")
+class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
+    """Story 09's reports filter by department and need the same list this
+    story's customer filter needed for branches — added alongside it rather
+    than as a separate later addition, since the two are the same eight lines
+    of a `ReadOnlyModelViewSet` each.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = DepartmentSerializer
+    queryset = Department.objects.all()
+    pagination_class = None

@@ -4,6 +4,7 @@ from django.db.models import Count, Q
 from rest_framework import serializers
 
 from apps.customers.models import Contact, Customer, CustomerNote
+from apps.tickets.models import Attachment
 
 # Statuses that count as "still open" for the customer card's ticket counter.
 OPEN_TICKET_STATUSES = ("new", "open", "pending", "on_hold", "escalated", "reopened")
@@ -29,16 +30,46 @@ class CustomerNoteSerializer(serializers.ModelSerializer):
         return obj.author.get_full_name() or obj.author.get_username()
 
 
+class CustomerAttachmentSerializer(serializers.ModelSerializer):
+    """Every file across a customer's tickets — Customer 360's attachment
+    chip row, which names the source ticket on every chip.
+
+    A dedicated serializer rather than reusing `tickets.AttachmentSerializer`:
+    that one exposes `ticket` as a bare id, and every chip here needs the
+    human-readable `ticket_number` beside it, which the ticket app's own
+    serializer has no reason to carry.
+    """
+
+    ticket_number = serializers.CharField(source="ticket.number", read_only=True)
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attachment
+        fields = (
+            "id", "ticket", "ticket_number", "filename", "size",
+            "uploaded_by_name", "created_at",
+        )
+
+    def get_uploaded_by_name(self, obj) -> str:
+        if obj.uploaded_by is None:
+            return ""
+        return obj.uploaded_by.get_full_name() or obj.uploaded_by.get_username()
+
+
 class CustomerListSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source="branch.name_en", read_only=True, default="")
     open_ticket_count = serializers.IntegerField(read_only=True, default=0)
+    # Annotated (`Max("tickets__updated_at")`), not computed here — a customer
+    # with no tickets has none, which the client renders as a dash rather than
+    # a fabricated date.
+    last_activity = serializers.DateTimeField(read_only=True, default=None)
 
     class Meta:
         model = Customer
         fields = (
             "id", "name", "company", "email", "phone", "tier",
             "branch", "branch_name", "preferred_language",
-            "open_ticket_count", "created_at",
+            "open_ticket_count", "last_activity", "created_at",
         )
 
 

@@ -878,3 +878,122 @@ would have been a bad test even had it passed:
   log was in the wrong order and Arabic durations said "39m", because both were plausible. The
   measurements that caught the layout being right — pane widths 300/flex/336, `border-inline-start`
   resolving to the right edge under RTL — were also only available by looking.
+
+---
+
+## Story 08 — Customers & knowledge base UI          (elapsed: ~2h 40m)
+
+**Model:** Claude Opus 5 via Claude Code. **Plan:** `.squad/plans/crm-mvp/08-story-08-customers-kb-ui.md`.
+
+Customer 360, the three-pane knowledge base (browse / reader / editor), the new-ticket form, and
+**four backend additions**. Frontend: **179 Vitest tests** (up from 145). Backend: **383 tests**
+(up from 370), OpenAPI schema still **zero warnings**.
+
+### The four backend additions
+
+1. **Draft visibility narrowed to author/manager/admin** (`scope_kb_articles`). Previously any staff
+   member saw every draft. Rewrote story 05's `test_kb_scope_hides_drafts_from_customers` (it asserted
+   the old, wider rule) and a story-03 scoping assertion that happened to pin the same behaviour via
+   the seeded data — both updates are in the same commit as the code change, not silent.
+2. **`customers/<id>/attachments/`**, scoped through `scope_tickets` on the ticket relation, not just
+   `scope_customers` on the customer row — an agent who can open a customer must still not reach
+   another department's ticket's attachments through it. Has its own test for exactly that.
+3. **`last_activity`** on the customer list, annotated (`Max("tickets__updated_at")`), with a
+   constant-query-count test in story 04's shape.
+4. **`branches/` and `departments/`** — unpaginated reference lists the customer filter and the new
+   ticket form both needed, and story 09's reports will reuse the department one.
+
+### A backend field the story didn't ask for, added anyway
+
+**The new-ticket form needed `department`, which the plan's field list did not name.** Building it, I
+found that a ticket created with no department is invisible to its own creator — `scope_tickets`
+shows an agent only work in their own department, assigned to them, or watched by them, and none of
+those is true for a freshly created ticket with `department: null`. Verified this live: the first
+ticket I created returned 201, then 404'd on its own detail page. The form now defaults the field to
+the creating agent's own department (via the new `departments/` list, matched against `useMe()`'s
+department **code** — the same code-to-pk mismatch story 07 solved for `department_code`), editable
+in case they want a different one.
+
+### Three cache-poisoning bugs, all the same shape, all found by using the feature
+
+`TicketViewSet.create()`, `CustomerViewSet.update()`/`partial_update()`, and
+`KBArticleViewSet.create()`/`update()` all use DRF's default `get_serializer_class()` dispatch, which
+returns the **write** serializer for those actions — a narrower shape than the **detail** serializer a
+reader immediately renders. I had typed all three mutation responses as the full detail type and
+written them straight into the query cache:
+
+- **New ticket → 404 on its own detail page**, then, after that fix, a crash:
+  `formatRelative(undefined)` on `created_at`, which `TicketWriteSerializer` does not carry.
+- **Editing a customer's tier crashed the page** the instant the cache write landed —
+  `CustomerWriteSerializer` has no `contacts`, and `customer.contacts.map(...)` had nothing to map.
+- **Publishing a KB article** would have shown an `updated_at`-shaped crash in the reader the moment
+  someone published from the editor, for the same reason.
+
+All three mutations now **invalidate** the relevant detail query instead of seeding it, so the next
+read is a real request against the real serializer. Each fix is commented with which serializer the
+create/update path actually returns and why seeding was wrong — the same shape of comment story 07's
+own as-built note left for the six ticket actions, which is the reason those six were safe and these
+three were not: they explicitly build `TicketDetailSerializer(ticket).data`, and the plain
+`ModelViewSet.create()`/`update()` do not.
+
+### A found-by-testing bug from story 07
+
+**`common.english` / `common.arabic` never existed as translation keys.** `TicketContext.tsx`'s
+"Preferred language" field has been silently printing the raw key since story 07 shipped; it was
+never caught because no test or manual check happened to read that exact line. Found while writing
+the KB reader's "Available in [English] [العربية]" pills, which use the same two keys. Both are now
+present in `en.json`/`ar.json`, self-referential in both files (a language name is not translated —
+matching the login screen's own switcher, "English" / "العربية" regardless of interface language).
+
+### `useBlocker`'s stale-closure race
+
+The unsaved-changes guard blocked its own successful save. `save()`'s `onSuccess` called
+`setDirty(false)` then `navigate(...)` synchronously in the same handler; `useBlocker(dirty)`'s
+boolean form re-renders from the render that created it, so the blocker still read the *previous*
+render's `dirty=true` when the synchronous `navigate()` ran, and blocked its own navigation. Fixed
+with a ref (`dirtyRef.current`, mutated synchronously) passed to `useBlocker`'s function form instead
+of the raw boolean — found by actually publishing an article in the browser and watching it fail to
+leave the page, not by a test (my first version of the test happened to assert the wrong thing and
+would have passed either way; rewritten once the live bug was understood).
+
+### Two harness gaps `useBlocker` and `useParams` exposed
+
+- **`useBlocker` throws outside a data router.** Story 07's `renderWithProviders` wraps tests in a
+  plain declarative `<MemoryRouter>`. Added `renderWithDataRouter` (a `createMemoryRouter` +
+  `RouterProvider` pair with a catch-all route) for any component that calls `useBlocker` or reads
+  `useParams()` directly — `KBBrowse` needed the latter for its selection test, since (unlike
+  `TicketQueue`, which receives `selectedId` as a prop from its parent) it reads `:slug` itself.
+- **`main.tsx` could not be imported for its route config** without executing
+  `ReactDOM.createRoot(document.getElementById("root")!).render(...)` as an import-time side effect.
+  Guarded the render behind `if (document.getElementById("root"))` and exported `appRouteChildren`
+  separately, so `routes.test.tsx` can resolve `/app/tickets/new` through the real router and prove
+  it reaches `NewTicket`, not `Tickets` with `id === "new"` — a stronger test than reading array order.
+
+### The customer stats-strip decision (Frontend Task 6)
+
+Customer 360's stats strip is **three cells, not five**. `Open` and `Lifetime` come straight off
+`CustomerDetailSerializer` and are exact. `Avg resolution` and `CSAT` do not exist as a
+single-customer aggregate anywhere, and getting either from the loaded ticket history would need a
+detail request per ticket — the same N+1 story 04's queue test forbids. Dropped both, per the plan's
+own instruction ("a stat that silently describes 25 of 37 tickets is worse than an absent one").
+`SLA met` **does** stay: `resolution_sla.state` (frozen at resolution) is already on every list row
+from story 07's addition, so it costs nothing extra to compute from the loaded history — and the
+cell names the count it is based on ("based on 5 resolved") rather than implying it covers the
+customer's whole lifetime.
+
+### What I learned
+
+- **"Returns the full detail" is a per-action fact, not a per-viewset one.** Story 07's as-built note
+  said ticket mutations seed their cache because they return `TicketDetailSerializer`; I generalised
+  that to "mutations can seed their cache" without checking that the specific action I was calling
+  actually made that promise. Three separate call sites made the same wrong assumption before I
+  traced the first crash back to `get_serializer_class()`.
+- **A missing translation key fails silently and looks like a passing screen.** i18next's fallback —
+  print the key — reads as "some placeholder text", not as an error, so it survives a whole story's
+  manual verification unless someone happens to read that specific string. Cheap general defence:
+  when adding a *new* key elsewhere that happens to be the same as an old, unused one (`common.english`
+  here), the mismatch surfaces immediately in a rendered test — which is exactly how this one was
+  found, one story late.
+- **`useBlocker`'s boolean argument is a snapshot, not a live read.** Anything that flips a flag and
+  immediately navigates in the same handler needs the function form (or an equivalent ref) if the flag
+  is meant to already reflect the new state by the time the navigation is evaluated.

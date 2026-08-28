@@ -17,6 +17,11 @@ import PortalHome from "./routes/PortalHome";
 import PortalLogin from "./routes/PortalLogin";
 import Profile from "./routes/Profile";
 import Tickets from "./routes/Tickets";
+import CustomerList from "./features/customers/CustomerList";
+import Customer360 from "./features/customers/Customer360";
+import KBBrowse from "./features/kb/KBBrowse";
+import KBEditor from "./features/kb/KBEditor";
+import NewTicket from "./features/tickets/NewTicket";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -48,6 +53,42 @@ const devOnlyRoutes = import.meta.env.DEV
  * The role check that keeps them apart lives in ProtectedRoute; the API
  * enforces the real permissions independently (story 03's two-layer model).
  */
+/**
+ * The `/app/*` children, as their own export so `routes.test.tsx` can assert
+ * the ordering React Router actually resolves — importing `main.tsx` itself
+ * would execute `ReactDOM.createRoot(...).render(...)` as a side effect.
+ *
+ * **"tickets/new" must be registered ABOVE "tickets/:id"** — otherwise React
+ * Router matches ":id" against the literal string "new" and the create form
+ * never renders. The test asserts this by resolving a route, not by reading
+ * array order, so a reordering that broke matching would fail it even if
+ * someone "fixed" the array shape some other way.
+ */
+export const appRouteChildren = [
+  { index: true, element: <Navigate to="/app/dashboard" replace /> },
+  { path: "dashboard", element: <Dashboard /> },
+  // One component for both: opening a ticket must not unmount the queue
+  // and refetch it, and selection is derived from the :id param.
+  { path: "tickets", element: <Tickets /> },
+  { path: "tickets/new", element: <NewTicket /> },
+  { path: "tickets/:id", element: <Tickets /> },
+  { path: "customers", element: <CustomerList /> },
+  { path: "customers/:id", element: <Customer360 /> },
+  // KBBrowse handles both "/app/kb" and "/app/kb/:slug" — the same
+  // one-component-for-list-and-detail pattern as Tickets above, so the
+  // category sidebar and article list never unmount when a reader opens.
+  { path: "kb", element: <KBBrowse /> },
+  { path: "kb/new", element: <KBEditor /> },
+  { path: "kb/:slug/edit", element: <KBEditor /> },
+  { path: "kb/:slug", element: <KBBrowse /> },
+  { path: "profile", element: <Profile /> },
+  ...devOnlyRoutes,
+  // Catch-all *inside* the layout, so an unbuilt screen leaves the chrome
+  // standing instead of throwing React Router's error page over the top
+  // of it.
+  { path: "*", element: <NotFound /> },
+];
+
 const router = createBrowserRouter([
   // "/" is answered from the cached role rather than a fixed target, so a
   // signed-in customer opening a bare bookmark lands in the portal.
@@ -69,20 +110,7 @@ const router = createBrowserRouter([
         <AppChrome />
       </ProtectedRoute>
     ),
-    children: [
-      { index: true, element: <Navigate to="/app/dashboard" replace /> },
-      { path: "dashboard", element: <Dashboard /> },
-      // One component for both: opening a ticket must not unmount the queue
-      // and refetch it, and selection is derived from the :id param.
-      { path: "tickets", element: <Tickets /> },
-      { path: "tickets/:id", element: <Tickets /> },
-      { path: "profile", element: <Profile /> },
-      ...devOnlyRoutes,
-      // Catch-all *inside* the layout, so an unbuilt screen leaves the chrome
-      // standing instead of throwing React Router's error page over the top
-      // of it. Stories 07-09 add real routes above this one.
-      { path: "*", element: <NotFound /> },
-    ],
+    children: appRouteChildren,
   },
   {
     path: "/portal",
@@ -98,11 +126,17 @@ const router = createBrowserRouter([
   },
 ]);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-      <Toaster />
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+// Guarded on the root element existing: `routes.test.tsx` imports this module
+// for `appRouteChildren` alone, and a real production index.html always has
+// the element, so this changes nothing outside of that one test import.
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <Toaster />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}

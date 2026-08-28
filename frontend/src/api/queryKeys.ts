@@ -39,9 +39,26 @@ export const qk = {
 
   customers: {
     all: ["customers"] as const,
+    list: (params: string) => ["customers", "list", params] as const,
     detail: (id: number) => ["customers", "detail", id] as const,
     notes: (id: number) => ["customers", id, "notes"] as const,
+    attachments: (id: number) => ["customers", id, "attachments"] as const,
   },
+
+  /** A customer's contacts, for `NewTicket`'s contact picker. */
+  contacts: {
+    byCustomer: (customerId: number) => ["contacts", "by-customer", customerId] as const,
+  },
+
+  kb: {
+    all: ["kb"] as const,
+    categories: ["kb", "categories"] as const,
+    list: (params: string) => ["kb", "list", params] as const,
+    detail: (slug: string) => ["kb", "detail", slug] as const,
+  },
+
+  branches: ["branches"] as const,
+  departments: ["departments"] as const,
 
   mySummary: ["reports", "my-summary"] as const,
 } as const;

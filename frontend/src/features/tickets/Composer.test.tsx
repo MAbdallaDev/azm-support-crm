@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { tokenStore } from "@/api/tokenStore";
 import { Composer } from "@/features/tickets/Composer";
-import { installApiMock } from "@/test/apiMock";
+import { installApiMock, page } from "@/test/apiMock";
 import type { ApiMock } from "@/test/apiMock";
 import { detail, message } from "@/test/fixtures";
 import { makeQueryClient, renderWithProviders } from "@/test/utils";
@@ -159,6 +159,47 @@ describe("canned replies", () => {
     fireEvent.click(screen.getByText("Acknowledge + ETA"));
 
     expect(textarea().value).toBe("Hello. Thanks — we are on it.Regards, Yousef");
+  });
+});
+
+describe("criterion 9 — insert a KB link into the reply", () => {
+  it("inserts a Markdown link at the cursor, preserving the surrounding draft exactly", async () => {
+    mock.on("/kb/articles/", () =>
+      page([
+        {
+          id: 1,
+          slug: "why-sms-is-late",
+          title_en: "Why SMS notifications are delayed",
+          title_ar: "",
+          category: null,
+          category_name: "",
+          status: "published",
+          has_arabic: false,
+          view_count: 10,
+          helpful_count: 1,
+          updated_at: "2026-08-24T09:00:00Z",
+        },
+      ]),
+    );
+    setup();
+
+    const field = textarea();
+    fireEvent.change(field, { target: { value: "Hello — see  for the fix." } });
+    // Caret between the two spaces left by the sentence above.
+    field.setSelectionRange(12, 12);
+
+    fireEvent.click(screen.getByTestId("composer-insert-kb-link"));
+    await screen.findByTestId("article-picker-result-why-sms-is-late");
+    fireEvent.click(screen.getByTestId("article-picker-result-why-sms-is-late"));
+
+    // insertAtCursor is the same function the canned-reply test above proves
+    // preserves surrounding text — this is that guarantee applied to a KB
+    // link instead of a canned reply body.
+    expect(textarea().value).toBe(
+      "Hello — see [Why SMS notifications are delayed](/app/kb/why-sms-is-late) for the fix.",
+    );
+    // Never sent — the agent still has to press Send themselves.
+    expect(mock.urls().some((url) => url.includes("/messages/") && !url.includes("?"))).toBe(false);
   });
 });
 
