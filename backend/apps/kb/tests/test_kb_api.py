@@ -21,7 +21,7 @@ def category(db):
 
 
 @pytest.fixture
-def articles(category):
+def articles(category, article_author):
     published = KBArticle.objects.create(
         slug="arabic-invoice",
         title_en="Setting up an Arabic invoice template",
@@ -46,15 +46,42 @@ def articles(category):
         body_en="Not ready yet.",
         category=category,
         status="draft",
+        # Story 08 narrows draft visibility to the author, managers and
+        # admins. An authorless draft would be invisible to every fixture
+        # user below, which would make every "can see" assertion vacuous.
+        author=article_author,
     )
     return {"published": published, "english_only": english_only, "draft": draft}
 
 
 @pytest.fixture
-def agent(db):
-    department = Department.objects.create(name_en="Support", name_ar="دعم", code="kb-support")
+def department(db):
+    return Department.objects.create(name_en="Support", name_ar="دعم", code="kb-support")
+
+
+@pytest.fixture
+def article_author(department):
+    """The draft's own author — a distinct user from `agent` below, so
+    "author sees it" and "a second agent does not" are genuinely two people."""
+    return User.objects.create_user(
+        username="kb-author", password="x", role=User.Role.AGENT, department=department
+    )
+
+
+@pytest.fixture
+def agent(department):
     user = User.objects.create_user(
         username="kb-agent", password="x", role=User.Role.AGENT, department=department
+    )
+    client = APIClient()
+    client.force_authenticate(user)
+    return client
+
+
+@pytest.fixture
+def manager(department):
+    user = User.objects.create_user(
+        username="kb-manager", password="x", role=User.Role.MANAGER, department=department
     )
     client = APIClient()
     client.force_authenticate(user)
@@ -111,9 +138,33 @@ def test_search_with_no_match_is_an_empty_list_not_an_error(agent, articles):
 
 
 @pytest.mark.django_db
-def test_staff_see_drafts(agent, articles):
+def test_a_second_agent_does_not_see_another_agents_draft(agent, articles):
+    """Tightened from story 05: a draft used to be visible to any staff
+    member. An agent's half-written article is not their colleagues' reading
+    material — only its author, managers and admins may see it."""
     slugs = {row["slug"] for row in agent.get(ARTICLES).data["results"]}
+    assert "unfinished" not in slugs
+
+
+@pytest.mark.django_db
+def test_the_authoring_agent_sees_their_own_draft(article_author, articles):
+    client = APIClient()
+    client.force_authenticate(article_author)
+    slugs = {row["slug"] for row in client.get(ARTICLES).data["results"]}
     assert "unfinished" in slugs
+
+
+@pytest.mark.django_db
+def test_a_manager_sees_every_draft(manager, articles):
+    slugs = {row["slug"] for row in manager.get(ARTICLES).data["results"]}
+    assert "unfinished" in slugs
+
+
+@pytest.mark.django_db
+def test_a_second_agent_requesting_the_draft_by_slug_gets_404(agent, articles):
+    """Scoped in get_queryset(), so the row does not exist for them at all —
+    the same 404-not-403 shape story 03 established for out-of-scope tickets."""
+    assert agent.get(f"{ARTICLES}unfinished/").status_code == 404
 
 
 @pytest.mark.django_db

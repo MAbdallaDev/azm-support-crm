@@ -13,11 +13,11 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 03 | [03-story-03-auth-rbac-audit.md](03-story-03-auth-rbac-audit.md) | Auth, roles & permissions, audit log | — | Story 02 | ✅ implemented |
 | 04 | [04-story-04-customers-tickets-api.md](04-story-04-customers-tickets-api.md) | Customers & tickets REST API | — | Story 03 | ✅ implemented |
 | 05 | [05-story-05-sla-kb-reports-ai-api.md](05-story-05-sla-kb-reports-ai-api.md) | SLA, knowledge base, reports, AI & portal API | — | Story 04 | ✅ implemented |
-| 06 | _not yet planned_ | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | — |
-| 07 | _not yet planned_ | Agent workspace: ticket queue & detail | — | Stories 04, 06 | — |
-| 08 | _not yet planned_ | Customers & knowledge base UI | — | Story 07 | — |
-| 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
-| 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
+| 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
+| 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
+| 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | ✅ implemented |
+| 09 | [09-story-09-reports-portal-ui.md](09-story-09-reports-portal-ui.md) | Manager reports & customer portal | — | Stories 05, 08 | ✅ implemented |
+| 10 | [10-story-10-delivery.md](10-story-10-delivery.md) | Delivery: RTL sweep, docs, summary | — | All | ✅ implemented |
 
 Each story's intake is at `.squad/stories/crm-mvp/<id>/intake.md`. Plans are generated one at a time
 with `/squad-plan`, immediately before that story is implemented — not all ten up front, so each plan
@@ -198,6 +198,374 @@ Two things later work must not undo:
   to remember who went last. The plan called the ordering "stateless" while naming that field — the
   field is the honest reading. Both manual and automatic assignment stamp it.
 
+## Story 06 — as built
+
+Implemented. The frontend shell: the axios client with a real refresh flow, the two-shell route tree
+with role-aware guards, `Main.dc.html`'s top chrome, nine shared components, and a complete
+Arabic/English flip. **74 Vitest tests pass**, `npm run build` and `npm run lint` are clean (2
+pre-existing react-refresh warnings, 0 errors), and `npm run check:rtl` reports no directional
+utilities in `src/`. The backend is untouched and still **347 passed**.
+
+Verified against the running stack: `agent@demo` signs in and lands on `/app/dashboard` with the
+health card still green; a `customer@demo` token on `/app/dashboard` is bounced to `/portal` wearing
+`PortalChrome`; a corrupted access token produces **exactly one** `POST /auth/refresh/` in the
+network tab followed by a successful replay; and the chrome measures 56px tall with an 18px gutter,
+a 28px `#14171f` mark, a 300px search field, a 32px toggle and a 30px avatar — the artboard's own
+numbers. Every badge's computed colours match `DesignSystem.dc.html` hex-for-hex.
+
+What stories 07–09 consume:
+
+- **`<SlaBar sla={ticket.response_sla} />` — the prop is the API object, verbatim and snake_case.**
+  The plan's prose named camelCase props while its own done-criterion said the shape must match
+  `response_sla` **verbatim**; verbatim won, so there is no adapter and no rename that can drift
+  between the serializer and the component. `seconds_remaining` stays signed — the sign chooses the
+  sentence ("2h left" vs "Breached 14m"), the magnitude fills it in. The bar ticks on its own
+  `setInterval`, scoped to the component, so fifty rows do not re-render a page each second.
+- **`src/api/queryKeys.ts` is the only place query keys are written.** Extend `qk`; do not invent
+  `["ticket", id]` in a screen. This is what lets one mutation invalidate a list, a detail and every
+  filtered variant without guessing.
+- **`tokenStore` is the only reader/writer of tokens.** No `localStorage.getItem("crm.access")`
+  anywhere else. It caches the **role** beside the tokens because a failed refresh has to pick a
+  login page and cannot ask an API that is already rejecting it.
+- **The refresh `catch` covers the refresh only, never the replay.** A retried request that comes
+  back 500 is a failed request, not a dead session. The first version wrapped both and logged users
+  out on any backend hiccup; `client.test.ts` has the test that caught it, and that test must keep
+  passing.
+- **`ProtectedRoute` is a role check, not a permission check** — it decides which shell you see, not
+  what you may do inside it. Story 03's permission classes and scoping are the real boundary, and
+  the frontend deliberately does not restate them. It picks its login page from the **subtree**,
+  not the cached role, so a first-time visitor pasting a `/portal/*` link is not shown the agent
+  sign-in page.
+- **Nav items are filtered by role before render, never rendered-then-disabled** (`navItems.ts`).
+  `Reports` is manager-or-admin, mirroring story 05's API rule rather than inventing a second one;
+  `Admin` is a plain `<a>` to Django's `/admin/`, because a router `<Link>` there blanks the page.
+- **`toast` is sonner.** One toast library; do not add a second. The shadcn primitive was skipped
+  because its CLI needs Node 20 and this machine runs 18 — for the same reason `dropdown-menu`,
+  `alert-dialog`, `input` and `label` are hand-written against Radix rather than CLI-generated.
+- **`src/lib/format.ts` is the only caller of `Intl.*`.** Numerals stay Western in both languages by
+  pinning the numbering system (`ar-u-nu-latn`), not the locale — Arabic month names, Latin digits.
+  Nothing else should format a date, a duration or a number inline.
+- **`.mono-ltr` is the class for ticket numbers, phone numbers and emails.** Mono, `direction: ltr`,
+  `unicode-bidi: isolate` — the artboard's `<span dir="ltr">TK-4796</span>`, written once.
+
+Three things later work must not undo:
+
+- **`npm run check:rtl` must stay green.** No `ml-*`/`mr-*`/`pl-*`/`pr-*`/`text-left`/`text-right`/
+  `left-*`/`right-*` anywhere in `src/`. It strips comments before matching, because English prose
+  says "left-to-right" constantly and a guard that cries wolf is a guard people bypass; the per-line
+  `rtl-ok` escape hatch exists but is used exactly once, in the test that asserts `text-right` is
+  absent. Every later story's verification should run it.
+- **The kitchen sink is gated at router-construction time on `import.meta.env.DEV`, not at runtime.**
+  A role check would still ship the code. `npm run build` was grepped: no kitchen-sink-only string
+  survives. (Its `kitchen.*` translation keys do ship, with the rest of `en.json`/`ar.json` — a few
+  hundred bytes, and separating them would cost more than it saves.)
+- **The language toggle applies the profile's `language` only when nothing is persisted, and never
+  persists it.** Persisting a profile default makes it indistinguishable from a user's own choice,
+  after which the profile can never change anything again.
+
+Two open items story 07 inherits, both deliberate:
+
+- **The chrome's search field is inert** — rendered so the chrome matches `Main.dc.html`, disabled so
+  it cannot look broken, with a test asserting it. Wire it in story 07, where the list it filters
+  exists.
+- **`/app/tickets`, `/app/customers`, `/app/kb` and `/app/reports` are nav targets with no routes
+  yet.** A catch-all `{ path: "*" }` **inside** each layout renders `NotFound` ("not built yet")
+  with the chrome still standing — stories 07–09 add their real routes *above* that entry, which is
+  all they need to do. Without the catch-all, clicking an unbuilt nav item threw React Router's own
+  error page over the whole shell, which reads as a crash rather than as unfinished work.
+  (`/app/profile` does have a route — a deliberate no-op placeholder, since editing a profile is
+  Django admin's job in this MVP.)
+
+One environment note: **the `web` container's `node_modules` is an anonymous volume baked from the
+image**, so new dependencies need `docker compose up -d --build --renew-anon-volumes web`, not a
+restart. A fresh clone never sees this — the image build reads the committed lockfile.
+
+## Story 07 — as built
+
+Implemented. The three-pane agent workspace (`Main.dc.html`: queue 300px / conversation flex /
+context 336px), the agent dashboard, and **six backend additions**. Frontend: **145 Vitest tests**
+(up from 74), `check:rtl` green, `npm run build` clean, lint 0 errors. Backend: **370 tests** (up
+from 347), OpenAPI schema still **zero warnings**.
+
+Verified against the running stack as `agent@demo`: all four queue tabs carry non-zero server-side
+counts (99 / 25 / 5 / 16 under agent scoping); a `new` ticket's dropdown offers exactly *Open* and
+*Escalated*, and after escalating offers *Open* and *Resolved*; every dashboard tile's number equals
+the row count of the queue its link opens; and in Arabic the panes mirror (queue at x=1125, context
+at x=0), `border-inline-start` resolves to the right edge, and `TK-0150` stays `dir: ltr`.
+
+**A frontend story grew the API, and that is worth a reviewer's attention.** Each addition exists
+because a criterion could not be met from the API as story 05 froze it:
+
+- **`allowed_transitions`** on the ticket detail — the status dropdown reads the state machine
+  instead of transcribing it. A client-side copy drifts silently and offers moves the API refuses.
+- **`resolution_sla`** on the list serializer — one `sla_state` call feeds both a queue row and the
+  detail pane, so their colours cannot diverge. Story 04's `test_queue_performance.py` still passes,
+  which is the proof it is not an N+1.
+- **`due_within_minutes`** — "breaching within the hour", a set deliberately **disjoint** from
+  `breached=true` so two dashboard tiles never double-count one ticket.
+- **`resolved_after` / `resolved_before`** — "resolved by me today".
+- **`department_code`** — added *alongside* the pk-based `department`, because
+  `MeSerializer.department` is a code string and the client holds no id to filter with.
+- **`reports/my-summary/`** — agent-reachable, unlike the four `IsManager` reports. Four of its five
+  numbers were obtainable from count queries; **`csat_average` was not**, since `csat_score` appears
+  only on the detail serializer.
+
+What stories 08–09 consume:
+
+- **`useSecondsTick` in `src/lib/ticker.ts` is the app's only countdown timer.** One module-level
+  interval, subscribed to via `useSyncExternalStore`; it starts on the first subscriber and stops on
+  the last. Story 06's per-component interval and story 07's "single shared timer" were never in
+  conflict — the expensive thing is a *page-level* state update, not the timer, and an external
+  store gives one timer with each subscriber re-rendering only itself. **Do not add a second
+  interval**; a test asserts one `setInterval` for three mounted `SlaBar`s.
+- **Queue filter state lives in the URL** (`useTicketFilters`), never in component state. A filtered
+  queue is a shareable link that survives reload and the back button. `tabParams` and
+  `buildApiParams` are exported and pure so a tab's **badge count** and its **list** provably use the
+  same filter; the badges request `page_size=1` rather than fetching 25 rows to discard them.
+- **Every tab is a server filter.** Never a client-side pass over a fetched page — the page is 25 of
+  150 rows, so filtering locally produces a convincing list that is simply wrong.
+- **Ticket mutations seed the detail cache from their own response**, then invalidate
+  `qk.tickets.all`. All six actions return the full `TicketDetailSerializer`, so refetching the
+  detail afterwards is a round trip whose answer you already hold. Status/escalate/resolve are
+  optimistic with a snapshot rollback and an error toast; **assign deliberately is not**, because an
+  auto-assign has no predictable outcome to patch in and a 409 is a legitimate answer, not a failure.
+- **The composer's mode is carried by the field itself**, not just a selected tab — the internal-note
+  mode tints the textarea. This is the one control where a mistake is published to a customer. Its
+  test asserts the *class actually changes*, not that a state variable flipped.
+- **Drafts live in `sessionStorage`, keyed by ticket id *and* mode**, so a half-written internal note
+  can never surface in the reply box. They survive navigation and are kept on a failed send — losing
+  what someone just wrote is worse than any error message.
+- **`src/api/attachments.ts` mirrors the backend's limits.** 10 MB and **sixteen** content types (the
+  story-07 plan says eighteen; the set in `views.py` has sixteen — the code is the authority, and
+  `attachments.test.ts` pins the count so an edit to either side fails there rather than at upload).
+- **The Activity log renders translated sentences in the API's own newest-first order.**
+  `TicketEvent.Meta.ordering` is `["-created_at"]`; do not re-sort client-side. Enum values go back
+  through `status.*` / `priority.*`, and an unknown event type falls back to a generic sentence
+  rather than rendering blank.
+- **`src/test/apiMock.ts` stubs the axios *adapter*, not the hooks.** Everything above it runs for
+  real, which is what lets a test assert *about the requests themselves* ("this count came from a
+  server query"). Later registrations override earlier ones, so a test can replace a `beforeEach`
+  default. `makeQueryClient` uses `gcTime: Infinity` — with `0`, a cache entry seeded by
+  `setQueryData` and having no observer is collected between the write and the assertion.
+
+Three things later work must not undo:
+
+- **`reports/my-summary/` counts from LOCAL midnight** (`timezone.localtime`), not UTC.
+  `TIME_ZONE` is `Asia/Riyadh`, so a UTC boundary starts "today" three hours late and makes the tile
+  disagree with the queue its link opens. `test_resolved_by_me_today_starts_at_LOCAL_midnight`
+  anchors one minute either side of the boundary and was verified to fail against the UTC version.
+- **`check:rtl` now strips comments with a stateful block-comment scan**, because a JSX block
+  comment's continuation lines begin with ordinary prose — and English prose says "left-to-right"
+  constantly. Still verified to catch a planted `ml-2 text-right`.
+- **`formatDuration` translates its unit letters** (`h`/`m`/`d` → `س`/`د`/`ي`) while digits stay
+  Western. It is the number an agent looks at most and was the last visibly English thing on an
+  otherwise flipped screen.
+
+Story 06's two open items are both closed: the chrome's search field is wired (it writes `q` into the
+queue's URL parameter, debounced 300 ms), and `/app/tickets` and `/app/tickets/:id` are real routes
+above the in-layout catch-all. `/app/customers/:id` is linked from the context pane and still renders
+"not built yet" until story 08.
+
+## Story 08 — as built
+
+Implemented. Customer 360, the three-pane knowledge base (browse / reader / editor), the new-ticket
+form, and **four backend additions**. Frontend: **179 Vitest tests** (up from 145), `check:rtl`
+green, `npm run build` and `npm run lint` clean. Backend: **383 tests** (up from 370), OpenAPI schema
+still **zero warnings**.
+
+Verified against the running stack as `agent@demo`: the tier and branch filters narrow the server
+query correctly; the second agent `sara@demo` cannot see `manager@demo`'s draft, the author and
+`manager@demo` both can; publishing an English-only article warns, naming Arabic, and proceeds on
+confirm; the seeded English-only article ("ticket-priorities-explained") shows the fallback notice in
+Arabic with the English body beneath; a KB link inserted mid-sentence in the composer preserves the
+surrounding draft exactly; and a new ticket with no department picked would have been invisible to its
+own creator until the form was given one.
+
+**A frontend story grew the API again, and three bugs were the same shape.** Each addition:
+
+- **Draft visibility narrowed to author/manager/admin** (`scope_kb_articles`) — previously any staff
+  member saw every draft. Rewrote the two existing tests (story 05's and story 03's) that pinned the
+  wider rule; both rewrites are in the same commit as the behaviour change.
+- **`customers/<id>/attachments/`**, scoped through `scope_tickets` on the ticket relation — the
+  viewset's own `ScopedQuerySetMixin` only scopes the customer row, not the tickets hanging off it.
+- **`last_activity`** on the customer list, annotated so the query count stays constant.
+- **`branches/` / `departments/`** — unpaginated reference lists two different screens needed the
+  same week; story 09's reports reuse the department one.
+- **`department` on the new-ticket form** — not in the plan's own field list. A ticket created with no
+  department is invisible to its own creator (`scope_tickets` requires department, assignee or
+  watcher), found by creating one and getting a 404 on its own detail page. Defaults to the agent's
+  own department via `useMe()`'s department **code** matched against the new `departments/` list —
+  the same code-to-pk pattern story 07 solved with `department_code`.
+
+**Three separate mutations poisoned their own cache the same way**, and all three were found by using
+the feature rather than by a test: `TicketViewSet.create()`, `CustomerViewSet.update()`, and
+`KBArticleViewSet.create()`/`update()` all dispatch to their **write** serializer via
+`get_serializer_class()` — a narrower shape than the detail serializer the very next render reads.
+Story 07's ticket actions (assign/status/escalate/resolve/messages) are safe to seed from because
+they explicitly build `TicketDetailSerializer(ticket).data`; the plain `ModelViewSet` create/update
+verbs do not, and typing their response as the full detail type doesn't make it one. All three now
+**invalidate** rather than seed — a fresh GET against the real serializer, not a partial object
+written straight into the cache. **Any future mutation must check what its specific action actually
+returns before deciding whether to seed or invalidate; "this viewset's actions seed their cache" is
+not a safe generalisation.**
+
+What stories 09–10 consume:
+
+- **`useBlocker`'s boolean argument is a snapshot from the render that created it**, not a live read.
+  `setDirty(false)` immediately followed by a synchronous `navigate()` in the same handler still sees
+  the *previous* render's `dirty=true` and blocks its own successful save. Use the function form
+  (`useBlocker(() => ref.current)`) with a ref mutated synchronously wherever a flag changes and
+  navigates in the same tick — `KBEditor.tsx` is the reference implementation.
+- **`common.english` / `common.arabic`** are real keys now (they were referenced since story 07's
+  `TicketContext.tsx` but never defined, silently printing the raw key). Self-referential in both
+  `en.json` and `ar.json` — a language's own name is not translated, matching the login screen's
+  switcher.
+- **`src/test/utils.tsx` has two render helpers.** `renderWithProviders` (plain `MemoryRouter`) is
+  right for anything that does not call `useBlocker` or read `useParams()` itself. `renderWithDataRouter`
+  (`createMemoryRouter` + `RouterProvider`, with a catch-all route) is required for both — reading
+  `:slug`/`:id` inside the component under test, not receiving it as a prop, is the tell.
+- **`main.tsx` exports `appRouteChildren`** separately from its default render, guarded behind
+  `if (document.getElementById("root"))`, specifically so a route-ordering claim ("tickets/new" above
+  "tickets/:id") can be proven by resolving a real route rather than by reading array order.
+- **Customer 360's stats strip is three cells** (Open, Lifetime, SLA met), not the artboard's five.
+  `Avg resolution` and `CSAT` have no single-customer aggregate and would need a per-ticket detail
+  request to compute honestly — the same N+1 story 04's queue test forbids. `SLA met` stays because
+  `resolution_sla.state` is already on every list row (story 07) and costs nothing extra; it names the
+  count it is based on rather than implying full-lifetime coverage.
+- **KB's "No" (not helpful) feedback button persists nothing.** The API has only `helpful_count`, no
+  negative counter — adding one was out of scope for this story's four backend tasks. The button
+  acknowledges the click and says thanks; it is not wired to an endpoint.
+
+## Story 09 — as built
+
+Implemented. `/app/reports` (six KPI tiles, four charts, a client-sorted agent table, CSV export)
+and the whole `/portal/*` tree — registration, home, submit, ticket detail with a reload-safe CSAT
+widget, and a knowledge-base browser — plus **five backend additions**. Frontend: **202 Vitest
+tests** (up from 179), `check:rtl` green, `npm run build` and `npm run lint` clean. Backend: **391
+tests** (up from 383), OpenAPI schema still **zero warnings**.
+
+Verified against the running stack: signed in as `manager@demo`, `/app/reports` showed all six
+tiles with real 30-day figures and all four charts (including the two designed, not artboard-copied,
+by-channel line and CSAT bar); clicking the "open" tile opened the queue pre-filtered to the
+identical count ("9 open" on both screens). Registered a new portal account against
+`ops@gulftrading.sa` — a seeded customer's email — and the new login landed on `/portal` showing
+that customer's existing ticket history; submitted a new ticket and got back a real number and
+target date; replied on it; opened an already-CSAT-rated seeded ticket (`TK-0091`) on a fresh page
+load and saw the **read-only** star rating, not an empty input — proving the reload path, not just
+the current session. Switched to Arabic: the reports charts mirrored (Y-axis moved to the chart's
+right edge), and an English-only KB article showed the fallback notice under `ع` in the portal
+reader exactly as story 08 built it for the agent side.
+
+**Five backend additions**, matching the plan's own count exactly:
+
+- **Portal registration** (`portal/register/`, `AllowAny`) — the one unauthenticated write in the
+  app. Links to an existing `Customer` by email or creates one; a duplicate email gets the same
+  generic 400 a malformed one would, never a hint that the email specifically was the problem.
+- **`by_day_channel`** on the volume report — a fifth grouped query, flat `{day, channel, count}`
+  rows rather than nested, for a direct fit to Recharts' multi-line input.
+- **Attachments on a portal ticket submission**, and **on a portal reply** — both routed through
+  the *same* `sanitise_filename`/size/type checks `TicketViewSet.attachments` already applies,
+  imported rather than copied.
+- **`csat` exposed on `PortalTicketSerializer`** — without it, a rating's score existed only in the
+  POST response that created it; nothing on a GET could show it back after a reload.
+
+**CSV export (Task 6) stayed a frontend-only decision**, not an oversight: `AgentsReportView`
+already returns the complete unpaginated dataset in one response, so a server export endpoint would
+duplicate the same aggregation the client already has fully loaded. Built from the in-memory
+`agents` array via a `Blob` + a temporary `<a download>`, with a test asserting zero network
+requests fire on export.
+
+**One gap named rather than worked around:** `SubmitTicket.tsx` has no category picker.
+`PortalTicketCreateSerializer.category` accepts an id, but no portal-reachable endpoint lists what
+those ids are, and `src/api/portal.ts` may not import the agent-facing `useCategories()` —
+criterion 14's own constraint. The form submits `category: null` rather than either faking a working
+control or quietly reaching into the agent API to fill the gap.
+
+**Two of the six KPI tiles link to the reporting window as a whole, not a matching filter.** SLA
+compliance % and CSAT average are not a filterable population — four other tiles (total, open,
+resolved today, breached) do have an exact `TicketFilterSet` match, verified live end-to-end, not
+merely eyeballed against the plan's own suggested params.
+
+What stories 10 reads before continuing:
+
+- **`apiMock`'s substring matcher makes registration order load-bearing.** A test mocking both a list
+  route and a detail/sub-resource route under it must register the *specific* routes last — "last
+  registration wins" per the mock's own contract, which is the opposite of how fixtures are usually
+  written. Found via a real crash (`RangeError: Invalid time value`) when the general
+  `/portal/tickets/` handler's substring match silently won over the specific `/portal/tickets/5/`
+  one.
+- **A charting library's `ResponsiveContainer` renders nothing at 0×0**, which is jsdom's default —
+  chart-content assertions belong on the pure data transform that feeds the chart
+  (`pivotByDayChannel`, exported for exactly this), not on the rendered SVG.
+- **A registration/self-service response should reuse the login response's own token-building code**
+  rather than re-deriving `role`/`name` claims a second time — `RegisterResponseSerializer.build`
+  calls `LoginSerializer.get_token` directly.
+
+## Story 10 — as built
+
+Implemented. The Arabic sweep, a responsive pass, an i18n key-parity guard, a real error boundary, a
+states audit, a seed audit (nothing needed changing), and the four hand-in documents (README
+rewrite, `DEMO.md`, `SUMMARY.md`, this section). No backend work was planned; one landed anyway
+because the demo rehearsal found a bug serious enough that fixing it in place was the only honest
+option. Frontend: **208 Vitest tests** (up from 202). Backend: **392 tests** (up from 391), OpenAPI
+schema still zero warnings, `makemigrations --check` clean.
+
+**The most serious bug of the whole project was found by rehearsing `docs/DEMO.md` for real**, not
+by reading code: a ticket submitted through the customer portal was invisible to every agent and
+manager. `PortalTicketViewSet.perform_create` never set a `department`, and `scope_tickets` matches
+an agent's queue on department, assignee, or watcher — none of which a portal ticket had. Only an
+admin (unfiltered) could ever see it. This is story 08's "a ticket with no department is invisible
+to its own creator" bug's twin, on the other side of the trust boundary, and it survived the whole
+of story 09 because nothing in that story's own tests ever completed the loop of "submit as a
+customer, then look for it as an agent" — each story's own tests were individually correct; the bug
+lived entirely in the gap between them. Fixed by defaulting new portal tickets to the "general"
+department, with a dedicated regression test (`test_story10_department_routing.py`).
+
+**The Arabic sweep found five more real bugs, fixed in the same commits as found:**
+
+- `PortalTicketSerializer.status`/`.channel` used `get_..._display()` text — English-only regardless
+  of session language, unlike every other serializer in the app. Changed to raw enum keys, matching
+  the agent-facing `TicketListSerializer`, translated client-side via existing `status.*`/`channel.*`
+  keys.
+- Four reference-list dropdowns (customer list's branch filter, KB editor's category picker,
+  new-ticket form's category and department pickers) rendered `name_en` unconditionally instead of
+  switching on the active language.
+- `Register.tsx` had no language toggle at all, unlike every other unauthenticated screen.
+
+**The i18n `missingKeyHandler` (thrown in development, added specifically to catch exactly this
+class of bug) immediately caught a real one**: `composer.insertKbLink` had never existed — the
+correct key, `kb.insertKbLink`, had existed since story 07, and the composer's "Insert KB link"
+button had been silently printing the raw key string on screen for three stories, because
+i18next's default behaviour on a miss is to render the key, not fail. Two *deliberate*
+missing-key-as-fallback patterns in `ActivityLog.tsx` had to be rewritten to use `i18n.exists()`
+instead, since the new throw-on-miss handler would otherwise fire on legitimately-absent keys those
+patterns exist specifically to tolerate.
+
+**The responsive pass found the ticket workspace's context pane was not hidden, it was
+unreachable** below 1280px — `hidden ... xl:flex` with no toggle anywhere. Split into
+`TicketContextPanel` (shared content) and added a dialog-based drawer below `xl`. The whole
+three-pane workspace also overflowed badly below 768px; fixed by stacking the queue and detail pane
+into two full-width "pages" with a back-to-queue link, and by collapsing `AppChrome`'s six-item nav
+into a menu button below `lg` (it overflowed the header at 375px independent of the ticket
+workspace entirely).
+
+**The states audit found three screens with no error state at all** — `ReportsPage`,
+`CustomerList`, and `PortalHome` all destructured `isPending` but never `isError`; a failed request
+left stale or empty data on screen with no indication anything had gone wrong. Added a
+`role="alert"` retry-wired banner to each.
+
+**Screenshots** (`docs/design/*.png`, all twelve artboards) were captured by installing Chromium
+inside the `web` container (Alpine has no bundled browser, and Playwright's own hard Node-20
+requirement blocks it on this project's pinned Node 18 host) and driving it with `puppeteer-core`
+via a small local reverse proxy forwarding the container's own `localhost:8000` to the real `api`
+service — the frontend bundle's `VITE_API_URL` is baked in for a *host* browser, and resolves
+differently from inside the container it is served from. One screenshot (the dev-only
+`_kitchen-sink` route, mapped to `DesignSystem.dc.html`) renders Arabic text as tofu boxes in this
+specific headless-Chromium/Alpine-font combination on its bilingual side-by-side comparison cards
+only — every real Arabic screen in the same screenshot set (`TicketWorkspaceRTL.png`,
+`PortalTicket.png`) renders Arabic correctly, confirming this is a capture-environment font gap on
+one dev-only page, not a product regression.
+
 ## Dependency notes
 
 **Day 1 is stories 01–05 (backend); day 2 is 06–10 (frontend).**
@@ -214,9 +582,11 @@ failure mode the story 03 plan calls out explicitly.
 
 Story 05 is the last backend story: after it the API is complete and day 2 is purely frontend.
 
-Story 06 establishes the shared component vocabulary (`DataTable`, `StatusBadge`, `PriorityBadge`,
-`ChannelBadge`, `SlaBar`) and the no-directional-utility rule that makes the Arabic RTL flip a
-translation pass in story 10 rather than a rescue. Stories 07–09 assemble from that vocabulary.
+Story 06 established the shared component vocabulary (`DataTable`, `StatusBadge`, `PriorityBadge`,
+`ChannelBadge`, `SlaBar`) and the no-directional-utility rule — now enforced by
+`frontend/scripts/check-rtl.mjs` — that makes the Arabic RTL flip a translation pass in story 10
+rather than a rescue. Stories 07–09 assemble from that vocabulary; read story 06's "as built"
+section above before starting 07, the way this plan read story 05's.
 
 Frontend stories 06–09 each carry the relevant design artboards in their `attachments/` folder.
 Squad-kit's planner reads only the intake and its attachments, so those files must stay attached —

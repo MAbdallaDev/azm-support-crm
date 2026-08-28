@@ -241,4 +241,12 @@ def test_kb_scope_hides_drafts_from_customers(users, django_db_blocker):
         qs = KBArticle.objects.all()
         assert KBArticle.objects.filter(status="draft").exists(), "fixture has no drafts"
         assert scope_kb_articles(qs, users["customer"]).filter(status="draft").count() == 0
-        assert scope_kb_articles(qs, users["agent"]).count() == KBArticle.objects.count()
+
+        # Story 08 narrows drafts to author/manager/admin. The seeded draft is
+        # authored by manager@demo, so a plain agent (not that author) sees
+        # published work only — one row short of the full table, not the same
+        # count this test asserted before the narrowing.
+        published_count = KBArticle.objects.exclude(status="draft").count()
+        assert scope_kb_articles(qs, users["agent"]).count() == published_count
+        assert scope_kb_articles(qs, users["manager"]).count() == KBArticle.objects.count()
+        assert scope_kb_articles(qs, users["admin"]).count() == KBArticle.objects.count()

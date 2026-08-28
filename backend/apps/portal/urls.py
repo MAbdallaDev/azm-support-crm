@@ -3,7 +3,12 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.portal.views import PortalCSATView, PortalKBArticleViewSet, PortalTicketViewSet
+from apps.portal.views import (
+    PortalCSATView,
+    PortalKBArticleViewSet,
+    PortalTicketViewSet,
+    RegisterView,
+)
 
 router = DefaultRouter()
 router.register("tickets", PortalTicketViewSet, basename="portal-ticket")
@@ -11,5 +16,6 @@ router.register("kb/articles", PortalKBArticleViewSet, basename="portal-kbarticl
 
 urlpatterns = [
     path("csat/", PortalCSATView.as_view(), name="portal-csat"),
+    path("register/", RegisterView.as_view(), name="portal-register"),
     *router.urls,
 ]

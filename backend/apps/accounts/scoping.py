@@ -86,16 +86,20 @@ def scope_ticket_messages(qs, user):
 
 
 def scope_kb_articles(qs, user):
-    """Staff see drafts; customers see published articles only.
+    """Published articles are visible to everyone; drafts are not.
 
-    The knowledge base is deliberately not scoped by department or branch — an
-    article is either fit to publish or it is not.
+    A draft is visible to its author, to managers and to admins — an agent's
+    half-written article is not their colleagues' reading material. Published
+    articles are never scoped by department or branch: an article is either
+    fit to publish or it is not.
     """
     if not user or not user.is_authenticated:
         return qs.none()
+    if user.role in (Role.ADMIN, Role.MANAGER):
+        return qs
     if user.role == Role.CUSTOMER:
         return qs.filter(status="published")
-    return qs
+    return qs.filter(Q(status="published") | Q(author=user))
 
 
 class ScopedQuerySetMixin:

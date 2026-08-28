@@ -24,11 +24,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
-from apps.accounts.permissions import IsManager
+from apps.accounts.permissions import IsAgentOrAbove, IsManager
 from apps.accounts.scoping import scope_tickets
 from apps.reports.serializers import (
     AgentsReportSerializer,
     CSATReportSerializer,
+    MySummarySerializer,
     OverviewReportSerializer,
     VolumeReportSerializer,
 )
@@ -193,6 +194,17 @@ class VolumeReportView(ManagerReportView):
             .order_by("day")
         ]
 
+        # A fifth query, still one per grouping regardless of ticket volume —
+        # a flat list of {day, channel, count} triples, not a nested structure.
+        # See DayChannelBucketSerializer for why.
+        by_day_channel = [
+            {"day": row["day"].isoformat(), "channel": row["channel"], "count": row["count"]}
+            for row in qs.annotate(day=TruncDate("created_at"))
+            .values("day", "channel")
+            .annotate(count=Count("id"))
+            .order_by("day", "channel")
+        ]
+
         return Response(
             {
                 "days": days,
@@ -200,6 +212,7 @@ class VolumeReportView(ManagerReportView):
                 "by_priority": group("priority"),
                 "by_channel": group("channel"),
                 "by_day": by_day,
+                "by_day_channel": by_day_channel,
             }
         )
 
@@ -308,6 +321,108 @@ class CSATReportView(ManagerReportView):
                 # Every score present, including zeros — a bar chart with a
                 # missing category renders as a gap the reader misreads as data.
                 "distribution": [
+                    {"score": score, "count": buckets.get(score, 0)}
+                    for score in range(1, 6)
+                ],
+            }
+        )
+
+
+@extend_schema(
+    tags=["reports"],
+    summary="The signed-in agent's own dashboard figures",
+    description=(
+        "Agent-reachable, unlike the four manager reports. Every count is "
+        "scoped to the caller and has a matching queue filter, so a dashboard "
+        "tile and the queue its link opens report the same set of tickets."
+    ),
+    responses={200: MySummarySerializer},
+)
+class MySummaryView(APIView):
+    """Story 07's agent dashboard, in one request.
+
+    **Why this exists rather than reusing `reports/overview/`:** that view is
+    `IsManager`-gated (manager or admin), so an agent — the dashboard's actual
+    audience — gets a 403. Loosening it instead would expose department-wide
+    figures to every agent, which is precisely what story 03's scoping was
+    built to prevent.
+
+    Four of these numbers could be had from four `tickets/?...&page_size=1`
+    count queries. **`csat_average` could not** — `csat_score` appears on the
+    detail serializer only, never on the list, so there is no filter that
+    produces it. One request instead of five, and the honest home for a figure
+    no queue filter can express.
+
+    Aggregate-only, like the other reports: no Python-side loop over tickets,
+    and a bounded number of queries regardless of dataset size.
+    """
+
+    permission_classes = [IsAgentOrAbove]
+
+    def get(self, request):
+        user = request.user
+        now = timezone.now()
+        # **Local** midnight, not UTC midnight. TIME_ZONE is Asia/Riyadh, so
+        # `now.replace(hour=0)` starts "today" three hours late and silently
+        # drops everything an agent resolved between 00:00 and 03:00 their
+        # time. The dashboard's own link uses the browser's local midnight, so
+        # a UTC boundary here also makes the tile disagree with the queue it
+        # opens — the one thing these figures must never do.
+        today = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
+        within_hour = now + timedelta(hours=1)
+
+        # Starts from the caller's scope, never Ticket.objects — an agent's
+        # "unassigned in my department" must not count rows they cannot open.
+        scoped = scope_tickets(Ticket.objects.all(), user)
+
+        # One aggregate call for six counts. filter=Q(...) per metric is what
+        # keeps this a single query rather than one round trip per tile.
+        mine = Q(assignee=user)
+        open_now = Q(status__in=OPEN_STATUSES)
+
+        counts = scoped.aggregate(
+            my_open=Count("id", filter=mine & open_now),
+            awaiting_first_reply=Count(
+                "id", filter=mine & open_now & Q(first_response_at__isnull=True)
+            ),
+            breaching_within_hour=Count(
+                "id",
+                filter=mine
+                & open_now
+                & Q(
+                    resolved_at__isnull=True,
+                    sla_resolution_due_at__gte=now,
+                    sla_resolution_due_at__lte=within_hour,
+                ),
+            ),
+            # Deliberately NOT `& mine`: the point of the tile is work nobody
+            # owns yet, in the caller's department.
+            unassigned_in_department=Count(
+                "id",
+                filter=open_now
+                & Q(assignee__isnull=True)
+                & Q(department=user.department_id),
+            ),
+            resolved_by_me_today=Count(
+                "id", filter=mine & Q(resolved_at__gte=today)
+            ),
+            already_breached=Count("id", filter=mine & breached_q(now)),
+        )
+
+        ratings = CSATRating.objects.filter(ticket__in=scoped.filter(assignee=user))
+        csat = ratings.aggregate(average=Avg("score"), count=Count("id"))
+        buckets = {
+            row["score"]: row["count"]
+            for row in ratings.values("score").annotate(count=Count("id"))
+        }
+
+        return Response(
+            {
+                **counts,
+                "csat_average": round(csat["average"], 2) if csat["average"] else None,
+                "csat_count": csat["count"],
+                # Every score present, including zeros — see CSATReportView.
+                "csat_distribution": [
                     {"score": score, "count": buckets.get(score, 0)}
                     for score in range(1, 6)
                 ],

@@ -9,6 +9,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.tickets.services import ticket_service
 from apps.tickets.services.sla_service import (
     RESOLUTION,
     RESPONSE,
@@ -83,6 +84,7 @@ class TicketListSerializer(serializers.ModelSerializer):
         source="category.name_en", read_only=True, default=""
     )
     is_breached = serializers.SerializerMethodField()
+    resolution_sla = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
@@ -90,10 +92,28 @@ class TicketListSerializer(serializers.ModelSerializer):
             "id", "number", "subject", "priority", "status", "channel",
             "customer_name", "assignee_name", "category_name",
             "created_at", "sla_resolution_due_at", "is_breached",
+            "resolution_sla",
         )
 
     def get_is_breached(self, obj) -> bool:
         return is_breached(obj, self.context.get("now"))
+
+    @extend_schema_field(SLAStateSerializer)
+    def get_resolution_sla(self, obj) -> dict:
+        """The same clock the detail pane shows, on every queue row.
+
+        Story 07's rows render a live countdown that turns red on breach.
+        Without this field the queue would need a *second* SLA component
+        deriving colour from `sla_resolution_due_at` and `is_breached` on its
+        own — and the queue's colour and the detail pane's colour would drift
+        the first time either rule changed.
+
+        **Not an N+1.** `sla_state` reads only `ticket.sla_policy`, and the list
+        queryset already `select_related("sla_policy")`. Story 04's
+        `test_queue_performance.py` asserts the query count is identical for 5
+        and 50 rows — that test, not this comment, is the proof.
+        """
+        return sla_state(obj, RESOLUTION, self.context.get("now"))
 
 
 class TicketPersonSerializer(serializers.Serializer):
@@ -125,6 +145,7 @@ class TicketDetailSerializer(serializers.ModelSerializer):
     is_breached = serializers.SerializerMethodField()
     response_sla = serializers.SerializerMethodField()
     resolution_sla = serializers.SerializerMethodField()
+    allowed_transitions = serializers.SerializerMethodField()
     csat_score = serializers.IntegerField(source="csat.score", read_only=True, default=None)
 
     class Meta:
@@ -142,7 +163,7 @@ class TicketDetailSerializer(serializers.ModelSerializer):
             "sla_response_breached", "sla_resolution_breached",
             "ai_summary", "ai_suggested_category",
             "watcher_count", "csat_score", "is_breached",
-            "response_sla", "resolution_sla",
+            "response_sla", "resolution_sla", "allowed_transitions",
             "created_at", "updated_at",
         )
 
@@ -160,6 +181,22 @@ class TicketDetailSerializer(serializers.ModelSerializer):
     @extend_schema_field(SLAStateSerializer)
     def get_resolution_sla(self, obj) -> dict:
         return sla_state(obj, RESOLUTION, self.context.get("now"))
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_allowed_transitions(self, obj) -> list[str]:
+        """The status values a caller may move this ticket to, right now.
+
+        Served **with the ticket** rather than from a static endpoint, because
+        the answer depends on `obj.status`: it cannot go stale relative to the
+        row it describes, and story 07's status dropdown needs no second
+        request to populate itself.
+
+        The point is that `ALLOWED_TRANSITIONS` stays single-sourced in
+        `ticket_service`. The alternative is the frontend transcribing the map
+        — a second copy that drifts silently, offering a move the API then
+        refuses with a 400 the user cannot act on.
+        """
+        return sorted(ticket_service.ALLOWED_TRANSITIONS.get(obj.status, set()))
 
 
 class TicketWriteSerializer(serializers.ModelSerializer):
