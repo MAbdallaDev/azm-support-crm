@@ -172,6 +172,11 @@
     "checking": "Checking…",
     "unreachable": "Unreachable"
   },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This screen hit an unexpected error. Reloading usually fixes it; the error has been logged.",
+    "reload": "Reload"
+  },
   "notFound": {
     "title": "Not built yet",
     "body": "There is no screen at {{path}} — it arrives in a later story.",

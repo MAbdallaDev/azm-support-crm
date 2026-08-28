@@ -230,7 +230,10 @@ export default function KBEditor() {
         />
       </div>
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-4">
+      {/* Stacks to one column below `md` rather than compressing two 160px-wide
+          editors into an unusable strip — a two-column grid with no responsive
+          variant is exactly the failure mode story 10's 375px pass checks for. */}
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex min-h-0 flex-col rounded-[9px] border border-line bg-background">
           <div className="flex items-center gap-2.5 border-b border-line px-[15px] py-3">
             <span className="text-[13px] font-bold">{t("editor.english")}</span>

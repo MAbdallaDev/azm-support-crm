@@ -57,6 +57,21 @@ void i18n.use(initReactI18next).init({
   lng: initialLanguage(),
   fallbackLng: "en",
   interpolation: { escapeValue: false },
+  // i18next's default on a missing key is to render the key itself
+  // ("tickets.newTitle" on screen) rather than fail — which reads as
+  // placeholder text, not as an error, and survives a whole story's manual
+  // verification unless someone happens to read that exact string (this is
+  // exactly how story 08's `common.english`/`common.arabic` gap went
+  // unnoticed for a full story). Throwing in development turns a missing key
+  // into a visible crash during the Arabic sweep instead of a silent typo;
+  // production only logs, since a customer-facing screen should degrade to
+  // the raw key rather than a blank error boundary over one missing string.
+  saveMissing: true,
+  missingKeyHandler: (_lngs, _ns, key) => {
+    const message = `i18next: missing key "${key}"`;
+    if (import.meta.env.DEV) throw new Error(message);
+    console.error(message);
+  },
 });
 
 applyDocumentLanguage(i18n.language as Language);

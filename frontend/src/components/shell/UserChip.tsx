@@ -45,13 +45,13 @@ export function UserChip({ me, compact = false }: { me: Me; compact?: boolean })
         >
           {initials(me.full_name)}
         </span>
-        <span className="text-start leading-[1.3]">
-          <span className="block text-[12.5px] font-semibold">{me.full_name}</span>
+        <span className="hidden text-start leading-[1.3] sm:block">
+          <span className="block max-w-[160px] truncate text-[12.5px] font-semibold">{me.full_name}</span>
           {compact ? null : (
-            <span className="block text-[11px] text-muted-foreground">{subtext}</span>
+            <span className="block max-w-[160px] truncate text-[11px] text-muted-foreground">{subtext}</span>
           )}
         </span>
-        <ChevronDown aria-hidden className="h-3 w-3 text-muted-foreground" />
+        <ChevronDown aria-hidden className="hidden h-3 w-3 text-muted-foreground sm:block" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="min-w-[12rem]">

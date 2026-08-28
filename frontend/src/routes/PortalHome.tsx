@@ -24,7 +24,6 @@ import { formatDate } from "@/lib/format";
 const CLOSED_LABELS = new Set(["Resolved", "Closed"]);
 
 function TicketRow({ ticket }: { ticket: PortalTicket }) {
-  const { t } = useTranslation();
   return (
     <Link
       to={`/portal/tickets/${ticket.id}`}
@@ -36,7 +35,10 @@ function TicketRow({ ticket }: { ticket: PortalTicket }) {
         {formatDate(ticket.created_at)}
       </span>
       <Pill className="bg-surface-3 text-slate-600">{ticket.status}</Pill>
-      <span className="hidden text-[11px] text-muted-foreground md:block">{t(`channel.${ticket.channel}`, ticket.channel)}</span>
+      {/* `ticket.channel` is already `get_channel_display()`'s text ("Portal",
+          "Email"), not an enum key — there is no `channel.<key>` to look up,
+          so this renders the server's own string rather than mistranslating it. */}
+      <span className="hidden text-[11px] text-muted-foreground md:block">{ticket.channel}</span>
     </Link>
   );
 }

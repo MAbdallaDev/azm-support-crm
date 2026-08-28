@@ -50,11 +50,12 @@ export function ActivityLog({
       if (!value) return "";
       if (!namespace) return value;
       const key = `${namespace}.${value}`;
-      const translated = t(key);
-      // i18next echoes the key back when it is missing — a value the server
-      // added but the client has no label for should show as itself, not as
-      // "status.something_new".
-      return translated === key ? value : translated;
+      // Checked with `i18n.exists`, not by calling `t()` and comparing the
+      // result to the key: story 10's `missingKeyHandler` throws in
+      // development on a genuinely missing key, and a value the server added
+      // that the client has no label for yet is an *expected* miss, not a
+      // bug to surface as a crash — it should render as itself instead.
+      return i18n.exists(key) ? t(key) : value;
     };
 
     const values = {
@@ -64,10 +65,10 @@ export function ActivityLog({
     };
 
     const key = `activity.${event.event_type}`;
-    const sentence = t(key, values);
     // Unknown event types fall back to a generic sentence rather than
-    // rendering blank — a silent gap in a history reads as data loss.
-    return sentence === key ? t("activity.fallback", values) : sentence;
+    // rendering blank — a silent gap in a history reads as data loss. Same
+    // `i18n.exists` reasoning as `render` above.
+    return i18n.exists(key) ? t(key, values) : t("activity.fallback", values);
   };
 
   return (

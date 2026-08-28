@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "check:rtl": "node scripts/check-rtl.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "test:run": "vitest run"
   },
   "dependencies": {
