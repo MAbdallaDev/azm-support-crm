@@ -110,16 +110,36 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
 
         Accepting a customer id from the request body would let any portal user
         file tickets against any account.
+
+        **`department` must be set to something.** `scope_tickets` shows an
+        agent only work in their own department, assigned to them, or watched
+        by them (story 08 hit the identical bug on the agent-side new-ticket
+        form); a portal ticket left with `department=None` matches none of
+        those for *any* agent or manager — only an admin (unfiltered) could
+        ever see it. Found live during story 10's demo-script rehearsal: a
+        freshly submitted portal ticket searched for in every agent and
+        manager queue and found in neither. The submit form has no department
+        field for a customer to pick from (routing is an internal concern),
+        so this defaults to the "general" department — a real routing rule
+        (e.g. by category) is a Phase 2 refinement, not a gap this MVP ships
+        silently.
         """
+        from apps.accounts.models import Department
+
         user = self.request.user
         if user.customer_id is None:
             raise ValidationError(
                 {"detail": "This login is not linked to a customer account."}
             )
+        default_department = (
+            Department.objects.filter(code="general").first()
+            or Department.objects.order_by("code").first()
+        )
         ticket = serializer.save(
             customer=user.customer,
             created_by=user,
             branch=user.customer.branch,
+            department=default_department,
             status=Status.NEW,
         )
         # Same two hook points as the agent app — the SLA clock starts for a

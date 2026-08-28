@@ -3,11 +3,24 @@
 A multi-channel customer support CRM: tickets with SLA tracking, a customer 360 view, a bilingual
 knowledge base, mocked AI assistance, a self-service customer portal, and manager reports.
 
-It implements the twelve requirement areas in [`azm_squad_customer_support_crm.pdf`](azm_squad_customer_support_crm.pdf).
-The scope split between the MVP and a deferred phase 2 is in [`docs/00-project-brief.md`](docs/00-project-brief.md).
+It implements the twelve requirement areas in [`azm_squad_customer_support_crm.pdf`](azm_squad_customer_support_crm.pdf) —
+see [Requirement coverage](#requirement-coverage) below for exactly where each one lives.
 
 **Stack:** Django 5 + Django REST Framework · PostgreSQL 16 · React 19 + TypeScript + Vite ·
 Tailwind CSS + shadcn/ui · TanStack Query · i18next (Arabic + English) · Docker Compose.
+
+**What's mocked, what's deferred — upfront, not as a footnote:** the AI backend (summarize/
+suggest-reply/categorize) is a deterministic mock behind a real interface — no Anthropic key is
+available for this project, and an agent always approves before anything it drafts reaches a
+customer. Email, WhatsApp, SMS and live chat are **channel labels only** — the portal and the agent
+app are the two live transports; the rest tag a ticket's origin without a real integration behind
+them. SLA math is wall-clock, not business-hours-aware. Knowledge-base search is `icontains`, not
+full-text. The customer portal has no category picker on the submit form (it silently has nowhere
+to source the options from without importing the agent-facing API, which the portal's own trust
+boundary forbids). Two of the six manager-report KPI tiles (SLA compliance %, CSAT average) do not
+link through to a filtered queue, because a percentage and an average are not a filterable
+population. Full reasoning for each is in [`docs/00-project-brief.md`](docs/00-project-brief.md) §3
+and in [`docs/SUMMARY.md`](docs/SUMMARY.md)'s honest-limitations section.
 
 ---
 
@@ -23,6 +36,13 @@ docker compose up --build
 Three containers start: `db`, then `api` once Postgres is accepting connections, then `web`.
 First build takes a few minutes; afterwards it is seconds.
 
+Then run migrations and seed the demo data (see [Demo data and logins](#demo-data-and-logins)):
+
+```bash
+docker compose exec api python manage.py migrate
+docker compose exec api python manage.py seed_demo
+```
+
 Then open:
 
 | What | URL |
@@ -34,7 +54,7 @@ Then open:
 | Django admin | http://localhost:8000/admin/ |
 
 The API denies by default from story 03 onward. `health`, `schema` and `docs` are public; everything
-else needs a bearer token:
+else needs a bearer token — sign in through the web app, or directly:
 
 ```bash
 curl -s -X POST localhost:8000/api/v1/auth/login/ \
@@ -75,8 +95,10 @@ Expect `HTTP/1.1 503 Service Unavailable` and `"database":"unavailable"`. Bring 
 > `InconsistentMigrationHistory`. A fresh clone never sees this.
 
 The database starts empty. One command fills it with a full working dataset — ~150 tickets spread
-over the last 90 days, ten customers across all three tiers, a bilingual knowledge base, SLA
-policies and canned replies:
+over the last 90 days (a mix already breached, already escalated, or close to breaching, so every
+SLA state is visible without waiting), ten customers across all three tiers, a bilingual knowledge
+base (one article deliberately English-only, to exercise the language-fallback notice), SLA
+policies, canned replies, and a spread of CSAT ratings (not all 5s):
 
 ```bash
 docker compose exec api python manage.py seed_demo
@@ -94,15 +116,14 @@ Password for **every** account below: `Demo!2345`
 | Login | Role | What they see |
 |---|---|---|
 | `admin@demo` | Administrator | Everything, plus the Django admin back-office at `/admin/` — users, roles, departments, branches, categories, tags, SLA policies, canned replies and the audit log |
-| `manager@demo` | Manager | Every ticket across all departments and branches, the manager reports, and team assignment |
+| `manager@demo` | Manager | Every ticket across all departments and branches, the manager reports at `/app/reports`, and team assignment |
 | `agent@demo` | Agent | The ticket queue, their own assigned work, customers and the knowledge base |
-| `customer@demo` | Customer | The customer portal only — their own tickets, replies, and the published knowledge base |
+| `customer@demo` | Customer | The customer portal only, at `/portal` — their own tickets, replies, CSAT rating, and the published knowledge base |
 
-Roles are stored on the user record from this story onwards; the permission classes that enforce
-them arrive in story 03. Until then admin access is superuser-only. The seed also creates five more
-agents (`sara@demo`, `khalid@demo`, `noura@demo`, `faisal@demo`, `omar@demo`) so the agent-performance
-report has more than one row, and a portal login per customer so tickets opened over the web channel
-have a believable author.
+The seed also creates five more agents (`sara@demo`, `khalid@demo`, `noura@demo`, `faisal@demo`,
+`omar@demo`) so the agent-performance report has more than one row, and a portal login per seeded
+customer so tickets opened over the web channel have a believable author. `docs/DEMO.md` walks
+through a full end-to-end scenario using these logins.
 
 ---
 
@@ -116,6 +137,7 @@ The backend falls back to SQLite when `DATABASE_URL` is unset, so it runs standa
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python manage.py migrate
+.venv/bin/python manage.py seed_demo
 .venv/bin/python manage.py runserver
 ```
 
@@ -133,7 +155,7 @@ The web app is then on http://localhost:5173 and the API on http://localhost:800
 
 ## Tests
 
-**Backend** — pytest-django. This is the canonical command; it runs against PostgreSQL:
+**Backend** — pytest-django, **392 tests**, against PostgreSQL:
 
 ```bash
 docker compose exec api pytest -q
@@ -150,13 +172,20 @@ One test differs between the two. `test_fifty_concurrent_creates_get_fifty_disti
 under threads, so on the host run it is **skipped with its reason printed** (`pytest -rs` shows it)
 rather than passing without ever having raced.
 
-**Frontend** — Vitest:
+**Frontend** — Vitest, **208 tests**:
 
 ```bash
 cd frontend && npm run test -- --run
 ```
 
-**Production build check:** `cd frontend && npm run build`
+Plus two guard scripts, both run in CI and both required to pass before a story is considered done:
+
+```bash
+cd frontend && npm run check:rtl    # no directional Tailwind utility (ml-/mr-/left-/right-/...) anywhere
+cd frontend && npm run check:i18n   # every key in en.json exists in ar.json and vice versa
+```
+
+**Production build check:** `cd frontend && npm run build` · **Lint:** `cd frontend && npm run lint`
 
 ---
 
@@ -176,7 +205,8 @@ Every environment-specific value is read from the environment; nothing is hardco
 ```
 crm/
 ├─ docker-compose.yml   .env.example
-├─ docs/                brief, design artboards, AI usage journal
+├─ docs/                brief, design artboards, AI usage journal, DEMO.md, SUMMARY.md
+├─ .squad/               ten story intakes and ten generated plans (see SDD workflow, below)
 ├─ backend/
 │  ├─ config/           settings.py, urls.py, health.py
 │  └─ apps/             accounts customers tickets kb ai reports portal
@@ -187,54 +217,109 @@ One Django app per domain — the rough equivalent of an Odoo module. One fronte
 two route trees: the agent/manager app under `/app/*` and the customer portal under `/portal/*`,
 separated by auth scope and sharing one component library.
 
-Full stack rationale, the Odoo→Django concept map, and the ten-story plan are in
-[`docs/00-project-brief.md`](docs/00-project-brief.md). Development follows spec-driven
-development: every story has an intake under `.squad/stories/` and a generated plan under
-`.squad/plans/` written *before* implementation.
+### Odoo → Django mental map
+
+Mostafa's production background is Odoo. This is the map used throughout development to carry that
+experience over rather than starting from zero on an unfamiliar framework:
+
+| Odoo concept | Here |
+|---|---|
+| `models.Model`, `_name` | `django.db.models.Model`, `Meta.db_table` |
+| `fields.Char` / `Many2one` / `One2many` | `CharField` / `ForeignKey` / reverse FK accessor |
+| `@api.constrains`, `_sql_constraints` | `clean()`, `Meta.constraints`, DRF serializer validators |
+| `ir.cron` | Management command (Celery task in Phase 2) |
+| `ir.model.access`, record rules | DRF permission classes (`apps/accounts/permissions.py`) + `get_queryset()` scoping (`apps/accounts/scoping.py`) — the same two-layer split Odoo makes, just implemented as two Python modules instead of two XML mechanisms |
+| `mail.thread` / chatter | `TicketMessage` + `TicketEvent` + the Conversation/Internal notes/Activity log tabs |
+| Odoo backend views (list/form) | **Django admin** |
+| QWeb / Owl | React components |
+| `ir.actions.server`, automated actions | SLA computation + round-robin assignment in `apps/tickets/services/` |
+| XML-RPC external API | DRF + OpenAPI schema + Swagger UI (an Odoo connector is Phase 2) |
+
+### Why Django and not FastAPI
+
+FastAPI was the initial recommendation, and it is the better long-term fit for streaming AI
+responses and WebSockets. It lost on the one axis that dominates a 2-day build: **everything Django
+hands you for free**. With FastAPI, auth, permissions, migrations and an admin UI are all work done
+by hand. With Django they are configuration — `django.contrib.auth` supplies users, groups and
+permissions, and **Django admin supplies the entire back-office** (user management, categories, SLA
+policies, audit browsing) without a line of custom CRUD UI. That is two to three stories that never
+had to be written. Since this MVP's AI features are mocked, FastAPI's main advantage does not apply
+here; it is the right choice to revisit if Phase 2's live chat and streaming AI arrive.
+
+---
+
+## Requirement coverage
+
+The twelve feature areas from the assessment PDF, each mapped to the story and the file where it is
+implemented:
+
+| # | Requirement area | Implemented in | Where |
+|---|---|---|---|
+| 1 | Customer Management | Story 04 (API), Story 08 (UI) | `apps/customers/`, `frontend/src/features/customers/` |
+| 2 | Ticket Management | Story 04 (API), Story 07 (UI) | `apps/tickets/`, `frontend/src/features/tickets/` |
+| 3 | Communication Channels | Story 02 (model), Story 07 (UI) | `Ticket.channel`, `ChannelBadge`, the composer's *Sending via* label |
+| 4 | Agent Dashboard | Story 07 | `frontend/src/routes/Dashboard.tsx`, `apps/reports/views.py::MySummaryView` |
+| 5 | SLA & Automation | Story 05 (API), Story 07 (UI) | `apps/tickets/services/sla_service.py`, `apps/tickets/services/ticket_service.py`, `SlaBar` |
+| 6 | Knowledge Base | Story 05 (API), Story 08 (UI) | `apps/kb/`, `frontend/src/features/kb/` |
+| 7 | AI Features | Story 05 | `apps/ai/services/{base,mock,claude}.py` |
+| 8 | Customer Portal | Story 05 (API), Story 09 (UI) | `apps/portal/`, `frontend/src/features/portal/` |
+| 9 | Reports & Management | Story 05 (API), Story 09 (UI) | `apps/reports/views.py`, `frontend/src/features/reports/ReportsPage.tsx` |
+| 10 | Security & Administration | Story 03 | `apps/accounts/{permissions,scoping,audit}.py`, Django admin |
+| 11 | Integrations | Story 01 | `drf-spectacular` OpenAPI schema, Swagger UI at `/api/v1/docs/` |
+| 12 | Platform (bilingual, responsive) | Story 06 (shell), Story 10 (sweep) | `frontend/src/i18n/`, `scripts/check-rtl.mjs`, `scripts/check-i18n.mjs` |
+
+### The SDD workflow
+
+This project shipped as **ten stories**, each following the same cycle: a written intake with
+numbered acceptance criteria and an explicit out-of-scope list, a generated implementation plan
+against concrete file paths, then one scoped implementation session — never all ten planned up
+front. `.squad/stories/crm-mvp/` holds the ten intakes; `.squad/plans/crm-mvp/` holds the ten
+generated plans, each with its own "as built" section written after the fact. The commit history
+shows plan-then-implement order per story (a `plan(NN): ...` commit before every `feat(NN): ...`
+commit), and `docs/AI_USAGE.md` has one dated journal entry per story recording what was asked for,
+what was built, what the AI decided on its own, what had to be corrected, and elapsed time.
+
+Full rationale for every stack choice, the scope split between this MVP and the deferred Phase 2
+work, and the per-criterion grading map are in
+[`docs/00-project-brief.md`](docs/00-project-brief.md). The hand-in summary — screenshots against
+every artboard, the ownership-and-corrections section, and total elapsed time — is
+[`docs/SUMMARY.md`](docs/SUMMARY.md).
 
 ---
 
 ## Status
 
-**This is story 05 of 10 — the backend is complete.**
+**All ten stories are complete; `dev` has been merged into `main`.**
 
-Five stories are on `main`: the dockerized stack and health endpoint, the full domain model with
-Django admin and `seed_demo`, JWT auth with two-layer RBAC and an audit trail, the customers and
-tickets API, and now SLA, the knowledge base, reports, AI and the customer portal.
+**392 backend tests** pass against PostgreSQL. **208 frontend tests** pass. Both RTL and i18n-parity
+guards are clean, the production build is clean, and lint has zero errors (two pre-existing,
+accepted `react-refresh` warnings only).
 
-**42 endpoints**, all typed in the OpenAPI schema at
-[`/api/v1/docs/`](http://localhost:8000/api/v1/docs/). **347 backend tests pass** against PostgreSQL.
-
-All of them need a bearer token; `health`, `schema` and `docs` are the only public routes.
-
-| Route | Role | What it does |
-|---|---|---|
-| `/api/v1/auth/{login,refresh,me}/` | any | JWT; login accepts a username or an email |
-| `/api/v1/tickets/` | agent+ | the queue — `status`, `priority`, `channel`, `escalated`, `breached`, `unassigned`, `q`, ordering, pagination |
-| `/api/v1/tickets/{id}/{messages,events,attachments}/` | agent+ | conversation, Activity log, uploads |
-| `/api/v1/tickets/{id}/{assign,status,escalate,resolve}/` | agent+ | the transition actions |
-| `/api/v1/customers/`, `/contacts/` | agent+ | customer 360, with `/customers/{id}/notes/` |
-| `/api/v1/categories/`, `/tags/`, `/canned-replies/` | agent+ | reference data, read-only |
-| `/api/v1/kb/articles/`, `/kb/categories/` | any | knowledge base, bilingual `?q=` search |
-| `/api/v1/reports/{overview,volume,agents,csat}/` | manager, admin | `?days=7\|30\|90` |
-| `/api/v1/ai/{summarize,suggest-reply,categorize}/` | agent+ | advisory only — see below |
-| `/api/v1/portal/{tickets,csat,kb/articles}/` | customer | the portal, a separate trust boundary |
-
-Four things worth knowing about how this backend works:
+Four things worth knowing about how the backend works:
 
 - **SLA runs without a scheduler.** Due timestamps are written once, on create or on a priority
   change; breach and escalation state are derived on read. No Celery, no broker, no window where the
   database disagrees with reality.
-- **The AI is mocked behind a real interface.** No Anthropic key exists for this project, so
-  `MockAIBackend` is the default — deterministic per ticket, different between tickets, and it drafts
-  replies in the customer's preferred language. `ClaudeAIBackend` has the real signatures and the
-  intended prompts; switching is one environment variable. Nothing the AI returns is applied
-  automatically: an agent always approves.
+- **The AI is mocked behind a real interface.** `MockAIBackend` is the default — deterministic per
+  ticket, different between tickets, and it drafts replies in the customer's preferred language.
+  `ClaudeAIBackend` has the real signatures and the intended prompts; switching is one environment
+  variable. Nothing the AI returns is applied automatically: an agent always approves.
 - **The customer portal is a separate trust boundary**, not the agent endpoints with fields hidden.
-  It has its own serializers and imports nothing from the agent app, and a test recurses every portal
-  response by key name to prove no internal field ever appears.
+  It has its own serializers and imports nothing from the agent app on either side of the stack —
+  `apps/portal/serializers.py` on the backend, `frontend/src/api/portal.ts` on the frontend — and a
+  test recurses every portal response by key name to prove no internal field ever appears.
 - **Status changes go through one service function** that validates against an explicit transition
   map, stamps the timestamps and writes the Activity log.
 
-**The frontend is still story 01's shell.** `/login` and `/app/dashboard` are placeholders; the real
-screens are stories 06–09. Progress per story is in [`docs/AI_USAGE.md`](docs/AI_USAGE.md).
+And on the frontend:
+
+- **Two route trees, one component library.** `/app/*` (agent/manager) and `/portal/*` (customer)
+  are separated by `ProtectedRoute`'s audience check and by which API module a screen is allowed to
+  import from — `src/api/portal.ts` is checked by its own test to never import an agent-facing
+  module, even for a type.
+- **A real error boundary on both shells.** `RouteErrorBoundary` catches a render error anywhere
+  under `/app/*` or `/portal/*` and shows a reporting screen with a reload action instead of a blank
+  page; verified live with a deliberate throw during story 10, then removed.
+- **Bilingual by construction, not by patch.** `ms-*`/`me-*`/`text-start`/`text-end` throughout
+  instead of `ml-*`/`mr-*`/`text-left`/`text-right` — the RTL flip is structural, and
+  `scripts/check-rtl.mjs` fails the build if a directional utility ever creeps back in.
