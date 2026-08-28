@@ -16,7 +16,7 @@ Entry point for the **crm-mvp** feature: a 2-day MVP of the AZM Squad Customer S
 | 06 | [06-story-06-app-shell-i18n.md](06-story-06-app-shell-i18n.md) | App shell, auth flow, Arabic/English RTL | — | Stories 03, design canvas | ✅ implemented |
 | 07 | [07-story-07-agent-workspace.md](07-story-07-agent-workspace.md) | Agent workspace: ticket queue & detail | — | Stories 04, 06 | ✅ implemented |
 | 08 | [08-story-08-customers-kb-ui.md](08-story-08-customers-kb-ui.md) | Customers & knowledge base UI | — | Story 07 | ✅ implemented |
-| 09 | _not yet planned_ | Manager reports & customer portal | — | Stories 05, 08 | — |
+| 09 | [09-story-09-reports-portal-ui.md](09-story-09-reports-portal-ui.md) | Manager reports & customer portal | — | Stories 05, 08 | ✅ implemented |
 | 10 | _not yet planned_ | Delivery: RTL sweep, docs, summary | — | All | — |
 
 Each story's intake is at `.squad/stories/crm-mvp/<id>/intake.md`. Plans are generated one at a time
@@ -435,6 +435,71 @@ What stories 09–10 consume:
 - **KB's "No" (not helpful) feedback button persists nothing.** The API has only `helpful_count`, no
   negative counter — adding one was out of scope for this story's four backend tasks. The button
   acknowledges the click and says thanks; it is not wired to an endpoint.
+
+## Story 09 — as built
+
+Implemented. `/app/reports` (six KPI tiles, four charts, a client-sorted agent table, CSV export)
+and the whole `/portal/*` tree — registration, home, submit, ticket detail with a reload-safe CSAT
+widget, and a knowledge-base browser — plus **five backend additions**. Frontend: **202 Vitest
+tests** (up from 179), `check:rtl` green, `npm run build` and `npm run lint` clean. Backend: **391
+tests** (up from 383), OpenAPI schema still **zero warnings**.
+
+Verified against the running stack: signed in as `manager@demo`, `/app/reports` showed all six
+tiles with real 30-day figures and all four charts (including the two designed, not artboard-copied,
+by-channel line and CSAT bar); clicking the "open" tile opened the queue pre-filtered to the
+identical count ("9 open" on both screens). Registered a new portal account against
+`ops@gulftrading.sa` — a seeded customer's email — and the new login landed on `/portal` showing
+that customer's existing ticket history; submitted a new ticket and got back a real number and
+target date; replied on it; opened an already-CSAT-rated seeded ticket (`TK-0091`) on a fresh page
+load and saw the **read-only** star rating, not an empty input — proving the reload path, not just
+the current session. Switched to Arabic: the reports charts mirrored (Y-axis moved to the chart's
+right edge), and an English-only KB article showed the fallback notice under `ع` in the portal
+reader exactly as story 08 built it for the agent side.
+
+**Five backend additions**, matching the plan's own count exactly:
+
+- **Portal registration** (`portal/register/`, `AllowAny`) — the one unauthenticated write in the
+  app. Links to an existing `Customer` by email or creates one; a duplicate email gets the same
+  generic 400 a malformed one would, never a hint that the email specifically was the problem.
+- **`by_day_channel`** on the volume report — a fifth grouped query, flat `{day, channel, count}`
+  rows rather than nested, for a direct fit to Recharts' multi-line input.
+- **Attachments on a portal ticket submission**, and **on a portal reply** — both routed through
+  the *same* `sanitise_filename`/size/type checks `TicketViewSet.attachments` already applies,
+  imported rather than copied.
+- **`csat` exposed on `PortalTicketSerializer`** — without it, a rating's score existed only in the
+  POST response that created it; nothing on a GET could show it back after a reload.
+
+**CSV export (Task 6) stayed a frontend-only decision**, not an oversight: `AgentsReportView`
+already returns the complete unpaginated dataset in one response, so a server export endpoint would
+duplicate the same aggregation the client already has fully loaded. Built from the in-memory
+`agents` array via a `Blob` + a temporary `<a download>`, with a test asserting zero network
+requests fire on export.
+
+**One gap named rather than worked around:** `SubmitTicket.tsx` has no category picker.
+`PortalTicketCreateSerializer.category` accepts an id, but no portal-reachable endpoint lists what
+those ids are, and `src/api/portal.ts` may not import the agent-facing `useCategories()` —
+criterion 14's own constraint. The form submits `category: null` rather than either faking a working
+control or quietly reaching into the agent API to fill the gap.
+
+**Two of the six KPI tiles link to the reporting window as a whole, not a matching filter.** SLA
+compliance % and CSAT average are not a filterable population — four other tiles (total, open,
+resolved today, breached) do have an exact `TicketFilterSet` match, verified live end-to-end, not
+merely eyeballed against the plan's own suggested params.
+
+What stories 10 reads before continuing:
+
+- **`apiMock`'s substring matcher makes registration order load-bearing.** A test mocking both a list
+  route and a detail/sub-resource route under it must register the *specific* routes last — "last
+  registration wins" per the mock's own contract, which is the opposite of how fixtures are usually
+  written. Found via a real crash (`RangeError: Invalid time value`) when the general
+  `/portal/tickets/` handler's substring match silently won over the specific `/portal/tickets/5/`
+  one.
+- **A charting library's `ResponsiveContainer` renders nothing at 0×0**, which is jsdom's default —
+  chart-content assertions belong on the pure data transform that feeds the chart
+  (`pivotByDayChannel`, exported for exactly this), not on the rendered SVG.
+- **A registration/self-service response should reuse the login response's own token-building code**
+  rather than re-deriving `role`/`name` claims a second time — `RegisterResponseSerializer.build`
+  calls `LoginSerializer.get_token` directly.
 
 ## Dependency notes
 

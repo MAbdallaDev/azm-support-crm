@@ -13,10 +13,16 @@ branch owns it, the SLA policy or countdown, escalation state, watchers, the AI
 advisory fields, and — above all — internal notes.
 """
 
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.customers.models import Customer
 from apps.kb.models import KBArticle
 from apps.tickets.models import CSATRating, Priority, Ticket, TicketMessage
+
+User = get_user_model()
 
 # A customer may open a ticket at these priorities only. "urgent" is a
 # commitment the support team makes, not one the requester declares.
@@ -36,18 +42,35 @@ class PortalTicketSerializer(serializers.ModelSerializer):
     status = serializers.CharField(source="get_status_display", read_only=True)
     target_date = serializers.DateTimeField(source="sla_resolution_due_at", read_only=True)
     message_count = serializers.SerializerMethodField()
+    csat = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
         fields = (
             "id", "number", "subject", "status", "category", "channel",
-            "created_at", "target_date", "resolved_at", "message_count",
+            "created_at", "target_date", "resolved_at", "message_count", "csat",
         )
         read_only_fields = fields
 
     def get_message_count(self, obj) -> int:
         """Public messages only — an internal note must not even be countable."""
         return obj.messages.filter(is_internal=False).count()
+
+    @extend_schema_field({
+        "type": "object",
+        "nullable": True,
+        "properties": {"score": {"type": "integer"}, "comment": {"type": "string"}},
+    })
+    def get_csat(self, obj):
+        """Whether — and how — this ticket has already been rated.
+
+        Without this the POST response is the only place a rating's score ever
+        appears: reload the page and there is nothing left to read it from, so
+        the read-only display cannot survive a refresh. `select_related("csat")`
+        on the viewset's queryset is what keeps this from being a query per row.
+        """
+        rating = getattr(obj, "csat", None)
+        return {"score": rating.score, "comment": rating.comment} if rating else None
 
 
 class PortalTicketCreateSerializer(serializers.ModelSerializer):
@@ -117,3 +140,76 @@ class PortalKBArticleSerializer(serializers.ModelSerializer):
             "category", "updated_at",
         )
         read_only_fields = fields
+
+
+class RegisterSerializer(serializers.Serializer):
+    """Portal self-registration — the one unauthenticated write this story adds.
+
+    Links to an existing `Customer` by email where one matches, otherwise
+    creates one. Uniqueness is checked against `accounts.User`, not
+    `customers.Customer`: a second registration attempt against an email that
+    already holds a login must fail, and it fails with the same generic message
+    regardless of whether the email is unknown or already registered — telling
+    the two apart is exactly the account-enumeration oracle this guards against.
+    """
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8)
+    full_name = serializers.CharField(max_length=160)
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if User.objects.filter(email__iexact=attrs["email"]).exists():
+            # Deliberately the same generic wording a validation failure would
+            # use elsewhere — never "this email is already registered".
+            raise serializers.ValidationError(
+                {"detail": "Registration could not be completed with these details."}
+            )
+        return attrs
+
+    @transaction.atomic
+    def save(self):
+        email = self.validated_data["email"]
+        full_name = self.validated_data["full_name"].strip()
+        phone = self.validated_data.get("phone", "")
+        first_name, _, last_name = full_name.partition(" ")
+
+        customer = Customer.objects.filter(email__iexact=email).first()
+        if customer is None:
+            customer = Customer.objects.create(name=full_name, email=email, phone=phone)
+
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=self.validated_data["password"],
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            role=User.Role.CUSTOMER,
+            is_staff=False,
+            is_superuser=False,
+            customer=customer,
+        )
+        return user
+
+
+class RegisterResponseSerializer(serializers.Serializer):
+    """Matches `LoginResponse`'s shape — registering and being logged in are one action."""
+
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    user = serializers.DictField()
+
+    @staticmethod
+    def build(user):
+        # Reuses LoginSerializer.get_token rather than re-deriving the token's
+        # claims — a second place that stamps "role" and "name" onto a token is
+        # a second place for those two to drift apart from a real login's.
+        from apps.accounts.serializers import LoginSerializer, MeSerializer
+
+        refresh = LoginSerializer.get_token(user)
+        return {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": MeSerializer(user).data,
+        }

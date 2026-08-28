@@ -42,7 +42,7 @@ export const appNavItems = (): readonly NavItem[] => [
 
 export const portalNavItems = (): readonly NavItem[] => [
   { key: "requests", labelKey: "nav.portalRequests", to: "/portal", roles: ["customer"] },
-  { key: "articles", labelKey: "nav.portalArticles", to: "/portal/articles", roles: ["customer"] },
+  { key: "articles", labelKey: "nav.portalArticles", to: "/portal/kb", roles: ["customer"] },
 ];
 
 export const visibleNavItems = (items: readonly NavItem[], role: Role | undefined) =>

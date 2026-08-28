@@ -14,7 +14,9 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsCustomer
 from apps.accounts.scoping import (
@@ -30,12 +32,53 @@ from apps.portal.serializers import (
     PortalMessageSerializer,
     PortalTicketCreateSerializer,
     PortalTicketSerializer,
+    RegisterResponseSerializer,
+    RegisterSerializer,
 )
-from apps.tickets.models import Status, Ticket, TicketMessage
+from apps.tickets.models import Attachment, Status, Ticket, TicketMessage
 from apps.tickets.pagination import StandardPagination
 from apps.tickets.services import ticket_service
+from apps.tickets.views import (
+    ALLOWED_CONTENT_TYPES,
+    MAX_ATTACHMENT_BYTES,
+    sanitise_filename,
+)
 
 RATEABLE_STATUSES = (Status.RESOLVED, Status.CLOSED)
+
+
+def _create_attachments(request, ticket, message=None):
+    """The same checks `TicketViewSet.attachments` applies, imported rather than
+    copied — two independently-maintained copies of a security check is how one
+    of them goes stale.
+    """
+    created = []
+    for upload in request.FILES.getlist("attachments"):
+        if upload.size > MAX_ATTACHMENT_BYTES:
+            raise ValidationError(
+                {
+                    "attachments": (
+                        f"File is {upload.size} bytes; the limit is "
+                        f"{MAX_ATTACHMENT_BYTES} bytes (10 MB)."
+                    )
+                }
+            )
+        content_type = (upload.content_type or "").split(";")[0].strip().lower()
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            raise ValidationError(
+                {"attachments": f"Files of type '{content_type}' are not accepted."}
+            )
+        created.append(
+            Attachment.objects.create(
+                ticket=ticket,
+                message=message,
+                file=upload,
+                filename=sanitise_filename(upload.name),
+                size=upload.size,
+                uploaded_by=request.user,
+            )
+        )
+    return created
 
 
 @extend_schema(tags=["portal"])
@@ -50,9 +93,12 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = Ticket.objects.all()
     pagination_class = StandardPagination
     http_method_names = ["get", "post", "head", "options"]
+    # DRF's default parser set already includes MultiPartParser and FormParser
+    # alongside JSONParser — attachments arrive multipart, everything else
+    # keeps working exactly as story 05 left it (existing tests POST JSON).
 
     def get_queryset(self):
-        return super().get_queryset().select_related("category")
+        return super().get_queryset().select_related("category", "csat")
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -84,6 +130,9 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
         ticket_service.log_event(
             ticket, user, ticket_service.EVENT_CREATED, new=ticket.status
         )
+        # Attachments are validated and stored against the ticket itself
+        # (message=None) — a submission's own files, not a reply's.
+        _create_attachments(self.request, ticket)
 
     @extend_schema(
         summary="The public conversation on a ticket",
@@ -119,6 +168,7 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
             is_internal=False,
             channel=ticket.channel,
         )
+        _create_attachments(request, ticket, message=message)
         ticket_service.log_event(
             ticket, request.user, ticket_service.EVENT_MESSAGE_ADDED, new=message.body[:160]
         )
@@ -198,3 +248,29 @@ class PortalKBArticleViewSet(ScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet)
                 | Q(body_ar__icontains=search)
             )
         return qs
+
+
+@extend_schema(
+    tags=["portal"],
+    summary="Register a portal account",
+    description=(
+        "The one unauthenticated route this app adds. Links to an existing "
+        "Customer record by email where one matches, otherwise creates one. "
+        "Returns the same shape as login — registering and being signed in are "
+        "one action, not two requests. Registration attempts are not "
+        "rate-limited in this MVP; that belongs to a later phase, alongside "
+        "throttling every other public endpoint."
+    ),
+    request=RegisterSerializer,
+    responses={201: RegisterResponseSerializer},
+)
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            RegisterResponseSerializer.build(user), status=http_status.HTTP_201_CREATED
+        )
