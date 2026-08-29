@@ -1232,6 +1232,35 @@ work on track A for now."
 - Added an explicit `audit_password_changed()` call rather than relying on the generic post-save
   audit signal, once testing showed the signal silently skips password-only saves (see below).
 
+**A follow-up correction to A1, after the PR was already open.** The user came back with a
+screenshot: on a taller monitor, the whole ticket workspace stopped short and left a large blank
+gray area below it — a different bug from the filter squeeze, which the toggle fix had not touched.
+Diagnosis needed several wrong turns before landing on the real cause:
+
+- First measured `document.documentElement.scrollHeight` against `window.innerHeight` directly in
+  the running app and confirmed the page could scroll ~1700px past its own content — a real,
+  reproducible defect, not a one-off screenshot artifact.
+- The obvious suspect — a flex child missing `min-h-0` somewhere in the three-pane chain — was real
+  but not sufficient: `frontend/src/routes/Tickets.tsx`'s center-pane wrapper and
+  `frontend/src/features/tickets/TicketDetail.tsx`'s `<section>` were both flex items without
+  `min-h-0`, fixed both, and confirmed via `getBoundingClientRect()` that every element in that chain
+  was now correctly bounded to the viewport. **The document still scrolled exactly as far as before.**
+  Chasing a plausible-looking cause to a clean fix and declaring victory without re-measuring the
+  actual symptom would have shipped a second wrong fix.
+- Also converted `AppChrome.tsx`'s shell from `min-h-screen` (a floor, not a ceiling) to `h-screen`
+  with `overflow-y-auto` on `<main>` — correct and worth keeping regardless (it also fixes long pages
+  like Reports scrolling the header away instead of scrolling internally), but still not the cause of
+  this specific bug.
+- Found the real cause by walking up from the single element with the largest `getBoundingClientRect()
+  .bottom` on the page: a `sr-only` (screen-reader-only) `<span>` inside each ticket-queue row
+  (`frontend/src/features/tickets/QueueRow.tsx`), styled `position: absolute` with no positioned
+  ancestor. Its containing block escaped the queue list's own `overflow-y-auto` scroll container
+  entirely, resolving against the document root instead — so with ~30 un-virtualized rows in the
+  list, each row's invisible span still stretched the *document's* layout height to match the full,
+  un-scrolled list height, even though nothing about it is visible or supposed to affect layout.
+  Fixed with one word: `relative` on the row's `<Link>`, scoping the span's containing block back to
+  its own row.
+
 **What I had to correct:**
 
 - **A real audit-trail gap, caught by writing the test first.** The generic `audit_post_save` signal
@@ -1257,3 +1286,12 @@ what made the live symptom go away" — changing two things (the code and the wa
 between an observation and its confirmation looks like proof but isn't. The honest fallback wasn't to
 keep digging indefinitely; it was to keep the defensive fix on its own merits and stop claiming more
 than the evidence showed.
+
+**And from the scroll-escape bug:** a `position: absolute` element's containing block is its nearest
+*positioned* ancestor, not its nearest `overflow: auto` ancestor — those are unrelated concepts that
+happen to usually line up, since most scroll containers are also positioned for other reasons. When
+they don't line up, the absolutely positioned element's layout box is computed against whatever
+ancestor *is* positioned (or the document root, if none is), and CSS overflow clipping does not apply
+across that boundary — an invisible 1×1px accessibility helper can still inflate the whole document's
+scrollable height. The fix looks unrelated to the symptom (a `relative` class with no visible effect)
+precisely because the real bound being violated was never about height at all.
