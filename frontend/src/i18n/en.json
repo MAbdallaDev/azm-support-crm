@@ -490,5 +490,33 @@
     "colFirstResponse": "Avg first response",
     "colCompliance": "SLA compliance",
     "colCsat": "CSAT"
+  },
+  "profile": {
+    "title": "Profile",
+    "accountInfo": "Account information",
+    "editInfo": "Edit information",
+    "changePassword": "Change password",
+    "username": "Username",
+    "email": "Email",
+    "role": "Role",
+    "department": "Department",
+    "branch": "Branch",
+    "tier": "Tier",
+    "phone": "Phone",
+    "phonePlaceholder": "+966 5x xxx xxxx",
+    "save": "Save changes",
+    "saved": "Profile updated",
+    "saveFailed": "Could not save your changes",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "passwordSaved": "Password changed",
+    "passwordFailed": "Could not change your password — check your current password",
+    "arabic": "Arabic"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "manager": "Manager",
+    "agent": "Agent",
+    "customer": "Customer"
   }
 }

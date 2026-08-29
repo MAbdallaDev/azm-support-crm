@@ -122,7 +122,7 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
   );
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-background">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       <header className="flex-none px-[22px] pt-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="mono-ltr text-[12px] text-muted-foreground">{ticket.number}</span>

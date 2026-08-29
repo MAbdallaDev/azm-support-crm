@@ -37,7 +37,7 @@ export function QueueRow({
       aria-current={selected ? "true" : undefined}
       data-testid={`queue-row-${ticket.id}`}
       className={cn(
-        "block cursor-pointer border-b border-line-2 px-4 py-[13px] hover:bg-surface-2",
+        "relative block cursor-pointer border-b border-line-2 px-4 py-[13px] hover:bg-surface-2",
         selected && "border-s-[3px] border-s-ink bg-surface-3 ps-[13px]",
       )}
     >

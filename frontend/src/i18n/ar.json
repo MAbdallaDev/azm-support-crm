@@ -490,5 +490,33 @@
     "colFirstResponse": "متوسط أول رد",
     "colCompliance": "التزام مستوى الخدمة",
     "colCsat": "رضا العملاء"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "accountInfo": "معلومات الحساب",
+    "editInfo": "تعديل المعلومات",
+    "changePassword": "تغيير كلمة المرور",
+    "username": "اسم المستخدم",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "department": "القسم",
+    "branch": "الفرع",
+    "tier": "المستوى",
+    "phone": "الهاتف",
+    "phonePlaceholder": "+966 5x xxx xxxx",
+    "save": "حفظ التغييرات",
+    "saved": "تم تحديث الملف الشخصي",
+    "saveFailed": "تعذر حفظ التغييرات",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة",
+    "passwordSaved": "تم تغيير كلمة المرور",
+    "passwordFailed": "تعذر تغيير كلمة المرور — تحقق من كلمة المرور الحالية",
+    "arabic": "العربية"
+  },
+  "roles": {
+    "admin": "مسؤول",
+    "manager": "مدير",
+    "agent": "موظف دعم",
+    "customer": "عميل"
   }
 }

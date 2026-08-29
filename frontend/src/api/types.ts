@@ -17,12 +17,19 @@ export type Me = {
   email: string;
   full_name: string;
   role: Role;
+  phone: string;
   department: string | null;
   branch: string | null;
   tier: number;
   language: "en" | "ar";
   is_available: boolean;
 };
+
+/** `MeUpdateSerializer` — the only two fields a user may change about
+ * themselves. Everything else on `Me` is Django admin's job in this MVP. */
+export type MeUpdateRequest = { phone: string; language: "en" | "ar" };
+
+export type ChangePasswordRequest = { current_password: string; new_password: string };
 
 /** `LoginSerializer` response. `username` accepts a username *or* an email. */
 export type LoginResponse = { access: string; refresh: string; user: Me };

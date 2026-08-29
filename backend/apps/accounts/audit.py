@@ -193,6 +193,27 @@ def audit_login_success(user_id, identifier):
     )
 
 
+def audit_password_changed(user):
+    """A self-service password change is audited explicitly, the same way
+    login is — the generic post_save diff cannot do it. `password` is excluded
+    from `_tracked_fields` entirely (that is what keeps a hash out of `changes`
+    on every other save too), so a save that changes *only* the password
+    produces an empty diff and `audit_post_save` skips it as a no-op. Story 03's
+    "password changes ... are audited" therefore needs its own call, exactly
+    like `audit_login_success` needs one for the same structural reason.
+    """
+    if _disabled:
+        return
+    AuditLog = _audit_log_model()
+    AuditLog.objects.create(
+        actor=user,
+        action="password_changed",
+        model_name=user._meta.label,
+        object_id=str(user.pk),
+        changes={},
+    )
+
+
 def audit_login_failure(identifier):
     """Records the attempted identifier and nothing else.
 

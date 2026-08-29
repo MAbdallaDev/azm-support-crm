@@ -1191,3 +1191,107 @@ function does *not* set, not in anything it does incorrectly.
   department bug was invisible to story 09's own tests because nothing in that story's scope ever
   played both roles (customer, then agent) against the same ticket in sequence. The bug lived
   entirely in the gap between two stories that were each, on their own terms, done correctly.
+
+---
+
+## Post-hand-in — MVP polish (fix/mvp-polish)          (elapsed: ~3h)
+
+Not a numbered story: three small fixes done after hand-in, in the same working directory rather
+than a fresh squad-kit session, on the user's explicit instruction to skip the intake/plan ceremony
+given the time budget. Recorded here anyway, per this file's own rule.
+
+**What I asked for:** Three live-diagnosed issues in the running MVP — a squeezed ticket queue, an
+empty profile page for every role, and a request to personalize the three seeded staff accounts to
+the user's own name. A fourth track (a real Notification centre, one of the deferred PDF
+requirements) was scoped in the same planning pass but explicitly deferred when the user said "let's
+work on track A for now."
+
+**What the AI built:**
+
+- `frontend/src/features/tickets/TicketQueue.tsx` — the four always-visible filter `<select>`s
+  (status/priority/channel/category) collapsed behind a single toggle button, opening a panel only
+  when clicked or when a filter is already active from the URL. Measured via the DOM before and
+  after: the scrollable ticket list grew from 421.5px (63% of the queue pane) to roughly the panel's
+  full remaining height. No change to filter behavior, only layout.
+- `backend/apps/tickets/demo_content.py` — the admin/manager/agent seed rows' `full_name` changed to
+  "Mostafa Abdalla admin"/"manager"/"agent".
+- `backend/apps/accounts/{views,serializers,urls,audit}.py`, `frontend/src/routes/Profile.tsx`,
+  `frontend/src/api/auth.ts` — a working profile page: view account info, edit phone/language via a
+  new `PATCH /auth/me/`, change password via a new `POST /auth/change-password/`.
+
+**Decisions the AI made on its own:**
+
+- **Renamed display names only, not usernames**, after finding the requested username rename
+  (`admin@demo` → `mostafa_ad`, etc.) would touch 65 references across 20 files — several of them
+  tests specifically covering the "username that looks like an email" ambiguity in
+  `LoginSerializer`. Flagged the blast radius to the user instead of guessing; the user chose
+  display-name-only.
+- **Built the profile page at all**, though nothing in the PDF requires one — reasoned that an empty
+  page behind a menu item every role can click reads as broken regardless of whether it was asked
+  for, and said so before building it rather than silently expanding scope.
+- Added an explicit `audit_password_changed()` call rather than relying on the generic post-save
+  audit signal, once testing showed the signal silently skips password-only saves (see below).
+
+**A follow-up correction to A1, after the PR was already open.** The user came back with a
+screenshot: on a taller monitor, the whole ticket workspace stopped short and left a large blank
+gray area below it — a different bug from the filter squeeze, which the toggle fix had not touched.
+Diagnosis needed several wrong turns before landing on the real cause:
+
+- First measured `document.documentElement.scrollHeight` against `window.innerHeight` directly in
+  the running app and confirmed the page could scroll ~1700px past its own content — a real,
+  reproducible defect, not a one-off screenshot artifact.
+- The obvious suspect — a flex child missing `min-h-0` somewhere in the three-pane chain — was real
+  but not sufficient: `frontend/src/routes/Tickets.tsx`'s center-pane wrapper and
+  `frontend/src/features/tickets/TicketDetail.tsx`'s `<section>` were both flex items without
+  `min-h-0`, fixed both, and confirmed via `getBoundingClientRect()` that every element in that chain
+  was now correctly bounded to the viewport. **The document still scrolled exactly as far as before.**
+  Chasing a plausible-looking cause to a clean fix and declaring victory without re-measuring the
+  actual symptom would have shipped a second wrong fix.
+- Also converted `AppChrome.tsx`'s shell from `min-h-screen` (a floor, not a ceiling) to `h-screen`
+  with `overflow-y-auto` on `<main>` — correct and worth keeping regardless (it also fixes long pages
+  like Reports scrolling the header away instead of scrolling internally), but still not the cause of
+  this specific bug.
+- Found the real cause by walking up from the single element with the largest `getBoundingClientRect()
+  .bottom` on the page: a `sr-only` (screen-reader-only) `<span>` inside each ticket-queue row
+  (`frontend/src/features/tickets/QueueRow.tsx`), styled `position: absolute` with no positioned
+  ancestor. Its containing block escaped the queue list's own `overflow-y-auto` scroll container
+  entirely, resolving against the document root instead — so with ~30 un-virtualized rows in the
+  list, each row's invisible span still stretched the *document's* layout height to match the full,
+  un-scrolled list height, even though nothing about it is visible or supposed to affect layout.
+  Fixed with one word: `relative` on the row's `<Link>`, scoping the span's containing block back to
+  its own row.
+
+**What I had to correct:**
+
+- **A real audit-trail gap, caught by writing the test first.** The generic `audit_post_save` signal
+  writes a row only when its diff is non-empty, and `password` is a redacted field excluded from that
+  diff — so a password change produced *zero* audit rows, contradicting story 03's own documented
+  requirement that every account action is audited. Not visible from reading the change-password view
+  in isolation; it only showed up because a test asserted the audit row's existence and got
+  `DoesNotExist`.
+- **Overclaimed a live bug, caught it before committing.** Typing into the phone field via
+  browser-automation `computer.type` appeared to do nothing; diagnosed as `useForm`'s `values` option
+  resyncing from a fresh inline object literal on every render, "fixed" with a `useMemo`. But
+  verifying the fix meant switching the test technique from simulated typing to direct DOM
+  value-setting — two variables changed at once, so the live result didn't actually prove which one
+  mattered. No jsdom/Vitest test could be made to fail against the pre-fix code and pass against it
+  either, which is consistent with there being no real defect for jsdom to reproduce — the
+  browser-automation `type` action may simply not have been reaching the focused input. Kept the
+  `useMemo` (it is correct practice regardless — depending on `me` instead of its primitive fields
+  would resync the form on every unrelated change to the user object), but rewrote the "regression"
+  test to assert only what it actually demonstrates, rather than leaving a claim it couldn't back up.
+
+**What I learned:** the difference between "this fix made the live symptom go away" and "this fix is
+what made the live symptom go away" — changing two things (the code and the way it was being tested)
+between an observation and its confirmation looks like proof but isn't. The honest fallback wasn't to
+keep digging indefinitely; it was to keep the defensive fix on its own merits and stop claiming more
+than the evidence showed.
+
+**And from the scroll-escape bug:** a `position: absolute` element's containing block is its nearest
+*positioned* ancestor, not its nearest `overflow: auto` ancestor — those are unrelated concepts that
+happen to usually line up, since most scroll containers are also positioned for other reasons. When
+they don't line up, the absolutely positioned element's layout box is computed against whatever
+ancestor *is* positioned (or the document root, if none is), and CSS overflow clipping does not apply
+across that boundary — an invisible 1×1px accessibility helper can still inflate the whole document's
+scrollable height. The fix looks unrelated to the symptom (a `relative` class with no visible effect)
+precisely because the real bound being violated was never about height at all.
