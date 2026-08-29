@@ -80,7 +80,7 @@ export default function Tickets() {
         </section>
       ) : (
         <>
-          <div className="relative min-w-0 flex-1">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             <Link
               to="/app/tickets"
               className="flex items-center gap-1.5 border-b border-line px-4 py-2.5 text-[12.5px] font-semibold text-brand hover:text-brand-strong md:hidden"

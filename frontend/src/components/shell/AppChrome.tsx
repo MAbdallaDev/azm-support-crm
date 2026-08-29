@@ -41,7 +41,7 @@ export default function AppChrome() {
   const items = visibleNavItems(appNavItems(), me?.role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-2">
+    <div className="flex h-screen flex-col bg-surface-2">
       <header className="flex h-14 flex-none items-center gap-[10px] border-b border-line bg-background px-[14px] lg:gap-[18px] lg:px-[18px]">
         <Lockup product={t("app.product")} className="min-w-0" />
 
@@ -97,7 +97,7 @@ export default function AppChrome() {
         {me ? <UserChip me={me} /> : null}
       </header>
 
-      <main className="min-h-0 flex-1">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
     </div>
