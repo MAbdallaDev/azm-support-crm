@@ -518,5 +518,14 @@
     "manager": "Manager",
     "agent": "Agent",
     "customer": "Customer"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Nothing new",
+    "emptyBody": "Assignments and escalations will show up here.",
+    "assigned": "{{actor}} assigned you {{ticket}}",
+    "escalated": "{{actor}} escalated {{ticket}}",
+    "assignedNoActor": "You were assigned {{ticket}}",
+    "escalatedNoActor": "{{ticket}} was escalated"
   }
 }

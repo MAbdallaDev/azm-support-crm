@@ -7,6 +7,7 @@ import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { Lockup } from "@/components/shell/Lockup";
 import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { appNavItems, visibleNavItems } from "@/components/shell/navItems";
+import { NotificationBell } from "@/components/shell/NotificationBell";
 import { UserChip } from "@/components/shell/UserChip";
 import {
   DropdownMenu,
@@ -70,6 +71,8 @@ export default function AppChrome() {
         <GlobalSearch />
 
         <LanguageToggle profileLanguage={me?.language} />
+
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger

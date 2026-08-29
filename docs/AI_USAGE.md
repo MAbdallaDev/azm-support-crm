@@ -1295,3 +1295,74 @@ ancestor *is* positioned (or the document root, if none is), and CSS overflow cl
 across that boundary — an invisible 1×1px accessibility helper can still inflate the whole document's
 scrollable height. The fix looks unrelated to the symptom (a `relative` class with no visible effect)
 precisely because the real bound being violated was never about height at all.
+
+---
+
+## Post-hand-in — Notification centre (feature/notification-centre)          (elapsed: ~2h)
+
+Closes one of the Phase 2 deferred requirements for real: SLA & Automation → *Alerts and
+notifications*. Chosen over the other deferred items specifically because it had clean, existing
+hook points (`ticket_service.assign`/`.escalate`) rather than needing new infrastructure.
+
+**What I asked for:** A notification bell — a `Notification` model, endpoints to list/mark-read/
+count, and a bell in the header with an unread badge and a dropdown. Explicitly deferred earlier in
+the session ("let's work on track A for now") and picked up once Track A was merged.
+
+**What the AI built:**
+
+- `backend/apps/accounts/models.py` — `Notification` (recipient, actor, verb, ticket, `read_at`,
+  `created_at`), sitting beside `AuditLog` rather than in `tickets/`, since it's cross-cutting and FKs
+  `User` the same way.
+- `backend/apps/accounts/notifications.py` — `notify_ticket_assigned`/`notify_ticket_escalated`,
+  mirroring `audit.py`'s explicit-call style (no signals) — called directly from
+  `apps/tickets/services/ticket_service.py`'s `assign()` and `escalate()`.
+- `backend/apps/accounts/{views,urls,serializers,admin}.py` — `NotificationViewSet` (list + `read`
+  action, scoped to `recipient=request.user`), `NotificationUnreadCountView`, admin registration.
+- `frontend/src/components/shell/NotificationBell.tsx` — a bell in `AppChrome`'s header, a
+  `DropdownMenu` list, mark-read-and-navigate on click. `frontend/src/api/notifications.ts` for the
+  three query/mutation hooks, new `notifications.*` i18n keys in both languages.
+- Nine backend tests (creation, self-assignment suppression, dedup of a watcher who is also the
+  assignee, and the security-critical scoping/cross-user-access tests) and five frontend tests.
+
+**Decisions the AI made on its own:**
+
+- **Two verbs only — assignment and escalation — no SLA breach verb.** Flagged to the user before
+  building anything: `sla_service` computes breach lazily on every read with no scheduler to catch the
+  moment a breach first occurs, so a breach notification would need either a real periodic sweep
+  (out of scope for the time budget) or a lossy check bolted onto unrelated writes. The user chose to
+  skip it rather than ship a dishonest approximation.
+- **No polling for the unread badge.** The app's global QueryClient already disables
+  `refetchOnWindowFocus`; adding `refetchInterval` would have been the first polling query in the
+  codebase for one bell icon. Flagged to the user, who chose invalidate-on-mutation plus refetch-on-open
+  instead — consistent with the existing convention rather than a new one.
+- No `notifications_disabled()` context manager (unlike `audit.audit_disabled()`): `seed_demo` sets
+  `Ticket.assignee`/`escalation_level` directly rather than calling `ticket_service.assign()`/
+  `.escalate()`, confirmed by grep before writing the model, so seeding never reaches the new hooks and
+  never needed suppressing.
+
+**What I had to correct:**
+
+- **A global test-infrastructure gap, not a bug in the feature.** The first Radix `DropdownMenu`
+  interaction test in the project — every prior dropdown in the app (`UserChip`, the mobile nav menu)
+  had zero test coverage of actually opening it. `fireEvent.click` on the trigger did nothing: Radix's
+  `DropdownMenuTrigger` opens on `pointerdown`, and jsdom (confirmed by checking directly) has no
+  `PointerEvent` constructor at all, so `fireEvent.pointerDown` fell back to a generic `Event` missing
+  `.button`, and Radix's own `event.button === 0` guard silently failed. Added a small `PointerEvent`
+  polyfill to the shared `src/test/setup.ts` rather than working around it per-test — every future
+  Radix interaction test needs the exact same thing.
+- **Browser-automation clicks landed on the wrong pixels twice during live verification** — once on
+  the login form (typed text silently went nowhere until switching from ref-based clicks to
+  screenshot-coordinate clicks), and once on the notification item itself (the first click closed the
+  dropdown without selecting anything; recalculating the item's real bounding box and clicking its
+  text directly worked). Both were automation-tool quirks caught by checking `document.activeElement`
+  and the actual DOM state rather than trusting a screenshot alone, not application bugs — the
+  underlying feature worked correctly once verified through the real login → assign → notify →
+  click-through → mark-read chain, backed up independently via direct API calls.
+
+**What I learned:** the same "don't conflate the tool with the target" lesson from A2's phone-field
+investigation applies to UI automation broadly, not just to one input. When a browser-driven action
+appears to do nothing, checking the actual DOM state (`document.activeElement`, a field's real
+`.value`, an element's real `getBoundingClientRect()`) before concluding the *application* is broken
+is what tells apart an automation-coordinate problem from a real defect — in both cases here it was
+the former, and the feature itself was confirmed correct via the API directly and via the UI once the
+right pixels were clicked.
