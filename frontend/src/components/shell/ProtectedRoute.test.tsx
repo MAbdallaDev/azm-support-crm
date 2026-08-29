@@ -26,6 +26,7 @@ const me = (over: Partial<Me> = {}): Me => ({
   email: "agent@demo.local",
   full_name: "Yousef Al-Qahtani",
   role: "agent",
+  phone: "",
   department: "technical",
   branch: "riyadh",
   tier: 2,

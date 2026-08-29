@@ -6,18 +6,22 @@ not to a domain.
 """
 
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import viewsets
-from rest_framework.generics import RetrieveAPIView
+from rest_framework import status, viewsets
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .audit import audit_login_failure, audit_login_success
+from .audit import audit_login_failure, audit_login_success, audit_password_changed
 from .models import Branch, Department
 from .serializers import (
     BranchSerializer,
+    ChangePasswordSerializer,
     DepartmentSerializer,
     LoginSerializer,
     MeSerializer,
+    MeUpdateSerializer,
 )
 
 
@@ -61,14 +65,52 @@ class RefreshView(TokenRefreshView):
 
 @extend_schema(
     summary="The authenticated caller's own profile",
+    description=(
+        "GET returns the full profile. PATCH accepts only `phone` and `language` — "
+        "role, department, branch and tier are Django admin's job in this MVP."
+    ),
     responses={200: MeSerializer},
 )
-class MeView(RetrieveAPIView):
-    serializer_class = MeSerializer
+class MeView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "options"]
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_class(self):
+        return MeUpdateSerializer if self.request.method == "PATCH" else MeSerializer
+
+    def update(self, request, *args, **kwargs):
+        # PATCH is validated and saved through the narrow write serializer,
+        # but the response is always the full MeSerializer shape — the same
+        # "write serializer in, detail serializer out" rule story 08 learned
+        # the hard way (a write-serializer response is a narrower shape than
+        # what the very next render reads, and seeding a cache from it is how
+        # that story's three cache-poisoning bugs happened).
+        super().update(request, *args, **kwargs)
+        return Response(MeSerializer(request.user).data)
+
+
+@extend_schema(
+    summary="Change the caller's own password",
+    request=ChangePasswordSerializer,
+    responses={200: OpenApiResponse(description="Password changed."), 400: OpenApiResponse()},
+)
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save(update_fields=["password"])
+        # A password-only save produces an empty diff (password is excluded
+        # from the tracked fields), so the generic post_save audit signal
+        # skips it as a no-op — this needs its own explicit call, the same way
+        # login does.
+        audit_password_changed(request.user)
+        return Response(status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["accounts"], summary="Every branch")

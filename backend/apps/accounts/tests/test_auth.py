@@ -31,6 +31,17 @@ def admin_user(db):
     return user
 
 
+def _login(client, username=None):
+    """Access token for a demo login — the pattern every test in this file
+    already uses inline; factored out once it starts repeating.
+    """
+    return client.post(
+        LOGIN_URL,
+        {"username": username or "admin@demo", "password": DEMO_PASSWORD},
+        content_type="application/json",
+    ).json()["access"]
+
+
 @pytest.mark.django_db
 def test_login_with_username_returns_tokens_and_profile(client, admin_user):
     response = client.post(
@@ -147,3 +158,70 @@ def test_public_endpoints_survived_the_lockdown(client, path):
     invisible until a reviewer opens the link.
     """
     assert client.get(path).status_code == 200
+
+
+@pytest.mark.django_db
+def test_patch_me_updates_phone_and_language_only(client, admin_user):
+    access = _login(client)
+    response = client.patch(
+        ME_URL,
+        {"phone": "+966500000000", "language": "ar", "role": "customer"},
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] == "+966500000000"
+    assert body["language"] == "ar"
+    # role is not in MeUpdateSerializer's fields at all, so a role in the
+    # payload is silently ignored rather than accepted or rejected — the
+    # same "field the client never saw" reasoning story 05's portal used.
+    assert body["role"] == "admin"
+
+    admin_user.refresh_from_db()
+    assert admin_user.phone == "+966500000000"
+
+
+@pytest.mark.django_db
+def test_change_password_requires_the_current_one(client, admin_user):
+    access = _login(client)
+    wrong = client.post(
+        "/api/v1/auth/change-password/",
+        {"current_password": "not-it", "new_password": "SomethingNew123"},
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert wrong.status_code == 400
+
+    right = client.post(
+        "/api/v1/auth/change-password/",
+        {"current_password": DEMO_PASSWORD, "new_password": "SomethingNew123"},
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    assert right.status_code == 200
+
+    admin_user.refresh_from_db()
+    assert admin_user.check_password("SomethingNew123")
+    # The old password no longer authenticates.
+    stale_login = client.post(
+        LOGIN_URL,
+        {"username": "admin@demo", "password": DEMO_PASSWORD},
+        content_type="application/json",
+    )
+    assert stale_login.status_code == 401
+
+
+@pytest.mark.django_db
+def test_change_password_never_appears_in_the_audit_log(client, admin_user):
+    access = _login(client)
+    client.post(
+        "/api/v1/auth/change-password/",
+        {"current_password": DEMO_PASSWORD, "new_password": "SomethingNew123"},
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    entry = AuditLog.objects.filter(model_name="accounts.User", object_id=str(admin_user.pk)).latest(
+        "created_at"
+    )
+    assert "password" not in entry.changes

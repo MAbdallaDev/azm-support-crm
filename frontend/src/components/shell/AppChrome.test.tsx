@@ -19,6 +19,7 @@ const me = (role: Role): Me => ({
   email: `${role}@demo.local`,
   full_name: "Omar Malki",
   role,
+  phone: "",
   department: "billing",
   branch: "riyadh",
   tier: 2,
