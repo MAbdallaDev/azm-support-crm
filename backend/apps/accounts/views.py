@@ -5,16 +5,20 @@ The health endpoint lives in config/health.py — it belongs to the deployment,
 not to a domain.
 """
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from apps.tickets.pagination import StandardPagination
+
 from .audit import audit_login_failure, audit_login_success, audit_password_changed
-from .models import Branch, Department
+from .models import Branch, Department, Notification
 from .serializers import (
     BranchSerializer,
     ChangePasswordSerializer,
@@ -22,6 +26,7 @@ from .serializers import (
     LoginSerializer,
     MeSerializer,
     MeUpdateSerializer,
+    NotificationSerializer,
 )
 
 
@@ -143,3 +148,43 @@ class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
     pagination_class = None
+
+
+@extend_schema(tags=["notifications"], summary="The caller's own notifications")
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """Strictly `recipient=request.user` — a cross-user leak here would let one
+    agent read another's notification feed, which is the same class of trust
+    boundary as the portal's ticket scoping. No admin override: even an admin
+    reads only their own inbox through this endpoint.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user).select_related(
+            "actor", "ticket"
+        )
+
+    @extend_schema(summary="Mark one notification read", request=None, responses={200: NotificationSerializer})
+    @action(detail=True, methods=["post"], url_path="read")
+    def read(self, request, pk=None):
+        notification = self.get_object()
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at"])
+        return Response(NotificationSerializer(notification).data)
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="How many of the caller's notifications are unread",
+    responses={200: OpenApiResponse(description="{'count': int}")},
+)
+class NotificationUnreadCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        count = Notification.objects.filter(recipient=request.user, read_at__isnull=True).count()
+        return Response({"count": count})

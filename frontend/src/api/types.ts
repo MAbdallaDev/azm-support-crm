@@ -546,3 +546,24 @@ export type RegisterRequest = {
 };
 
 export type PortalCSATSubmit = { ticket: number; score: number; comment?: string };
+
+// ---------------------------------------------------------------------------
+// Post-hand-in — notification centre.
+// ---------------------------------------------------------------------------
+
+/** `Notification.Verb` — only these two; SLA breach is not a notification
+ *  verb (see `backend/apps/accounts/notifications.py`'s module docstring). */
+export type NotificationVerb = "ticket_assigned" | "ticket_escalated";
+
+/** `NotificationSerializer`. `ticket`/`ticket_number`/`ticket_subject` are
+ *  empty/null when the underlying ticket has since been deleted. */
+export type Notification = {
+  id: number;
+  verb: NotificationVerb;
+  actor_name: string;
+  ticket: number | null;
+  ticket_number: string;
+  ticket_subject: string;
+  read_at: string | null;
+  created_at: string;
+};

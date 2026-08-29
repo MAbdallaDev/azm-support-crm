@@ -518,5 +518,14 @@
     "manager": "مدير",
     "agent": "موظف دعم",
     "customer": "عميل"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "empty": "لا جديد",
+    "emptyBody": "ستظهر هنا الإسنادات والتصعيدات.",
+    "assigned": "قام {{actor}} بإسناد {{ticket}} إليك",
+    "escalated": "قام {{actor}} بتصعيد {{ticket}}",
+    "assignedNoActor": "تم إسناد {{ticket}} إليك",
+    "escalatedNoActor": "تم تصعيد {{ticket}}"
   }
 }

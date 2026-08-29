@@ -5,7 +5,7 @@ not to a React screen. Odoo mental map: these are the backend list/form views.
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import AuditLog, Branch, Department, User
+from .models import AuditLog, Branch, Department, Notification, User
 
 
 @admin.register(Department)
@@ -61,6 +61,16 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "recipient", "verb", "actor", "ticket", "read_at")
+    list_filter = ("verb", "created_at")
+    search_fields = ("recipient__username", "actor__username", "ticket__number")
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    list_select_related = ("recipient", "actor", "ticket")
 
 
 @admin.register(AuditLog)

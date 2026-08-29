@@ -71,6 +71,12 @@ export const qk = {
     csat: (params: string) => ["reports", "csat", params] as const,
   },
 
+  notifications: {
+    all: ["notifications"] as const,
+    list: (params: string) => ["notifications", "list", params] as const,
+    unreadCount: ["notifications", "unread-count"] as const,
+  },
+
   /** Every portal query key. Distinct namespace from `tickets`/`kb` above —
    *  `src/api/portal.ts` never imports those files, and this mirrors it. */
   portal: {

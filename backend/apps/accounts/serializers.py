@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Branch, Department
+from .models import Branch, Department, Notification
 
 User = get_user_model()
 
@@ -71,6 +71,27 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError("Current password is incorrect.")
         return value
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Flat enough for a dropdown list: no nested ticket serializer, just the
+    two fields the bell needs to render a line and link to the ticket.
+    """
+
+    actor_name = serializers.SerializerMethodField()
+    ticket_number = serializers.CharField(source="ticket.number", read_only=True, default="")
+    ticket_subject = serializers.CharField(source="ticket.subject", read_only=True, default="")
+
+    class Meta:
+        model = Notification
+        fields = (
+            "id", "verb", "actor_name", "ticket", "ticket_number", "ticket_subject",
+            "read_at", "created_at",
+        )
+        read_only_fields = fields
+
+    def get_actor_name(self, obj) -> str:
+        return obj.actor.get_full_name() or obj.actor.get_username() if obj.actor else ""
 
 
 class LoginSerializer(TokenObtainPairSerializer):
