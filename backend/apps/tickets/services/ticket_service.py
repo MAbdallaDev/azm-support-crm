@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from django.utils import timezone
 
+from apps.accounts.notifications import notify_ticket_assigned, notify_ticket_escalated
 from apps.tickets.models import Status, Ticket, TicketEvent, TicketMessage
 
 # The state machine. A move not listed here is refused.
@@ -218,6 +219,7 @@ def assign(ticket, assignee, actor, reason=""):
         old=previous.get_username() if previous else "",
         new=assignee.get_username() if assignee else "",
     )
+    notify_ticket_assigned(ticket, actor)
     return ticket
 
 
@@ -244,6 +246,7 @@ def escalate(ticket, actor, reason=""):
         old=ticket.escalation_level - 1,
         new=ticket.escalation_level,
     )
+    notify_ticket_escalated(ticket, actor)
     return ticket
 
 

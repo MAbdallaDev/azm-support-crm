@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useMe } from "@/api/auth";
@@ -121,6 +122,13 @@ export function TicketQueue({
   const filters = useTicketFilters(me?.id);
   const { data: categories } = useCategories();
 
+  // Collapsed by default, open automatically when a filter is already active
+  // (e.g. a shared/bookmarked filtered link) so restoring from the URL is
+  // visible without an extra click. Measured before this change: the four
+  // always-visible filter <select>s plus the pagination footer left only 63%
+  // of the 300px panel's height for the actual ticket list.
+  const [filtersOpen, setFiltersOpen] = useState(filters.activeFilterCount > 0);
+
   const { data, isPending, isError } = useTicketList(filters.apiParams);
 
   const rows = data?.results ?? [];
@@ -153,52 +161,27 @@ export function TicketQueue({
           ))}
         </div>
 
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <SlidersHorizontal aria-hidden className="h-3 w-3 flex-none text-faint" />
-          <FilterSelect
-            name="status"
-            value={filters.value("status")}
-            placeholder={t("tickets.anyStatus")}
-            onChange={filters.setFilter}
-            options={STATUSES.map((status) => ({
-              value: status,
-              label: t(`status.${status}`),
-            }))}
-          />
-          <FilterSelect
-            name="priority"
-            value={filters.value("priority")}
-            placeholder={t("tickets.anyPriority")}
-            onChange={filters.setFilter}
-            options={PRIORITIES.map((priority) => ({
-              value: priority,
-              label: t(`priority.${priority}`),
-            }))}
-          />
-        </div>
-
-        <div className="mb-3 mt-1.5 flex items-center gap-1.5">
-          <span className="h-3 w-3 flex-none" aria-hidden />
-          <FilterSelect
-            name="channel"
-            value={filters.value("channel")}
-            placeholder={t("tickets.anyChannel")}
-            onChange={filters.setFilter}
-            options={CHANNELS.map((channel) => ({
-              value: channel,
-              label: t(`channel.${channel}`),
-            }))}
-          />
-          <FilterSelect
-            name="category"
-            value={filters.value("category")}
-            placeholder={t("tickets.anyCategory")}
-            onChange={filters.setFilter}
-            options={(categories ?? []).map((category) => ({
-              value: String(category.id),
-              label: isArabic ? category.name_ar : category.name_en,
-            }))}
-          />
+        <div className="mb-3 mt-2.5 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            data-testid="queue-filters-toggle"
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11.5px]",
+              filtersOpen || filters.activeFilterCount > 0
+                ? "border-ink-2 bg-surface-2 font-semibold text-ink"
+                : "border-line text-muted-foreground hover:bg-surface-2",
+            )}
+          >
+            <SlidersHorizontal aria-hidden className="h-3 w-3 flex-none" />
+            {t("tickets.filters")}
+            {filters.activeFilterCount > 0 ? (
+              <span className="rounded-full bg-ink px-1.5 text-[10px] font-semibold text-white">
+                {filters.activeFilterCount}
+              </span>
+            ) : null}
+          </button>
           {filters.activeFilterCount > 0 ? (
             <button
               type="button"
@@ -212,6 +195,55 @@ export function TicketQueue({
             </button>
           ) : null}
         </div>
+
+        {filtersOpen ? (
+          <div className="mb-3 space-y-1.5" data-testid="queue-filters-panel">
+            <div className="flex items-center gap-1.5">
+              <FilterSelect
+                name="status"
+                value={filters.value("status")}
+                placeholder={t("tickets.anyStatus")}
+                onChange={filters.setFilter}
+                options={STATUSES.map((status) => ({
+                  value: status,
+                  label: t(`status.${status}`),
+                }))}
+              />
+              <FilterSelect
+                name="priority"
+                value={filters.value("priority")}
+                placeholder={t("tickets.anyPriority")}
+                onChange={filters.setFilter}
+                options={PRIORITIES.map((priority) => ({
+                  value: priority,
+                  label: t(`priority.${priority}`),
+                }))}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <FilterSelect
+                name="channel"
+                value={filters.value("channel")}
+                placeholder={t("tickets.anyChannel")}
+                onChange={filters.setFilter}
+                options={CHANNELS.map((channel) => ({
+                  value: channel,
+                  label: t(`channel.${channel}`),
+                }))}
+              />
+              <FilterSelect
+                name="category"
+                value={filters.value("category")}
+                placeholder={t("tickets.anyCategory")}
+                onChange={filters.setFilter}
+                options={(categories ?? []).map((category) => ({
+                  value: String(category.id),
+                  label: isArabic ? category.name_ar : category.name_en,
+                }))}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="h-px bg-line-2" />

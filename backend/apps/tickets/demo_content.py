@@ -31,9 +31,13 @@ DEMO_PASSWORD = "Demo!2345"
 
 STAFF = [
     # username, first, last, role, dept, branch, tier, language, superuser, staff
-    ("admin@demo", "Mostafa", "Abdallah", "admin", "general", "riyadh", 3, "en", True, True),
-    ("manager@demo", "Layla", "Al-Harbi", "manager", "general", "riyadh", 3, "ar", False, True),
-    ("agent@demo", "Yousef", "Al-Qahtani", "agent", "technical", "riyadh", 2, "en", False, True),
+    # Display name only — login stays admin@demo/manager@demo/agent@demo. Renaming
+    # the usernames would touch 65 references across tests, README and docs,
+    # several of which specifically test the "username that looks like an email"
+    # ambiguity in LoginSerializer; not worth the breakage for a cosmetic change.
+    ("admin@demo", "Mostafa Abdalla", "admin", "admin", "general", "riyadh", 3, "en", True, True),
+    ("manager@demo", "Mostafa Abdalla", "manager", "manager", "general", "riyadh", 3, "ar", False, True),
+    ("agent@demo", "Mostafa Abdalla", "agent", "agent", "technical", "riyadh", 2, "en", False, True),
     ("sara@demo", "Sara", "Al-Otaibi", "agent", "billing", "riyadh", 2, "ar", False, True),
     ("khalid@demo", "Khalid", "Al-Dossary", "agent", "technical", "jeddah", 1, "en", False, True),
     ("noura@demo", "Noura", "Al-Shammari", "agent", "billing", "jeddah", 2, "ar", False, True),

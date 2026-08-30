@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "./client";
 import { qk } from "./queryKeys";
 import { loginPathForRole, tokenStore } from "./tokenStore";
-import type { LoginRequest, LoginResponse, Me } from "./types";
+import type { ChangePasswordRequest, LoginRequest, LoginResponse, Me, MeUpdateRequest } from "./types";
 
 /**
  * Sign in.
@@ -41,6 +41,33 @@ export const useMe = () =>
       const status = (error as { response?: { status?: number } }).response?.status;
       return status !== 401 && failureCount < 1;
     },
+  });
+
+/**
+ * Update `phone`/`language` — the only two fields of `Me` a user may change
+ * about themselves.
+ *
+ * The response is the full `MeSerializer` shape (the backend always returns
+ * it after a PATCH, never the narrower write-serializer echo), so it is safe
+ * to seed `qk.me` directly from it — the same "write serializer in, detail
+ * serializer out" rule story 08's cache-poisoning bugs established. Seeding
+ * from a PATCH that returned only `{phone, language}` would have erased
+ * every other field the rest of the app reads off `useMe()`.
+ */
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: MeUpdateRequest) =>
+      api.patch<Me>("/auth/me/", body).then((r) => r.data),
+    onSuccess: (data) => queryClient.setQueryData(qk.me, data),
+  });
+};
+
+/** No response body to seed anything from — success just means "it changed." */
+export const useChangePassword = () =>
+  useMutation({
+    mutationFn: (body: ChangePasswordRequest) => api.post("/auth/change-password/", body),
   });
 
 /**

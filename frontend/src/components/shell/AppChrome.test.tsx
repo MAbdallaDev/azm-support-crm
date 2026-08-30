@@ -13,12 +13,22 @@ import { makeQueryClient } from "@/test/utils";
 const useMe = vi.hoisted(() => vi.fn());
 vi.mock("@/api/auth", () => ({ useMe, useLogout: () => () => {} }));
 
+// The bell makes its own two queries; stubbed here the same way `useMe` is —
+// this file is about the chrome's own rendering, not the bell's data layer,
+// which NotificationBell.test.tsx covers.
+vi.mock("@/api/notifications", () => ({
+  useUnreadCount: () => ({ data: 0 }),
+  useNotifications: () => ({ data: [], isPending: false }),
+  useMarkNotificationRead: () => ({ mutate: () => {} }),
+}));
+
 const me = (role: Role): Me => ({
   id: 1,
   username: `${role}@demo`,
   email: `${role}@demo.local`,
   full_name: "Omar Malki",
   role,
+  phone: "",
   department: "billing",
   branch: "riyadh",
   tier: 2,

@@ -96,6 +96,48 @@ class User(AbstractUser):
         return self.get_full_name() or self.username
 
 
+class Notification(models.Model):
+    """A per-recipient inbox item — distinct from AuditLog, which is a security
+    trail read by admins. This is read by its own recipient and carries a
+    read/unread state AuditLog has no reason to have.
+
+    Scoped to two verbs only: a ticket assigned to you, and an escalation on a
+    ticket you own or watch. SLA breach is deliberately not a verb here —
+    `sla_service` computes breach lazily on every read with no scheduler to
+    catch the moment a breach first occurs (see its module docstring), so
+    "notify on breach" would mean either a real scheduled sweep (out of scope)
+    or a lossy check bolted onto unrelated writes. Two honest verbs beat a
+    third dishonest one.
+    """
+
+    class Verb(models.TextChoices):
+        TICKET_ASSIGNED = "ticket_assigned", "Ticket assigned"
+        TICKET_ESCALATED = "ticket_escalated", "Ticket escalated"
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    verb = models.CharField(max_length=32, choices=Verb.choices, db_index=True)
+    ticket = models.ForeignKey(
+        "tickets.Ticket", null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
+    )
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.verb} -> {self.recipient_id}"
+
+
 class AuditLog(models.Model):
     """Append-only. Story 03 writes these from post_save/post_delete signals."""
 

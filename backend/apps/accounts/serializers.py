@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Branch, Department
+from .models import Branch, Department, Notification
 
 User = get_user_model()
 
@@ -38,12 +38,60 @@ class MeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            "id", "username", "email", "full_name", "role",
+            "id", "username", "email", "full_name", "role", "phone",
             "department", "branch", "tier", "language", "is_available",
         )
 
     def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.get_username()
+
+
+class MeUpdateSerializer(serializers.ModelSerializer):
+    """The self-service half of a profile: only `phone` and `language` are the
+    caller's own to change. Everything else on `Me` — role, department, branch,
+    tier — is Django admin's job in this MVP, the same call the brief already
+    makes for every other piece of org structure.
+    """
+
+    class Meta:
+        model = User
+        fields = ("phone", "language")
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Requires the current password so a stolen access token alone cannot
+    lock the real owner out of their own account.
+    """
+
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_current_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Flat enough for a dropdown list: no nested ticket serializer, just the
+    two fields the bell needs to render a line and link to the ticket.
+    """
+
+    actor_name = serializers.SerializerMethodField()
+    ticket_number = serializers.CharField(source="ticket.number", read_only=True, default="")
+    ticket_subject = serializers.CharField(source="ticket.subject", read_only=True, default="")
+
+    class Meta:
+        model = Notification
+        fields = (
+            "id", "verb", "actor_name", "ticket", "ticket_number", "ticket_subject",
+            "read_at", "created_at",
+        )
+        read_only_fields = fields
+
+    def get_actor_name(self, obj) -> str:
+        return obj.actor.get_full_name() or obj.actor.get_username() if obj.actor else ""
 
 
 class LoginSerializer(TokenObtainPairSerializer):

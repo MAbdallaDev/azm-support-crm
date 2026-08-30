@@ -75,6 +75,24 @@ describe("tab counts", () => {
   });
 });
 
+describe("filters panel", () => {
+  it("stays collapsed by default, reclaiming space for the list", async () => {
+    setup();
+    await screen.findByTestId("queue-row-1");
+
+    expect(screen.getByTestId("queue-filters-toggle")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("queue-filters-panel")).not.toBeInTheDocument();
+  });
+
+  it("opens automatically when a filter is already active from the URL", async () => {
+    setup("/app/tickets?priority=urgent");
+    await screen.findByTestId("queue-row-1");
+
+    expect(screen.getByTestId("queue-filters-toggle")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("queue-filters-panel")).toBeInTheDocument();
+  });
+});
+
 describe("URL as the source of truth", () => {
   it("restores tab and filters from the URL on load", async () => {
     setup("/app/tickets?tab=breaching&priority=urgent&status=open");
@@ -94,6 +112,10 @@ describe("URL as the source of truth", () => {
     setup();
     await screen.findByTestId("queue-row-1");
     const before = listRequests().length;
+
+    // Filters are collapsed by default now (queue-filters-toggle) — reclaims
+    // vertical space for the list, per the queue-panel scroll-squeeze fix.
+    fireEvent.click(screen.getByTestId("queue-filters-toggle"));
 
     fireEvent.change(screen.getByTestId("queue-filter-priority"), {
       target: { value: "urgent" },

@@ -7,6 +7,7 @@ import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { Lockup } from "@/components/shell/Lockup";
 import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { appNavItems, visibleNavItems } from "@/components/shell/navItems";
+import { NotificationBell } from "@/components/shell/NotificationBell";
 import { UserChip } from "@/components/shell/UserChip";
 import {
   DropdownMenu,
@@ -41,7 +42,7 @@ export default function AppChrome() {
   const items = visibleNavItems(appNavItems(), me?.role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-2">
+    <div className="flex h-screen flex-col bg-surface-2">
       <header className="flex h-14 flex-none items-center gap-[10px] border-b border-line bg-background px-[14px] lg:gap-[18px] lg:px-[18px]">
         <Lockup product={t("app.product")} className="min-w-0" />
 
@@ -71,6 +72,8 @@ export default function AppChrome() {
 
         <LanguageToggle profileLanguage={me?.language} />
 
+        <NotificationBell />
+
         <DropdownMenu>
           <DropdownMenuTrigger
             className="flex h-8 w-8 flex-none items-center justify-center rounded-lg hover:bg-surface-3 lg:hidden"
@@ -97,7 +100,7 @@ export default function AppChrome() {
         {me ? <UserChip me={me} /> : null}
       </header>
 
-      <main className="min-h-0 flex-1">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
     </div>

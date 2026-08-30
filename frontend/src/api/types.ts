@@ -17,12 +17,19 @@ export type Me = {
   email: string;
   full_name: string;
   role: Role;
+  phone: string;
   department: string | null;
   branch: string | null;
   tier: number;
   language: "en" | "ar";
   is_available: boolean;
 };
+
+/** `MeUpdateSerializer` — the only two fields a user may change about
+ * themselves. Everything else on `Me` is Django admin's job in this MVP. */
+export type MeUpdateRequest = { phone: string; language: "en" | "ar" };
+
+export type ChangePasswordRequest = { current_password: string; new_password: string };
 
 /** `LoginSerializer` response. `username` accepts a username *or* an email. */
 export type LoginResponse = { access: string; refresh: string; user: Me };
@@ -539,3 +546,24 @@ export type RegisterRequest = {
 };
 
 export type PortalCSATSubmit = { ticket: number; score: number; comment?: string };
+
+// ---------------------------------------------------------------------------
+// Post-hand-in — notification centre.
+// ---------------------------------------------------------------------------
+
+/** `Notification.Verb` — only these two; SLA breach is not a notification
+ *  verb (see `backend/apps/accounts/notifications.py`'s module docstring). */
+export type NotificationVerb = "ticket_assigned" | "ticket_escalated";
+
+/** `NotificationSerializer`. `ticket`/`ticket_number`/`ticket_subject` are
+ *  empty/null when the underlying ticket has since been deleted. */
+export type Notification = {
+  id: number;
+  verb: NotificationVerb;
+  actor_name: string;
+  ticket: number | null;
+  ticket_number: string;
+  ticket_subject: string;
+  read_at: string | null;
+  created_at: string;
+};

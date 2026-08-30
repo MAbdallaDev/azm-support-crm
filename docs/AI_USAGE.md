@@ -1191,3 +1191,178 @@ function does *not* set, not in anything it does incorrectly.
   department bug was invisible to story 09's own tests because nothing in that story's scope ever
   played both roles (customer, then agent) against the same ticket in sequence. The bug lived
   entirely in the gap between two stories that were each, on their own terms, done correctly.
+
+---
+
+## Post-hand-in — MVP polish (fix/mvp-polish)          (elapsed: ~3h)
+
+Not a numbered story: three small fixes done after hand-in, in the same working directory rather
+than a fresh squad-kit session, on the user's explicit instruction to skip the intake/plan ceremony
+given the time budget. Recorded here anyway, per this file's own rule.
+
+**What I asked for:** Three live-diagnosed issues in the running MVP — a squeezed ticket queue, an
+empty profile page for every role, and a request to personalize the three seeded staff accounts to
+the user's own name. A fourth track (a real Notification centre, one of the deferred PDF
+requirements) was scoped in the same planning pass but explicitly deferred when the user said "let's
+work on track A for now."
+
+**What the AI built:**
+
+- `frontend/src/features/tickets/TicketQueue.tsx` — the four always-visible filter `<select>`s
+  (status/priority/channel/category) collapsed behind a single toggle button, opening a panel only
+  when clicked or when a filter is already active from the URL. Measured via the DOM before and
+  after: the scrollable ticket list grew from 421.5px (63% of the queue pane) to roughly the panel's
+  full remaining height. No change to filter behavior, only layout.
+- `backend/apps/tickets/demo_content.py` — the admin/manager/agent seed rows' `full_name` changed to
+  "Mostafa Abdalla admin"/"manager"/"agent".
+- `backend/apps/accounts/{views,serializers,urls,audit}.py`, `frontend/src/routes/Profile.tsx`,
+  `frontend/src/api/auth.ts` — a working profile page: view account info, edit phone/language via a
+  new `PATCH /auth/me/`, change password via a new `POST /auth/change-password/`.
+
+**Decisions the AI made on its own:**
+
+- **Renamed display names only, not usernames**, after finding the requested username rename
+  (`admin@demo` → `mostafa_ad`, etc.) would touch 65 references across 20 files — several of them
+  tests specifically covering the "username that looks like an email" ambiguity in
+  `LoginSerializer`. Flagged the blast radius to the user instead of guessing; the user chose
+  display-name-only.
+- **Built the profile page at all**, though nothing in the PDF requires one — reasoned that an empty
+  page behind a menu item every role can click reads as broken regardless of whether it was asked
+  for, and said so before building it rather than silently expanding scope.
+- Added an explicit `audit_password_changed()` call rather than relying on the generic post-save
+  audit signal, once testing showed the signal silently skips password-only saves (see below).
+
+**A follow-up correction to A1, after the PR was already open.** The user came back with a
+screenshot: on a taller monitor, the whole ticket workspace stopped short and left a large blank
+gray area below it — a different bug from the filter squeeze, which the toggle fix had not touched.
+Diagnosis needed several wrong turns before landing on the real cause:
+
+- First measured `document.documentElement.scrollHeight` against `window.innerHeight` directly in
+  the running app and confirmed the page could scroll ~1700px past its own content — a real,
+  reproducible defect, not a one-off screenshot artifact.
+- The obvious suspect — a flex child missing `min-h-0` somewhere in the three-pane chain — was real
+  but not sufficient: `frontend/src/routes/Tickets.tsx`'s center-pane wrapper and
+  `frontend/src/features/tickets/TicketDetail.tsx`'s `<section>` were both flex items without
+  `min-h-0`, fixed both, and confirmed via `getBoundingClientRect()` that every element in that chain
+  was now correctly bounded to the viewport. **The document still scrolled exactly as far as before.**
+  Chasing a plausible-looking cause to a clean fix and declaring victory without re-measuring the
+  actual symptom would have shipped a second wrong fix.
+- Also converted `AppChrome.tsx`'s shell from `min-h-screen` (a floor, not a ceiling) to `h-screen`
+  with `overflow-y-auto` on `<main>` — correct and worth keeping regardless (it also fixes long pages
+  like Reports scrolling the header away instead of scrolling internally), but still not the cause of
+  this specific bug.
+- Found the real cause by walking up from the single element with the largest `getBoundingClientRect()
+  .bottom` on the page: a `sr-only` (screen-reader-only) `<span>` inside each ticket-queue row
+  (`frontend/src/features/tickets/QueueRow.tsx`), styled `position: absolute` with no positioned
+  ancestor. Its containing block escaped the queue list's own `overflow-y-auto` scroll container
+  entirely, resolving against the document root instead — so with ~30 un-virtualized rows in the
+  list, each row's invisible span still stretched the *document's* layout height to match the full,
+  un-scrolled list height, even though nothing about it is visible or supposed to affect layout.
+  Fixed with one word: `relative` on the row's `<Link>`, scoping the span's containing block back to
+  its own row.
+
+**What I had to correct:**
+
+- **A real audit-trail gap, caught by writing the test first.** The generic `audit_post_save` signal
+  writes a row only when its diff is non-empty, and `password` is a redacted field excluded from that
+  diff — so a password change produced *zero* audit rows, contradicting story 03's own documented
+  requirement that every account action is audited. Not visible from reading the change-password view
+  in isolation; it only showed up because a test asserted the audit row's existence and got
+  `DoesNotExist`.
+- **Overclaimed a live bug, caught it before committing.** Typing into the phone field via
+  browser-automation `computer.type` appeared to do nothing; diagnosed as `useForm`'s `values` option
+  resyncing from a fresh inline object literal on every render, "fixed" with a `useMemo`. But
+  verifying the fix meant switching the test technique from simulated typing to direct DOM
+  value-setting — two variables changed at once, so the live result didn't actually prove which one
+  mattered. No jsdom/Vitest test could be made to fail against the pre-fix code and pass against it
+  either, which is consistent with there being no real defect for jsdom to reproduce — the
+  browser-automation `type` action may simply not have been reaching the focused input. Kept the
+  `useMemo` (it is correct practice regardless — depending on `me` instead of its primitive fields
+  would resync the form on every unrelated change to the user object), but rewrote the "regression"
+  test to assert only what it actually demonstrates, rather than leaving a claim it couldn't back up.
+
+**What I learned:** the difference between "this fix made the live symptom go away" and "this fix is
+what made the live symptom go away" — changing two things (the code and the way it was being tested)
+between an observation and its confirmation looks like proof but isn't. The honest fallback wasn't to
+keep digging indefinitely; it was to keep the defensive fix on its own merits and stop claiming more
+than the evidence showed.
+
+**And from the scroll-escape bug:** a `position: absolute` element's containing block is its nearest
+*positioned* ancestor, not its nearest `overflow: auto` ancestor — those are unrelated concepts that
+happen to usually line up, since most scroll containers are also positioned for other reasons. When
+they don't line up, the absolutely positioned element's layout box is computed against whatever
+ancestor *is* positioned (or the document root, if none is), and CSS overflow clipping does not apply
+across that boundary — an invisible 1×1px accessibility helper can still inflate the whole document's
+scrollable height. The fix looks unrelated to the symptom (a `relative` class with no visible effect)
+precisely because the real bound being violated was never about height at all.
+
+---
+
+## Post-hand-in — Notification centre (feature/notification-centre)          (elapsed: ~2h)
+
+Closes one of the Phase 2 deferred requirements for real: SLA & Automation → *Alerts and
+notifications*. Chosen over the other deferred items specifically because it had clean, existing
+hook points (`ticket_service.assign`/`.escalate`) rather than needing new infrastructure.
+
+**What I asked for:** A notification bell — a `Notification` model, endpoints to list/mark-read/
+count, and a bell in the header with an unread badge and a dropdown. Explicitly deferred earlier in
+the session ("let's work on track A for now") and picked up once Track A was merged.
+
+**What the AI built:**
+
+- `backend/apps/accounts/models.py` — `Notification` (recipient, actor, verb, ticket, `read_at`,
+  `created_at`), sitting beside `AuditLog` rather than in `tickets/`, since it's cross-cutting and FKs
+  `User` the same way.
+- `backend/apps/accounts/notifications.py` — `notify_ticket_assigned`/`notify_ticket_escalated`,
+  mirroring `audit.py`'s explicit-call style (no signals) — called directly from
+  `apps/tickets/services/ticket_service.py`'s `assign()` and `escalate()`.
+- `backend/apps/accounts/{views,urls,serializers,admin}.py` — `NotificationViewSet` (list + `read`
+  action, scoped to `recipient=request.user`), `NotificationUnreadCountView`, admin registration.
+- `frontend/src/components/shell/NotificationBell.tsx` — a bell in `AppChrome`'s header, a
+  `DropdownMenu` list, mark-read-and-navigate on click. `frontend/src/api/notifications.ts` for the
+  three query/mutation hooks, new `notifications.*` i18n keys in both languages.
+- Nine backend tests (creation, self-assignment suppression, dedup of a watcher who is also the
+  assignee, and the security-critical scoping/cross-user-access tests) and five frontend tests.
+
+**Decisions the AI made on its own:**
+
+- **Two verbs only — assignment and escalation — no SLA breach verb.** Flagged to the user before
+  building anything: `sla_service` computes breach lazily on every read with no scheduler to catch the
+  moment a breach first occurs, so a breach notification would need either a real periodic sweep
+  (out of scope for the time budget) or a lossy check bolted onto unrelated writes. The user chose to
+  skip it rather than ship a dishonest approximation.
+- **No polling for the unread badge.** The app's global QueryClient already disables
+  `refetchOnWindowFocus`; adding `refetchInterval` would have been the first polling query in the
+  codebase for one bell icon. Flagged to the user, who chose invalidate-on-mutation plus refetch-on-open
+  instead — consistent with the existing convention rather than a new one.
+- No `notifications_disabled()` context manager (unlike `audit.audit_disabled()`): `seed_demo` sets
+  `Ticket.assignee`/`escalation_level` directly rather than calling `ticket_service.assign()`/
+  `.escalate()`, confirmed by grep before writing the model, so seeding never reaches the new hooks and
+  never needed suppressing.
+
+**What I had to correct:**
+
+- **A global test-infrastructure gap, not a bug in the feature.** The first Radix `DropdownMenu`
+  interaction test in the project — every prior dropdown in the app (`UserChip`, the mobile nav menu)
+  had zero test coverage of actually opening it. `fireEvent.click` on the trigger did nothing: Radix's
+  `DropdownMenuTrigger` opens on `pointerdown`, and jsdom (confirmed by checking directly) has no
+  `PointerEvent` constructor at all, so `fireEvent.pointerDown` fell back to a generic `Event` missing
+  `.button`, and Radix's own `event.button === 0` guard silently failed. Added a small `PointerEvent`
+  polyfill to the shared `src/test/setup.ts` rather than working around it per-test — every future
+  Radix interaction test needs the exact same thing.
+- **Browser-automation clicks landed on the wrong pixels twice during live verification** — once on
+  the login form (typed text silently went nowhere until switching from ref-based clicks to
+  screenshot-coordinate clicks), and once on the notification item itself (the first click closed the
+  dropdown without selecting anything; recalculating the item's real bounding box and clicking its
+  text directly worked). Both were automation-tool quirks caught by checking `document.activeElement`
+  and the actual DOM state rather than trusting a screenshot alone, not application bugs — the
+  underlying feature worked correctly once verified through the real login → assign → notify →
+  click-through → mark-read chain, backed up independently via direct API calls.
+
+**What I learned:** the same "don't conflate the tool with the target" lesson from A2's phone-field
+investigation applies to UI automation broadly, not just to one input. When a browser-driven action
+appears to do nothing, checking the actual DOM state (`document.activeElement`, a field's real
+`.value`, an element's real `getBoundingClientRect()`) before concluding the *application* is broken
+is what tells apart an automation-coordinate problem from a real defect — in both cases here it was
+the former, and the feature itself was confirmed correct via the API directly and via the UI once the
+right pixels were clicked.

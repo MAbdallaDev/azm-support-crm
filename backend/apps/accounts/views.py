@@ -5,19 +5,28 @@ The health endpoint lives in config/health.py — it belongs to the deployment,
 not to a domain.
 """
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import viewsets
-from rest_framework.generics import RetrieveAPIView
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .audit import audit_login_failure, audit_login_success
-from .models import Branch, Department
+from apps.tickets.pagination import StandardPagination
+
+from .audit import audit_login_failure, audit_login_success, audit_password_changed
+from .models import Branch, Department, Notification
 from .serializers import (
     BranchSerializer,
+    ChangePasswordSerializer,
     DepartmentSerializer,
     LoginSerializer,
     MeSerializer,
+    MeUpdateSerializer,
+    NotificationSerializer,
 )
 
 
@@ -61,14 +70,52 @@ class RefreshView(TokenRefreshView):
 
 @extend_schema(
     summary="The authenticated caller's own profile",
+    description=(
+        "GET returns the full profile. PATCH accepts only `phone` and `language` — "
+        "role, department, branch and tier are Django admin's job in this MVP."
+    ),
     responses={200: MeSerializer},
 )
-class MeView(RetrieveAPIView):
-    serializer_class = MeSerializer
+class MeView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "options"]
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_class(self):
+        return MeUpdateSerializer if self.request.method == "PATCH" else MeSerializer
+
+    def update(self, request, *args, **kwargs):
+        # PATCH is validated and saved through the narrow write serializer,
+        # but the response is always the full MeSerializer shape — the same
+        # "write serializer in, detail serializer out" rule story 08 learned
+        # the hard way (a write-serializer response is a narrower shape than
+        # what the very next render reads, and seeding a cache from it is how
+        # that story's three cache-poisoning bugs happened).
+        super().update(request, *args, **kwargs)
+        return Response(MeSerializer(request.user).data)
+
+
+@extend_schema(
+    summary="Change the caller's own password",
+    request=ChangePasswordSerializer,
+    responses={200: OpenApiResponse(description="Password changed."), 400: OpenApiResponse()},
+)
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save(update_fields=["password"])
+        # A password-only save produces an empty diff (password is excluded
+        # from the tracked fields), so the generic post_save audit signal
+        # skips it as a no-op — this needs its own explicit call, the same way
+        # login does.
+        audit_password_changed(request.user)
+        return Response(status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["accounts"], summary="Every branch")
@@ -101,3 +148,43 @@ class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
     pagination_class = None
+
+
+@extend_schema(tags=["notifications"], summary="The caller's own notifications")
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """Strictly `recipient=request.user` — a cross-user leak here would let one
+    agent read another's notification feed, which is the same class of trust
+    boundary as the portal's ticket scoping. No admin override: even an admin
+    reads only their own inbox through this endpoint.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user).select_related(
+            "actor", "ticket"
+        )
+
+    @extend_schema(summary="Mark one notification read", request=None, responses={200: NotificationSerializer})
+    @action(detail=True, methods=["post"], url_path="read")
+    def read(self, request, pk=None):
+        notification = self.get_object()
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at"])
+        return Response(NotificationSerializer(notification).data)
+
+
+@extend_schema(
+    tags=["notifications"],
+    summary="How many of the caller's notifications are unread",
+    responses={200: OpenApiResponse(description="{'count': int}")},
+)
+class NotificationUnreadCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        count = Notification.objects.filter(recipient=request.user, read_at__isnull=True).count()
+        return Response({"count": count})
