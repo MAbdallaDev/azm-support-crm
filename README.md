@@ -155,7 +155,7 @@ The web app is then on http://localhost:5173 and the API on http://localhost:800
 
 ## Tests
 
-**Backend** — pytest-django, **392 tests**, against PostgreSQL:
+**Backend** — pytest-django, **405 tests**, against PostgreSQL:
 
 ```bash
 docker compose exec api pytest -q
@@ -172,7 +172,7 @@ One test differs between the two. `test_fifty_concurrent_creates_get_fifty_disti
 under threads, so on the host run it is **skipped with its reason printed** (`pytest -rs` shows it)
 rather than passing without ever having raced.
 
-**Frontend** — Vitest, **208 tests**:
+**Frontend** — Vitest, **220 tests**:
 
 ```bash
 cd frontend && npm run test -- --run
@@ -259,7 +259,7 @@ implemented:
 | 2 | Ticket Management | Story 04 (API), Story 07 (UI) | `apps/tickets/`, `frontend/src/features/tickets/` |
 | 3 | Communication Channels | Story 02 (model), Story 07 (UI) | `Ticket.channel`, `ChannelBadge`, the composer's *Sending via* label |
 | 4 | Agent Dashboard | Story 07 | `frontend/src/routes/Dashboard.tsx`, `apps/reports/views.py::MySummaryView` |
-| 5 | SLA & Automation | Story 05 (API), Story 07 (UI) | `apps/tickets/services/sla_service.py`, `apps/tickets/services/ticket_service.py`, `SlaBar` |
+| 5 | SLA & Automation | Story 05 (API), Story 07 (UI); alerts added post-hand-in | `apps/tickets/services/sla_service.py`, `apps/tickets/services/ticket_service.py`, `SlaBar`; `apps/accounts/notifications.py`, `NotificationBell` |
 | 6 | Knowledge Base | Story 05 (API), Story 08 (UI) | `apps/kb/`, `frontend/src/features/kb/` |
 | 7 | AI Features | Story 05 | `apps/ai/services/{base,mock,claude}.py` |
 | 8 | Customer Portal | Story 05 (API), Story 09 (UI) | `apps/portal/`, `frontend/src/features/portal/` |
@@ -283,15 +283,27 @@ Full rationale for every stack choice, the scope split between this MVP and the 
 work, and the per-criterion grading map are in
 [`docs/00-project-brief.md`](docs/00-project-brief.md). The hand-in summary — screenshots against
 every artboard, the ownership-and-corrections section, and total elapsed time — is
-[`docs/SUMMARY.md`](docs/SUMMARY.md).
+[`docs/SUMMARY.md`](docs/SUMMARY.md) (frozen at the ten-story hand-in; see below for what shipped
+after it).
+
+### Post-hand-in additions
+
+Three small MVP fixes and one closed Phase-2 item, done after the ten-story hand-in and merged the
+same way (branch → PR → `dev` → `main`): a queue-panel layout fix and the scroll-escape bug it led
+to being found and fixed, a self-service profile page (view/edit phone and language, change
+password), personalized demo account display names, and a **notification centre** (bell with an
+unread badge, notifying on ticket assignment and escalation — closing the SLA & Automation area's
+"alerts and notifications" item; SLA breach is deliberately not a notification verb, since the SLA
+engine computes breach lazily with no scheduler to catch the moment one occurs). Full detail,
+decisions and corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entries.
 
 ---
 
 ## Status
 
-**All ten stories are complete; `dev` has been merged into `main`.**
+**All ten stories are complete, plus the post-hand-in work above; `dev` has been merged into `main`.**
 
-**392 backend tests** pass against PostgreSQL. **208 frontend tests** pass. Both RTL and i18n-parity
+**405 backend tests** pass against PostgreSQL. **220 frontend tests** pass. Both RTL and i18n-parity
 guards are clean, the production build is clean, and lint has zero errors (two pre-existing,
 accepted `react-refresh` warnings only).
 

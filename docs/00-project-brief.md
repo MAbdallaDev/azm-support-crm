@@ -129,7 +129,7 @@ portal** under `/portal/*`, separated by route and auth scope, sharing one compo
 | Collaboration | **Presence, typing indicators, collision warnings, @mentions, watcher notifications** | Realtime fan-out per record |
 | Security | **2FA, SSO/SAML, field-level permissions, retention and GDPR export** | Identity-provider integration, per-field ACL evaluation |
 | Ticketing | **Merge / split / link tickets, duplicate detection** | Message re-parenting, history rewriting, undo |
-| Ticketing | Tasks and reminders, saved views, bulk actions, notification centre | Individually small, collectively a day's work |
+| Ticketing | Tasks and reminders, saved views, bulk actions | Individually small, collectively a day's work |
 | Search | **Postgres full-text search** across tickets and KB | Arabic stemming configuration |
 | Platform | **PWA / offline mobile**, push notifications | Service worker, sync conflicts |
 

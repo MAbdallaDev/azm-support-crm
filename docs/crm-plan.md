@@ -320,11 +320,11 @@ committed, the ordering evidence is gone permanently.
    helper, so this session cannot authenticate to GitHub. It initialises, commits and wires the
    remote; `git push -u origin main` is run by him.
 
-   **Commit identity — set repo-locally before the first commit.** The global identity is
-   `Mustafa.abdullah <Mustafa.abdullah@azm.sa>`, a company address not registered on GitHub. Two
-   problems: commits authored with an unregistered address do not link to a GitHub profile (no
-   avatar, no contribution-graph credit — and criterion 3 is productivity, evidenced by this
-   history), and on a **public** repo that work address sits in every commit for scrapers to harvest.
+   **Commit identity — set repo-locally before the first commit.** The global identity uses
+   Mostafa's company email address, not registered on GitHub. Two problems: commits authored with an
+   unregistered address do not link to a GitHub profile (no avatar, no contribution-graph credit —
+   and criterion 3 is productivity, evidenced by this history), and on a **public** repo that work
+   address sits in every commit for scrapers to harvest.
 
    GitHub's noreply address solves both. The `MAbdallaDev` account is id `143842834`, created
    September 2023 — after the July 2017 cutoff, so it takes the ID-prefixed form:
