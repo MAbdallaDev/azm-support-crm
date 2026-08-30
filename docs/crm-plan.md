@@ -314,19 +314,8 @@ all. Every artifact so far is uncommitted. If story 01's code lands before the p
 committed, the ordering evidence is gone permanently.
 
 1. **`git init`** in `~/Desktop/azm/crm`, default branch `main`, remote `origin` set to
-   `https://github.com/MAbdallaDev/azm-support-crm.git` (public, created by Mostafa).
-
-   **The push is his, not mine.** `gh` is not installed, there are no SSH keys and no git credential
-   helper, so this session cannot authenticate to GitHub. It initialises, commits and wires the
-   remote; `git push -u origin main` is run by him.
-
-   **Commit identity — set repo-locally before the first commit**, so commits link to the
-   `MAbdallaDev` GitHub profile:
-
-   ```bash
-   git config user.name "Mostafa Abdallah"
-   git config user.email "143842834+MAbdallaDev@users.noreply.github.com"
-   ```
+   `https://github.com/MAbdallaDev/azm-support-crm.git` (public, created by Mostafa). Commit identity
+   set repo-locally before the first commit, so commits link to the `MAbdallaDev` GitHub profile.
 
 2. **Fix the ignore rule.** squad-kit's managed `.gitignore` block excludes
    `.squad/stories/**/attachments/`. That drops the design artboards attached to stories 06–09 plus
@@ -382,23 +371,16 @@ utilities**, so story 06's RTL rule starts clean. The Alpine/musl Rollup trap (`
 `node:22-alpine` against a glibc lockfile) was checked specifically and does not apply — the lockfile
 records `@rollup/rollup-linux-x64-musl`.
 
-**The one gap: Docker is not installed on the machine**, so `docker compose up --build` was never
-executed. Acceptance criterion 1 and verification steps 1, 2, 3 and 6 are unrun. The compose file and
-both Dockerfiles are statically sound, but sound is not verified — and the definition of done for the
-two days is that `docker compose up` is the only setup step.
+**The one gap: `docker compose up --build` was not yet run**, so acceptance criterion 1 and
+verification steps 1, 2, 3 and 6 are unrun. The compose file and both Dockerfiles are statically
+sound, but sound is not verified — and the definition of done for the two days is that
+`docker compose up` is the only setup step.
 
 ---
 
 ### Next: install Docker, verify story 01 for real, then plan story 02
 
-1. **Install Docker Engine + the Compose plugin** (needs `sudo`; Mostafa runs this, not the session):
-
-   ```bash
-   curl -fsSL https://get.docker.com | sudo sh
-   sudo usermod -aG docker "$USER"
-   ```
-
-   Log out and back in (or `newgrp docker`) so the group applies without `sudo` on every command.
+1. **Install Docker Engine + the Compose plugin.**
 
 2. **Run story 01's verification section for real** — all seven steps in
    `.squad/plans/crm-mvp/01-story-01-foundation.md`. Step 2 is the one that matters: `docker compose
