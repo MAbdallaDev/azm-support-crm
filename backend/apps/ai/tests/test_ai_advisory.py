@@ -5,15 +5,18 @@ one permitted advisory column may differ afterwards. "An agent always approves"
 is a product rule from the brief; without this test it would be a comment.
 """
 
+from datetime import timedelta
+
 import pytest
 from django.forms.models import model_to_dict
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Department, User
 from apps.ai.services import get_backend
 from apps.ai.services.mock import MockAIBackend
 from apps.customers.models import Customer
-from apps.tickets.models import Category, Ticket, TicketMessage
+from apps.tickets.models import Category, Status, Ticket, TicketMessage
 
 
 @pytest.fixture
@@ -212,6 +215,109 @@ def test_categorize_is_input_dependent(english_customer, department, categories)
 
 
 # ---------------------------------------------------------------------------
+# Suggested solutions — a GET, unlike its three siblings: nothing to write,
+# nothing to guard against mutating on the *current* ticket, but the same
+# scoping and the same "empty is a legitimate answer" discipline apply.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_ranks_same_category_above_keyword_only_match(
+    agent, english_customer, department, categories
+):
+    ticket = make_ticket(english_customer, department, categories, subject="Invoice total is wrong")
+
+    same_category_older = Ticket.objects.create(
+        customer=english_customer,
+        subject="Unrelated wording entirely",
+        department=department,
+        category=categories["billing-invoice"],
+        status=Status.RESOLVED,
+        resolved_at=timezone.now() - timedelta(days=10),
+    )
+    keyword_only = Ticket.objects.create(
+        customer=english_customer,
+        subject="Invoice total looks off",
+        department=department,
+        category=categories["technical-fault"],
+        status=Status.RESOLVED,
+        resolved_at=timezone.now() - timedelta(days=1),
+    )
+
+    response = agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+    assert response.status_code == 200
+    ids = [s["ticket_id"] for s in response.data["solutions"]]
+    assert ids.index(same_category_older.pk) < ids.index(keyword_only.pk)
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_excludes_the_ticket_itself(agent, english_customer, department, categories):
+    ticket = make_ticket(english_customer, department, categories)
+    ticket.status = Status.RESOLVED
+    ticket.resolved_at = timezone.now()
+    ticket.save()
+
+    response = agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+    assert ticket.pk not in [s["ticket_id"] for s in response.data["solutions"]]
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_is_empty_not_an_error_when_nothing_matches(
+    agent, english_customer, department, categories
+):
+    ticket = Ticket.objects.create(
+        customer=english_customer, subject="Xyzzy Plugh Quux", department=department,
+    )
+    response = agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+    assert response.status_code == 200
+    assert response.data["solutions"] == []
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_includes_the_resolution_message_when_one_exists(
+    agent, english_customer, department, categories
+):
+    ticket = make_ticket(english_customer, department, categories, subject="Invoice total is wrong")
+    solved = Ticket.objects.create(
+        customer=english_customer,
+        subject="Invoice total was wrong",
+        department=department,
+        category=categories["billing-invoice"],
+        status=Status.RESOLVED,
+        resolved_at=timezone.now(),
+    )
+    TicketMessage.objects.create(
+        ticket=solved, body="Refunded the duplicate line item.", is_internal=False, channel="web",
+    )
+    TicketMessage.objects.create(
+        ticket=solved, body="internal note, not the fix", is_internal=True, channel="web",
+    )
+
+    response = agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+    match = next(s for s in response.data["solutions"] if s["ticket_id"] == solved.pk)
+    assert match["resolution"] == "Refunded the duplicate line item."
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_writes_nothing(agent, english_customer, department, categories):
+    ticket = make_ticket(english_customer, department, categories)
+    before = snapshot(ticket)
+
+    agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+
+    after = snapshot(ticket)
+    assert before == after
+
+
+@pytest.mark.django_db
+def test_suggest_solutions_never_creates_a_message(agent, english_customer, department, categories):
+    ticket = make_ticket(english_customer, department, categories)
+    before = TicketMessage.objects.count()
+    agent.get("/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk})
+    assert TicketMessage.objects.count() == before
+
+
+# ---------------------------------------------------------------------------
 # Access and configuration
 # ---------------------------------------------------------------------------
 
@@ -232,6 +338,9 @@ def test_a_ticket_outside_the_callers_scope_is_404(english_customer, categories)
     assert client.post(
         "/api/v1/ai/summarize/", {"ticket": ticket.pk}, format="json"
     ).status_code == 404
+    assert client.get(
+        "/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk}
+    ).status_code == 404
 
 
 @pytest.mark.django_db
@@ -244,6 +353,9 @@ def test_customers_cannot_call_the_ai_endpoints(english_customer, department, ca
     client.force_authenticate(portal)
     assert client.post(
         "/api/v1/ai/summarize/", {"ticket": ticket.pk}, format="json"
+    ).status_code == 403
+    assert client.get(
+        "/api/v1/ai/suggested-solutions/", {"ticket": ticket.pk}
     ).status_code == 403
 
 

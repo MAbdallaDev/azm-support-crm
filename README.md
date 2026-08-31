@@ -155,7 +155,7 @@ The web app is then on http://localhost:5173 and the API on http://localhost:800
 
 ## Tests
 
-**Backend** — pytest-django, **405 tests**, against PostgreSQL:
+**Backend** — pytest-django, **411 tests**, against PostgreSQL:
 
 ```bash
 docker compose exec api pytest -q
@@ -172,7 +172,7 @@ One test differs between the two. `test_fifty_concurrent_creates_get_fifty_disti
 under threads, so on the host run it is **skipped with its reason printed** (`pytest -rs` shows it)
 rather than passing without ever having raced.
 
-**Frontend** — Vitest, **220 tests**:
+**Frontend** — Vitest, **225 tests**:
 
 ```bash
 cd frontend && npm run test -- --run
@@ -261,7 +261,7 @@ implemented:
 | 4 | Agent Dashboard | Story 07 | `frontend/src/routes/Dashboard.tsx`, `apps/reports/views.py::MySummaryView` |
 | 5 | SLA & Automation | Story 05 (API), Story 07 (UI); alerts added post-hand-in | `apps/tickets/services/sla_service.py`, `apps/tickets/services/ticket_service.py`, `SlaBar`; `apps/accounts/notifications.py`, `NotificationBell` |
 | 6 | Knowledge Base | Story 05 (API), Story 08 (UI) | `apps/kb/`, `frontend/src/features/kb/` |
-| 7 | AI Features | Story 05 | `apps/ai/services/{base,mock,claude}.py` |
+| 7 | AI Features | Story 05; suggested solutions added post-hand-in | `apps/ai/services/{base,mock,claude}.py`, `SuggestedSolutions.tsx` |
 | 8 | Customer Portal | Story 05 (API), Story 09 (UI) | `apps/portal/`, `frontend/src/features/portal/` |
 | 9 | Reports & Management | Story 05 (API), Story 09 (UI) | `apps/reports/views.py`, `frontend/src/features/reports/ReportsPage.tsx` |
 | 10 | Security & Administration | Story 03 | `apps/accounts/{permissions,scoping,audit}.py`, Django admin |
@@ -288,14 +288,19 @@ after it).
 
 ### Post-hand-in additions
 
-Three small MVP fixes and one closed Phase-2 item, done after the ten-story hand-in and merged the
+Three small MVP fixes and two closed Phase-2 items, done after the ten-story hand-in and merged the
 same way (branch → PR → `dev` → `main`): a queue-panel layout fix and the scroll-escape bug it led
 to being found and fixed, a self-service profile page (view/edit phone and language, change
-password), personalized demo account display names, and a **notification centre** (bell with an
+password), personalized demo account display names, a **notification centre** (bell with an
 unread badge, notifying on ticket assignment and escalation — closing the SLA & Automation area's
 "alerts and notifications" item; SLA breach is deliberately not a notification verb, since the SLA
-engine computes breach lazily with no scheduler to catch the moment one occurs). Full detail,
-decisions and corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entries.
+engine computes breach lazily with no scheduler to catch the moment one occurs), and **suggested
+solutions** (`.squad/stories/crm-advanced/11-suggested-solutions/` — an agent viewing a ticket sees
+up to three already-resolved tickets that look similar, each with how it was resolved; a real
+deterministic database ranking, not semantic search or an external model — closing the fourth of
+the AI Features area's five sub-items. The fifth, an AI chatbot, stays deferred: it needs a live
+LLM to be credible and no key is available for this project). Full detail, decisions and
+corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entries.
 
 ---
 
@@ -303,7 +308,7 @@ decisions and corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entr
 
 **All ten stories are complete, plus the post-hand-in work above; `dev` has been merged into `main`.**
 
-**405 backend tests** pass against PostgreSQL. **220 frontend tests** pass. Both RTL and i18n-parity
+**411 backend tests** pass against PostgreSQL. **225 frontend tests** pass. Both RTL and i18n-parity
 guards are clean, the production build is clean, and lint has zero errors (two pre-existing,
 accepted `react-refresh` warnings only).
 

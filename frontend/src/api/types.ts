@@ -320,6 +320,25 @@ export type AiSuggestedReply = {
   language: "en" | "ar";
 };
 
+/**
+ * `SuggestedSolutionsResponseSerializer` — post-hand-in. Read-only, persists
+ * nothing: `apps/ai/services/mock.py::suggest_solutions` ranks other already-
+ * resolved tickets, it never touches the ticket being viewed.
+ */
+export type AiSuggestedSolution = {
+  ticket_id: number;
+  number: string;
+  subject: string;
+  resolution: string;
+  resolved_at: string;
+};
+
+export type AiSuggestedSolutionsResponse = {
+  ticket: number;
+  backend: string;
+  solutions: AiSuggestedSolution[];
+};
+
 // ---------------------------------------------------------------------------
 // Story 08 — customer 360, knowledge base, and the two reference lists a
 // dropdown needed (branches, departments).
