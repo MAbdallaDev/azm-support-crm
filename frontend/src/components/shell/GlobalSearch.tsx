@@ -291,7 +291,7 @@ export function GlobalSearch() {
             placeholder={t("nav.search")}
             aria-label={t("nav.search")}
             data-testid="global-search"
-            className="h-full w-full min-w-0 bg-transparent text-[12.5px] outline-none placeholder:text-faint"
+            className="h-full w-full min-w-0 bg-transparent text-[12.5px] outline-none placeholder:text-faint [&::-webkit-search-cancel-button]:appearance-none"
           />
           {value ? (
             <button
@@ -368,7 +368,7 @@ export function GlobalSearch() {
                 placeholder={t("nav.search")}
                 aria-label={t("nav.search")}
                 data-testid="global-search-mobile-input"
-                className="h-full w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-faint"
+                className="h-full w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-faint [&::-webkit-search-cancel-button]:appearance-none"
               />
             </div>
           </div>

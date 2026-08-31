@@ -22,7 +22,9 @@ class TicketFilterSet(filters.FilterSet):
     priority = filters.MultipleChoiceFilter(choices=Priority.choices)
     channel = filters.MultipleChoiceFilter(choices=Channel.choices)
 
-    q = filters.CharFilter(method="filter_q", label="Subject, number or customer name")
+    q = filters.CharFilter(
+        method="filter_q", label="Subject, number, customer name or message body"
+    )
     escalated = filters.BooleanFilter(method="filter_escalated")
     breached = filters.BooleanFilter(method="filter_breached")
     unassigned = filters.BooleanFilter(field_name="assignee", lookup_expr="isnull")
@@ -57,12 +59,15 @@ class TicketFilterSet(filters.FilterSet):
     def filter_q(self, queryset, name, value):
         if not value:
             return queryset
+        # `messages__body` is a reverse FK — a ticket with more than one
+        # matching message would otherwise come back once per match.
         return queryset.filter(
             Q(subject__icontains=value)
             | Q(number__icontains=value)
             | Q(customer__name__icontains=value)
             | Q(customer__company__icontains=value)
-        )
+            | Q(messages__body__icontains=value)
+        ).distinct()
 
     def filter_escalated(self, queryset, name, value):
         if value is None:

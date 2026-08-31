@@ -16,7 +16,7 @@
     "searchSectionTickets": "التذاكر",
     "searchSectionCustomers": "العملاء",
     "searchNoResults": "لا توجد نتائج لـ \"{{query}}\"",
-    "searchNoResultsHint": "جرّب رقم التذكرة أو الموضوع أو اسم العميل.",
+    "searchNoResultsHint": "جرّب رقم التذكرة أو الموضوع أو اسم العميل أو نص الرسالة.",
     "searchSeeAll": "عرض كل النتائج لـ \"{{query}}\"",
     "searchOpenMobile": "بحث",
     "searchClose": "رجوع",
