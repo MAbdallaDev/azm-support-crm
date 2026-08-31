@@ -6,5 +6,7 @@ across all features when `naming.globalSequence` is `true` in `config.yaml`.
 | Feature | Overview | NN range |
 |---------|----------|----------|
 | crm-mvp | [crm-mvp/00-overview.md](crm-mvp/00-overview.md) | 01–10 |
+| crm-advanced | [crm-advanced/00-overview.md](crm-advanced/00-overview.md) | 11+ |
 
-Planned next: `crm-advanced` (NN 11+) — the Phase 2 scope listed in `docs/00-project-brief.md` part B.
+`crm-advanced` picks one Phase 2 item at a time from `docs/00-project-brief.md` part B — story 11
+is the first.
