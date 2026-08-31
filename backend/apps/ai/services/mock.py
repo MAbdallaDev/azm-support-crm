@@ -105,6 +105,11 @@ REPLY_AR = {
     ),
 }
 
+# Ignored when matching a ticket's subject against another for "suggested
+# solutions" — otherwise every ticket in English "matches" every other one on
+# the word "the".
+STOPWORDS = {"the", "a", "an", "is", "are", "to", "for", "on", "in", "of", "and", "our", "my"}
+
 # Substring hints for categorisation, checked in order. Crude on purpose: the
 # point is a plausible, explainable answer, not a classifier.
 CATEGORY_HINTS = [
@@ -204,3 +209,67 @@ class MockAIBackend(AIBackend):
             "confidence": confidence,
             "rationale": rationale,
         }
+
+    def suggest_solutions(self, ticket) -> list[dict]:
+        """"Similar" is a real, explainable, deterministic database ordering —
+        not a call to any model or vector index. Same category outranks a
+        keyword-only match; the most recently resolved candidate breaks ties.
+        Same house style as `categorize`'s substring hints: a smart-looking
+        query, not machine learning, and it is exactly as convincing in a demo
+        because the result is always genuinely related to the ticket at hand.
+        """
+        from django.db.models import Q
+
+        from apps.tickets.models import Status, Ticket
+
+        words = {
+            w for w in ticket.subject.lower().split() if len(w) > 2 and w not in STOPWORDS
+        }
+        if not words and not ticket.category_id:
+            # Neither signal available — "similar" has no honest answer here.
+            # Ranking the whole resolved-ticket table by recency would be
+            # "recent", not "similar", which is a wrong answer, not a weak one.
+            return []
+
+        keyword_q = Q()
+        for word in words:
+            keyword_q |= Q(subject__icontains=word)
+
+        filter_q = keyword_q
+        if ticket.category_id:
+            filter_q = Q(category_id=ticket.category_id) | keyword_q if words else Q(
+                category_id=ticket.category_id
+            )
+
+        candidates = (
+            Ticket.objects.filter(status__in=[Status.RESOLVED, Status.CLOSED])
+            .exclude(pk=ticket.pk)
+            .filter(filter_q)
+            .select_related("category")
+            .prefetch_related("messages")
+        )
+
+        def rank(candidate):
+            same_category = (
+                ticket.category_id is not None and candidate.category_id == ticket.category_id
+            )
+            overlap = len({w.lower() for w in candidate.subject.split()} & words)
+            return (not same_category, -overlap, -(candidate.resolved_at or candidate.updated_at).timestamp())
+
+        ranked = sorted(candidates, key=rank)[:3]
+
+        results = []
+        for candidate in ranked:
+            resolution_message = (
+                candidate.messages.filter(is_internal=False).order_by("-created_at").first()
+            )
+            results.append(
+                {
+                    "ticket_id": candidate.pk,
+                    "number": candidate.number,
+                    "subject": candidate.subject,
+                    "resolution": resolution_message.body if resolution_message else "",
+                    "resolved_at": candidate.resolved_at.isoformat() if candidate.resolved_at else "",
+                }
+            )
+        return results

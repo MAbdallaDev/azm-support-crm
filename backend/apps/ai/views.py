@@ -11,7 +11,7 @@ every call and asserts only the permitted field moved — which is what turns th
 rule from a claim into a property.
 """
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -21,6 +21,7 @@ from apps.accounts.scoping import scope_tickets
 from apps.ai.serializers import (
     AIRequestSerializer,
     CategorizeResponseSerializer,
+    SuggestedSolutionsResponseSerializer,
     SuggestReplyRequestSerializer,
     SuggestReplyResponseSerializer,
     SummarizeResponseSerializer,
@@ -35,8 +36,12 @@ class AIView(APIView):
     permission_classes = [IsAgentOrAbove]
     request_serializer = AIRequestSerializer
 
-    def get_ticket(self, request):
-        payload = self.request_serializer(data=request.data)
+    def get_ticket(self, request, source=None):
+        # `source` lets a GET-based view (suggested-solutions, read-only) reuse
+        # this exact scope-and-404 logic against `query_params` instead of
+        # `data` — a second copy of it is how the two would start disagreeing
+        # about what "out of scope" means.
+        payload = self.request_serializer(data=source if source is not None else request.data)
         payload.is_valid(raise_exception=True)
 
         # Resolved through scope_tickets, not Ticket.objects: asking the AI about
@@ -125,3 +130,21 @@ class CategorizeView(AIView):
         )
 
         return Response({"ticket": ticket.pk, "backend": backend.name, **result})
+
+
+@extend_schema(
+    tags=["ai"],
+    summary="Similar already-resolved tickets (writes nothing)",
+    parameters=[OpenApiParameter("ticket", int, OpenApiParameter.QUERY)],
+    responses={200: SuggestedSolutionsResponseSerializer},
+)
+class SuggestedSolutionsView(AIView):
+    """A GET, unlike its three siblings — there is no advisory column to
+    write, so this is read-only in fact as well as intent.
+    """
+
+    def get(self, request):
+        ticket, _ = self.get_ticket(request, source=request.query_params)
+        backend = get_backend()
+        solutions = backend.suggest_solutions(ticket)
+        return Response({"ticket": ticket.pk, "backend": backend.name, "solutions": solutions})

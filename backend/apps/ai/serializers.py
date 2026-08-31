@@ -41,3 +41,17 @@ class CategorizeResponseSerializer(serializers.Serializer):
     category_slug = serializers.CharField(allow_blank=True)
     confidence = serializers.FloatField()
     rationale = serializers.CharField()
+
+
+class SuggestedSolutionItemSerializer(serializers.Serializer):
+    ticket_id = serializers.IntegerField()
+    number = serializers.CharField()
+    subject = serializers.CharField()
+    resolution = serializers.CharField(allow_blank=True)
+    resolved_at = serializers.CharField(allow_blank=True)
+
+
+class SuggestedSolutionsResponseSerializer(serializers.Serializer):
+    ticket = serializers.IntegerField()
+    backend = serializers.CharField()
+    solutions = SuggestedSolutionItemSerializer(many=True)

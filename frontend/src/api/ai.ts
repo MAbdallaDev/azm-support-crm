@@ -1,8 +1,13 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
 import { qk } from "./queryKeys";
-import type { AiSuggestedReply, AiSummary, TicketDetail } from "./types";
+import type {
+  AiSuggestedReply,
+  AiSuggestedSolutionsResponse,
+  AiSummary,
+  TicketDetail,
+} from "./types";
 
 /**
  * The AI assist endpoints.
@@ -34,4 +39,22 @@ export const useSuggestReply = () =>
       api
         .post<AiSuggestedReply>("/ai/suggest-reply/", { ticket, context })
         .then((r) => r.data),
+  });
+
+/**
+ * Similar already-resolved tickets. A `useQuery`, not a mutation like its two
+ * siblings above — it is read-only and idempotent, so `enabled: false` plus a
+ * manual `refetch()` gives the same "click to generate" UX as the summary
+ * card without pretending this is a mutation that changes anything.
+ */
+export const useSuggestedSolutions = (ticketId: number) =>
+  useQuery({
+    queryKey: qk.aiSuggestedSolutions(ticketId),
+    queryFn: () =>
+      api
+        .get<AiSuggestedSolutionsResponse>("/ai/suggested-solutions/", {
+          params: { ticket: ticketId },
+        })
+        .then((r) => r.data),
+    enabled: false,
   });

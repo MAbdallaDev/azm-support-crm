@@ -13,6 +13,7 @@ import type { TicketDetail as Ticket, TicketMessage, TicketStatus } from "@/api/
 import { ActivityLog } from "@/features/tickets/ActivityLog";
 import { AiSummaryBanner } from "@/features/tickets/AiSummaryBanner";
 import { Composer } from "@/features/tickets/Composer";
+import { SuggestedSolutions } from "@/features/tickets/SuggestedSolutions";
 import { Button } from "@/components/ui/button";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -192,7 +193,12 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
       <div className="h-px bg-line-2" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[18px]">
-        {tab !== "activity" ? <AiSummaryBanner ticket={ticket} /> : null}
+        {tab !== "activity" ? (
+          <div className="space-y-3">
+            <AiSummaryBanner ticket={ticket} />
+            <SuggestedSolutions ticket={ticket} />
+          </div>
+        ) : null}
 
         {tab === "activity" ? (
           eventsPending ? (

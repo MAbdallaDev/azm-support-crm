@@ -119,7 +119,6 @@ portal** under `/portal/*`, separated by route and auth scope, sharing one compo
 | Channels | **SMS** (Twilio / Unifonic) | Paid account, sender-ID registration, delivery receipts |
 | Channels | **Live chat** + embeddable widget | WebSocket infrastructure, presence, cross-origin widget, offline fallback |
 | AI | **Chatbot with RAG over the KB** | Embeddings, `pgvector`, chunking, retrieval tuning, hallucination guards, human handoff |
-| AI | **Suggested solutions from similar past tickets** | Semantic search, dedup, relevance evaluation |
 | SLA | **Background jobs and real escalation automation** (Celery + Redis) | Worker fleet, retries, idempotency |
 | SLA | **Visual automation rule builder + macros** | Condition/action DSL, safe evaluation, dry-run, builder UI |
 | Platform | **Multi-branch business-hours and holiday calendars** | SLA arithmetic against working calendars and timezones |

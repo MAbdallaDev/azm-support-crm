@@ -37,6 +37,8 @@ export const qk = {
   tags: ["tags"] as const,
   agents: ["agents"] as const,
 
+  aiSuggestedSolutions: (ticketId: number) => ["ai", "suggested-solutions", ticketId] as const,
+
   customers: {
     all: ["customers"] as const,
     list: (params: string) => ["customers", "list", params] as const,

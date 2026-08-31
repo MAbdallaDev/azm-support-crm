@@ -1366,3 +1366,70 @@ appears to do nothing, checking the actual DOM state (`document.activeElement`, 
 is what tells apart an automation-coordinate problem from a real defect — in both cases here it was
 the former, and the feature itself was confirmed correct via the API directly and via the UI once the
 right pixels were clicked.
+
+---
+
+## Story 11 — Suggested solutions (`crm-advanced`)          (elapsed: ~1h)
+
+The first `crm-advanced` story — Phase 2 items picked off one at a time, with a real intake and
+generated plan each, rather than the ad-hoc post-hand-in tracks the previous two entries used.
+
+**What I asked for:** the PDF's "AI Features" area lists five sub-items; three (summaries,
+suggested replies, categorization) were built in story 05, two (suggested solutions, AI chatbot)
+were deferred. Asked which of the two remaining was worth building, given no Anthropic key exists
+for this project — recommended suggested solutions (cheap, fits the existing mocked-AI seam
+exactly) and against the chatbot (needs a live LLM to be at all convincing; a scripted response is
+obviously fake in a way a one-line summary is not). Confirmed, then asked to scaffold a proper
+`crm-advanced` story (intake → generated plan → implementation) before writing any code.
+
+**What the AI built:**
+
+- `.squad/stories/crm-advanced/11-suggested-solutions/intake.md` and
+  `.squad/plans/crm-advanced/11-story-suggested-solutions.md` — intake and plan, committed before
+  any implementation, matching the discipline stories 00–10 already established.
+- `apps/ai/services/base.py` — a fourth abstract method, `suggest_solutions(ticket)`.
+- `apps/ai/services/mock.py` — the real implementation: other resolved/closed tickets ranked by
+  same category first, then shared subject keywords, then most-recently-resolved as the tiebreak.
+  No embeddings, no external call — an explainable database query, the same house style as
+  `categorize`'s substring hints.
+- `apps/ai/services/claude.py` — a fourth documented stub with its own prompt constant, matching
+  the other three exactly.
+- `GET ai/suggested-solutions/?ticket=<id>` (a **GET**, unlike its three POST siblings — there is
+  nothing to write), scoped through the same `scope_tickets` every other AI endpoint uses.
+- `frontend/src/features/tickets/SuggestedSolutions.tsx` — a fourth card in the ticket detail's AI
+  panel, structural and visual twin of the existing summary card, wired into
+  `TicketDetail.tsx` next to `AiSummaryBanner`.
+- Six new backend tests (ranking order, self-exclusion, empty-is-legitimate, resolution-note
+  extraction, and the two read-only/no-mutation guards every AI endpoint has) and five frontend
+  tests.
+- `docs/00-project-brief.md`'s deferred-items table: removed the now-built "suggested solutions"
+  row, kept the still-genuinely-deferred "AI chatbot" row.
+
+**Decisions the AI made on its own:**
+
+- **A GET, not a POST**, breaking the pattern of the other three AI endpoints. Justified in the
+  plan before coding: those three either write an advisory column or (suggest-reply) are triggered
+  as an explicit one-off action; this one is genuinely read-only and idempotent, so modelling it as
+  a query is the honest shape, not a stylistic choice.
+- **`useQuery` with `enabled: false` plus manual `refetch()`**, not a `useMutation` like
+  `useSummarize`/`useSuggestReply` — same reasoning as the GET-vs-POST call: nothing is being
+  mutated, so the hook that best describes "click to fetch, nothing changes" is a query, not a
+  mutation. The click-to-generate UX stays identical to the summary card either way, so the
+  distinction is invisible to the agent using it and only matters to the code reading it.
+- **A resolved ticket with no resolution message shows a "no note recorded" line rather than being
+  hidden** — `ticket_service.resolve()`'s resolution note is optional, so this is a real, expected
+  case, not an edge case to paper over.
+
+**What I had to correct:** nothing needed correcting during implementation — the plan's ranking
+algorithm, endpoint shape and test list were followed as written and all tests passed on the first
+run. The one thing caught *before* writing code: the plan's own Context section flagged that
+`AIView.get_ticket()` reads from `request.data`, which is empty on a GET, and specifically warned
+against silently duplicating the scope-and-404 logic into a second, drifting copy. Implemented as a
+`source` parameter on the existing method instead, so the GET and the three POSTs share one
+implementation of "resolve through scope, 404 if out of scope."
+
+**What I learned:** a story with a real intake and generated plan — even a small one — genuinely
+does front-load the thinking the previous two post-hand-in tracks paid for mid-implementation
+instead. The GET-vs-POST question, the useQuery-vs-useMutation question, and the
+optional-resolution-note edge case were all settled on paper before any code existed, and none of
+them needed revisiting once implementation started.

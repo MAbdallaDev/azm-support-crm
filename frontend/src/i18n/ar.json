@@ -240,7 +240,12 @@
     "failed": "تعذّر توليد الملخص.",
     "dismiss": "إغلاق",
     "backend": "عبر {{backend}}",
-    "suggestFailed": "تعذّر اقتراح رد."
+    "suggestFailed": "تعذّر اقتراح رد.",
+    "suggestedSolutions": "حلول مقترحة",
+    "suggestedSolutionsGenerate": "البحث عن تذاكر مشابهة",
+    "suggestedSolutionsEmpty": "لم يتم العثور على تذاكر مشابهة تم حلها.",
+    "noResolutionNote": "تم الحل دون تسجيل ملاحظة.",
+    "resolvedRelative": "تم الحل {{when}}"
   },
   "composer": {
     "reply": "رد",
