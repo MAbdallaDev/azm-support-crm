@@ -16,7 +16,7 @@
     "searchSectionTickets": "Tickets",
     "searchSectionCustomers": "Customers",
     "searchNoResults": "No results for \"{{query}}\"",
-    "searchNoResultsHint": "Try a ticket number, subject or customer name.",
+    "searchNoResultsHint": "Try a ticket number, subject, customer name or message text.",
     "searchSeeAll": "See all results for \"{{query}}\"",
     "searchOpenMobile": "Search",
     "searchClose": "Back",
