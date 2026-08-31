@@ -179,3 +179,38 @@ describe("states", () => {
     expect(screen.getAllByText(/clear filters/i).length).toBeGreaterThan(0);
   });
 });
+
+describe("resizing", () => {
+  beforeEach(() => {
+    window.localStorage.removeItem("crm.queueWidth");
+  });
+
+  it("renders a resize handle with the panel's current width as ARIA values", async () => {
+    setup();
+
+    const handle = await screen.findByTestId("queue-resize-handle");
+    expect(handle).toHaveAttribute("role", "separator");
+    expect(handle).toHaveAttribute("aria-valuenow", "300");
+  });
+
+  it("grows via the keyboard, WAI-ARIA separator style", async () => {
+    setup();
+    const handle = await screen.findByTestId("queue-resize-handle");
+
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+
+    expect(handle).toHaveAttribute("aria-valuenow", "316");
+  });
+
+  it("double-clicking the handle resets to the default width", async () => {
+    window.localStorage.setItem("crm.queueWidth", "420");
+    setup();
+    const handle = await screen.findByTestId("queue-resize-handle");
+    expect(handle).toHaveAttribute("aria-valuenow", "420");
+
+    fireEvent.doubleClick(handle);
+
+    expect(handle).toHaveAttribute("aria-valuenow", "300");
+    expect(window.localStorage.getItem("crm.queueWidth")).toBeNull();
+  });
+});
