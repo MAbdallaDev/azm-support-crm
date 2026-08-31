@@ -240,7 +240,12 @@
     "failed": "The summary could not be generated.",
     "dismiss": "Dismiss",
     "backend": "via {{backend}}",
-    "suggestFailed": "A reply could not be suggested."
+    "suggestFailed": "A reply could not be suggested.",
+    "suggestedSolutions": "SUGGESTED SOLUTIONS",
+    "suggestedSolutionsGenerate": "Find similar tickets",
+    "suggestedSolutionsEmpty": "No similar resolved tickets found.",
+    "noResolutionNote": "Resolved with no note recorded.",
+    "resolvedRelative": "Resolved {{when}}"
   },
   "composer": {
     "reply": "Reply",

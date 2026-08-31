@@ -40,6 +40,14 @@ class AIBackend(ABC):
         """`{"category_id": int|None, "category_slug": str, "confidence": float,
         "rationale": str}`."""
 
+    @abstractmethod
+    def suggest_solutions(self, ticket) -> list[dict]:
+        """Up to three already-resolved tickets that look like this one, each
+        `{"ticket_id": int, "number": str, "subject": str, "resolution": str,
+        "resolved_at": str}`. Empty list is a legitimate answer — a ticket with
+        no similar resolved history must not force a fake result.
+        """
+
 
 def get_backend() -> AIBackend:
     """The configured backend, chosen by `settings.AI_BACKEND`."""

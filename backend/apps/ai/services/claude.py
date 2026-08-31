@@ -55,6 +55,17 @@ Subject: {subject}
 Body: {body}
 """
 
+SUGGEST_SOLUTIONS_PROMPT = """\
+List up to three previously resolved tickets most similar to this one, with a
+one-line note on how each was resolved. Only use tickets provided in the
+candidate list below — do not invent ticket numbers or resolutions.
+
+Subject: {subject}
+Category: {category}
+Candidate resolved tickets (number, subject, resolution):
+{candidates}
+"""
+
 
 class ClaudeAIBackend(AIBackend):
     name = "claude"
@@ -81,4 +92,9 @@ class ClaudeAIBackend(AIBackend):
     def categorize(self, subject: str, body: str) -> dict:
         raise NotImplementedError(
             "ClaudeAIBackend is a documented stub — see CATEGORIZE_PROMPT."
+        )
+
+    def suggest_solutions(self, ticket) -> list[dict]:
+        raise NotImplementedError(
+            "ClaudeAIBackend is a documented stub — see SUGGEST_SOLUTIONS_PROMPT."
         )
