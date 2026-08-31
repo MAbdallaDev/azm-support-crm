@@ -227,7 +227,8 @@
     "statusChanged": "Status changed to {{status}}.",
     "escalated": "Ticket escalated.",
     "resolved": "Ticket resolved.",
-    "actionFailed": "That did not work. Nothing was changed."
+    "actionFailed": "That did not work. Nothing was changed.",
+    "resizeQueue": "Resize ticket queue"
   },
   "ai": {
     "summary": "AI SUMMARY",
