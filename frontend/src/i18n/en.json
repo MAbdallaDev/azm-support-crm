@@ -13,6 +13,13 @@
     "reports": "Reports",
     "admin": "Admin",
     "search": "Search tickets, customers",
+    "searchSectionTickets": "Tickets",
+    "searchSectionCustomers": "Customers",
+    "searchNoResults": "No results for \"{{query}}\"",
+    "searchNoResultsHint": "Try a ticket number, subject or customer name.",
+    "searchSeeAll": "See all results for \"{{query}}\"",
+    "searchOpenMobile": "Search",
+    "searchClose": "Back",
     "portalRequests": "My requests",
     "portalArticles": "Help articles",
     "primary": "Primary"
