@@ -32,6 +32,8 @@ export const qk = {
     attachments: (id: number) => ["tickets", id, "attachments"] as const,
   },
 
+  globalSearch: (query: string) => ["global-search", query] as const,
+
   cannedReplies: ["canned-replies"] as const,
   categories: ["categories"] as const,
   tags: ["tags"] as const,

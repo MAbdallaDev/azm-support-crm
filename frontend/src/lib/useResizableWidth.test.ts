@@ -5,7 +5,7 @@ import { useResizableWidth } from "@/lib/useResizableWidth";
 
 const OPTIONS = { storageKey: "test.width", defaultWidth: 300, min: 260, max: 480 };
 
-const drag = (startX: number, endX: number) => {
+const drag = (endX: number) => {
   window.dispatchEvent(new PointerEvent("pointermove", { clientX: endX }));
   window.dispatchEvent(new PointerEvent("pointerup", { clientX: endX }));
 };
@@ -45,7 +45,7 @@ describe("useResizableWidth", () => {
         clientX: 100,
         preventDefault: () => {},
       } as React.PointerEvent);
-      drag(100, 140);
+      drag(140);
     });
 
     expect(result.current.width).toBe(340);
@@ -57,7 +57,7 @@ describe("useResizableWidth", () => {
 
     act(() => {
       result.current.onPointerDown({ clientX: 0, preventDefault: () => {} } as React.PointerEvent);
-      drag(0, 10000);
+      drag(10000);
     });
 
     expect(result.current.width).toBe(480);
@@ -69,7 +69,7 @@ describe("useResizableWidth", () => {
 
     act(() => {
       result.current.onPointerDown({ clientX: 100, preventDefault: () => {} } as React.PointerEvent);
-      drag(100, 60); // moved left (toward the document's start edge in RTL)
+      drag(60); // moved left, from 100, toward the document's start edge in RTL
     });
 
     expect(result.current.width).toBe(340);

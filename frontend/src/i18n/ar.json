@@ -13,6 +13,13 @@
     "reports": "التقارير",
     "admin": "الإدارة",
     "search": "ابحث في التذاكر والعملاء",
+    "searchSectionTickets": "التذاكر",
+    "searchSectionCustomers": "العملاء",
+    "searchNoResults": "لا توجد نتائج لـ \"{{query}}\"",
+    "searchNoResultsHint": "جرّب رقم التذكرة أو الموضوع أو اسم العميل.",
+    "searchSeeAll": "عرض كل النتائج لـ \"{{query}}\"",
+    "searchOpenMobile": "بحث",
+    "searchClose": "رجوع",
     "portalRequests": "طلباتي",
     "portalArticles": "مقالات المساعدة",
     "primary": "التنقل الرئيسي"
