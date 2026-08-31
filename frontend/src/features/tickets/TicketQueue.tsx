@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
+import { useResizableWidth } from "@/lib/useResizableWidth";
 
 /**
  * The 300px left pane from Main.dc.html: four tabs, a filter row, the rows,
@@ -137,8 +139,24 @@ export function TicketQueue({
 
   const linkFor = (id: number) => `/app/tickets/${id}?${filters.search.toString()}`;
 
+  // Default and range match the panel's own original design width (300px);
+  // the max keeps a typical 1280px+ workspace from losing most of its
+  // detail pane to the queue.
+  const resize = useResizableWidth({
+    storageKey: "crm.queueWidth",
+    defaultWidth: 300,
+    min: 260,
+    max: 480,
+  });
+
   return (
-    <aside className={cn("flex w-full flex-col border-e border-line bg-background md:w-[300px] md:flex-none", className)}>
+    <aside
+      style={{ "--queue-width": `${resize.width}px` } as CSSProperties}
+      className={cn(
+        "relative flex w-full flex-col border-e border-line bg-background md:w-[var(--queue-width)] md:flex-none",
+        className,
+      )}
+    >
       <div className="px-4 pt-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-bold">{t("tickets.queue")}</h2>
@@ -318,6 +336,27 @@ export function TicketQueue({
           </div>
         </div>
       ) : null}
+
+      {/* Resize handle: WAI-ARIA's separator pattern, so arrow keys work once
+          focused, not just a mouse drag. Straddles the aside's own end border
+          (-end-1, w-2) rather than sitting flush inside it, for an 8px hit
+          target around a 1px line. Desktop-only — the mobile layout below
+          `md` is two full-width "pages", not a resizable split. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t("tickets.resizeQueue")}
+        aria-valuenow={resize.width}
+        aria-valuemin={resize.min}
+        aria-valuemax={resize.max}
+        tabIndex={0}
+        title={t("tickets.resizeQueue")}
+        data-testid="queue-resize-handle"
+        onPointerDown={resize.onPointerDown}
+        onKeyDown={resize.onKeyDown}
+        onDoubleClick={resize.reset}
+        className="absolute inset-y-0 -end-1 z-10 hidden w-2 cursor-col-resize touch-none rounded-full transition-colors hover:bg-brand/30 focus-visible:bg-brand/40 focus-visible:outline-none md:block"
+      />
     </aside>
   );
 }
