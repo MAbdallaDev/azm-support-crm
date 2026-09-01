@@ -1,4 +1,4 @@
-import { Search, SearchIcon, X } from "lucide-react";
+import { MessageSquare, Search, SearchIcon, X } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -40,12 +40,38 @@ type ResultRow =
   | { kind: "ticket"; item: TicketListRow }
   | { kind: "customer"; item: CustomerListRow };
 
+/**
+ * `snippet` split on every case-insensitive occurrence of `term`, with the
+ * matches wrapped in `<mark>`. A filled highlight rather than bold/underline
+ * — the same visual language a browser's own find-in-page uses — so it reads
+ * as "found here" rather than as emphasis within the sentence itself.
+ */
+function HighlightedSnippet({ snippet, term }: { snippet: string; term: string }) {
+  if (!term) return <>{snippet}</>;
+  const parts = snippet.split(new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === term.toLowerCase() ? (
+          <mark key={index} className="rounded-sm bg-brand-soft px-[2px] font-semibold text-brand">
+            {part}
+          </mark>
+        ) : (
+          <React.Fragment key={index}>{part}</React.Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 function TicketRow({
   ticket,
+  query,
   active,
   onSelect,
 }: {
   ticket: TicketListRow;
+  query: string;
   active: boolean;
   onSelect: () => void;
 }) {
@@ -67,6 +93,17 @@ function TicketRow({
         <span className="truncate text-[12.5px] font-semibold">{ticket.subject}</span>
       </span>
       <span className="text-[11px] text-muted-foreground">{ticket.customer_name}</span>
+      {ticket.matched_snippet ? (
+        <span
+          data-testid={`global-search-snippet-${ticket.id}`}
+          className="mt-[1px] flex items-start gap-[5px] text-[11px] leading-snug text-ink-2"
+        >
+          <MessageSquare aria-hidden className="mt-[2px] h-[11px] w-[11px] flex-none text-faint" />
+          <span className="line-clamp-1">
+            <HighlightedSnippet snippet={ticket.matched_snippet} term={query} />
+          </span>
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -151,6 +188,7 @@ function ResultsList({
             <TicketRow
               key={ticket.id}
               ticket={ticket}
+              query={query}
               active={index === activeIndex}
               onSelect={() => onSelect({ kind: "ticket", item: ticket })}
             />

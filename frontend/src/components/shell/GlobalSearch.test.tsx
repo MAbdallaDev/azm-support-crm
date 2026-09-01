@@ -127,6 +127,31 @@ describe("GlobalSearch", () => {
     expect(router.state.location.search).toBe("?q=invoice");
   });
 
+  it("shows a highlighted snippet when the match is only in a message body", async () => {
+    mock.on("/tickets/", () =>
+      page([ticket({ matched_snippet: "…please invoice the March usage separately…" })]),
+    );
+    renderWithProviders(<GlobalSearch />);
+
+    fireEvent.focus(screen.getByTestId("global-search"));
+    typeQuery("invoice");
+
+    const snippet = await screen.findByTestId("global-search-snippet-31");
+    expect(snippet).toHaveTextContent("please invoice the March usage separately");
+    expect(snippet.querySelector("mark")).toHaveTextContent("invoice");
+  });
+
+  it("shows no snippet when the match is already visible on the row", async () => {
+    mock.on("/tickets/", () => page([ticket({ matched_snippet: null })]));
+    renderWithProviders(<GlobalSearch />);
+
+    fireEvent.focus(screen.getByTestId("global-search"));
+    typeQuery("invoice");
+
+    await screen.findByTestId("global-search-result-ticket-31");
+    expect(screen.queryByTestId("global-search-snippet-31")).not.toBeInTheDocument();
+  });
+
   it("opens a full-screen takeover from the mobile trigger", async () => {
     mock.on("/tickets/", () => page([ticket()]));
     renderWithProviders(<GlobalSearch />);
