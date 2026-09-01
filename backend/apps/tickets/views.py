@@ -56,6 +56,7 @@ from apps.tickets.serializers import (
     TicketEventSerializer,
     TicketListSerializer,
     TicketMessageSerializer,
+    TicketSearchResultSerializer,
     TicketWriteSerializer,
 )
 from apps.tickets.services import sla_service, ticket_service
@@ -140,6 +141,11 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "list":
+            # `matched_snippet` only makes sense — and only costs anything —
+            # when the request is actually a `q` search (the header dropdown,
+            # or the queue's own search box). See TicketSearchResultSerializer.
+            if self.request.query_params.get("q"):
+                return TicketSearchResultSerializer
             return TicketListSerializer
         if self.action in ("create", "update", "partial_update"):
             return TicketWriteSerializer

@@ -105,6 +105,9 @@ export type TicketListRow = {
   sla_resolution_due_at: string | null;
   is_breached: boolean;
   resolution_sla: Sla;
+  /** Only present on a `q` search — a plain-text excerpt of the matching
+   *  message when the match isn't already visible in subject/customer. */
+  matched_snippet?: string | null;
 };
 
 /** `TicketPersonSerializer` — a person as the detail page shows them. */
