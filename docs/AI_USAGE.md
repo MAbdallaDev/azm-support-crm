@@ -1814,3 +1814,54 @@ sentence — seeing the two states (agent inbox, portal widget) side by side aga
 tokens surfaced the "no SLA/category chrome" and "no full-page navigation" requirements more
 precisely than the verbal complaint alone would have, and meant the approval ("yes, implement it")
 covered a concrete, already-reviewed shape rather than an open-ended redo.
+
+## Post-hand-in — Portal header overflowed the whole page on mobile (`fix/portal-mobile-header-overflow`)          (elapsed: ~35m)
+
+**What I asked for:** a screenshot of the portal home page at a phone width, with "check the mobile
+there is a design bug here" — no further detail on what the bug was.
+
+**What the AI built:** confirmed the bug live (a resized browser tab reproduced it: the whole page
+scrolled horizontally, with header content and hero-card text bleeding off the right edge). Traced it
+to `PortalChrome.tsx`'s header having no responsive handling at all — unlike `AppChrome.tsx`, which
+already collapses its nav into a hamburger dropdown below `lg`, the portal header always rendered its
+full logo+secondary-label, two full-width nav link labels, the language toggle, and the user chip in
+one row, with no wrap and no fallback. At a ~375px width that content measured ~500px, forcing the
+entire page (not just the header) into horizontal overflow. Fixed with the same pattern `AppChrome`
+already established:
+- `Lockup.tsx`: the secondary product label (and its divider) now hides below `sm` — the wordmark
+  alone still identifies the product.
+- `PortalChrome.tsx`: the inline nav hides below `sm`, replaced by a `DropdownMenu` + hamburger
+  trigger (`portal-mobile-nav-trigger`), identical in shape to `AppChrome`'s own mobile trigger;
+  header padding and gaps also shrink slightly below `sm`.
+- `PortalChatWidget.tsx`: while verifying at a real phone width, also tightened the chat panel's
+  fixed `360px` width with a `max-w-[calc(100vw-24px)]` clamp and a `min(520px, 100vh-40px)` height
+  clamp — the panel was one narrow-phone-width away from clipping off the left edge, a related but
+  separate small bug caught by the same verification pass, not the one reported.
+- 3 new tests (`PortalChrome.test.tsx`): the mobile trigger exists, clicking it reveals both nav
+  items, and the secondary label carries the responsive classes rather than rendering unconditionally.
+
+**Decisions the AI made on its own:**
+
+- Reused `AppChrome`'s exact mobile-nav-collapse pattern (same `DropdownMenu` components, same
+  trigger shape) rather than inventing a different mobile treatment for the portal — one collapse
+  pattern in the app is easier to keep correct than two.
+- Fixed the chat-widget panel's narrow-phone clipping risk in the same commit even though it wasn't
+  the reported bug, since it was found via the same live verification pass and is a one-line-per-fix
+  change in a file this same session had just written.
+
+**What I had to correct:** the browser-automation harness's `resize_window` tool did not actually
+apply the requested viewport in this session — `window.innerWidth` read back as 502px regardless of
+whether 375px or an explicit 375×812 was requested, and real (non-JS) clicks on the new dropdown
+trigger timed out repeatedly against the sandboxed pane. Rather than fight the harness further,
+verified the dropdown's actual behavior with a fast, deterministic unit test
+(`fireEvent.click` + assert both nav items appear) — the same kind of automation-environment
+limitation this session has hit before with focus and click coordinates, worked around the same way:
+trust the harness's stated result over a plausible-looking screenshot when the two disagree, and fall
+back to a more reliable verification method rather than assuming the feature itself is broken.
+
+**What I learned:** a chrome/header component with zero responsive handling can pass every existing
+test and look correct in every screenshot taken at desktop width, and still break the entire page —
+not just itself — the first time a real narrow viewport hits it, because unconstrained flex content
+doesn't wrap, it expands the whole document. `AppChrome` had already solved this once; the fix here
+was recognizing the same shape of problem in the sibling component that never got the same treatment,
+rather than treating it as a new kind of bug.

@@ -22,8 +22,11 @@ export function Lockup({ product, className }: { product: string; className?: st
       <span className="text-[14px] font-bold" dir="ltr">
         {t("app.brand")}
       </span>
-      <span aria-hidden className="h-4 w-px bg-line" />
-      <span className="text-[13px] text-muted-foreground">{product}</span>
+      {/* The secondary label is the first thing to go on a narrow phone —
+          the wordmark alone still identifies the product, and this is what
+          buys the header the room a nav collapse or language toggle needs. */}
+      <span aria-hidden className="hidden h-4 w-px bg-line sm:block" />
+      <span className="hidden text-[13px] text-muted-foreground sm:inline">{product}</span>
     </div>
   );
 }

@@ -1,11 +1,18 @@
+import { Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useMe } from "@/api/auth";
 import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { Lockup } from "@/components/shell/Lockup";
 import { portalNavItems, visibleNavItems } from "@/components/shell/navItems";
 import { UserChip } from "@/components/shell/UserChip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
 import { PortalChatWidget } from "@/features/portal/PortalChatWidget";
 import { cn } from "@/lib/utils";
@@ -27,6 +34,7 @@ const NAVLINK_ON = "bg-ink font-semibold text-white hover:bg-ink";
 
 export default function PortalChrome() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: me } = useMe();
 
   const items = visibleNavItems(portalNavItems(), me?.role);
@@ -34,10 +42,14 @@ export default function PortalChrome() {
   return (
     <ChatWidgetProvider>
       <div className="flex min-h-screen flex-col bg-surface-2">
-        <header className="flex h-[60px] flex-none items-center gap-[18px] border-b border-line bg-background px-7">
-          <Lockup product={t("app.portalProduct")} />
+        <header className="flex h-[60px] flex-none items-center gap-[10px] border-b border-line bg-background px-4 sm:gap-[18px] sm:px-7">
+          <Lockup product={t("app.portalProduct")} className="min-w-0" />
 
-          <nav className="flex items-center gap-[2px] ms-3" aria-label={t("nav.primary")}>
+          {/* Below `sm` (640px) two full-width nav labels plus the language
+              toggle and the wordmark's secondary label genuinely do not fit
+              a phone's ~375px header — they collapse into the menu button
+              instead of silently overflowing the page horizontally. */}
+          <nav className="hidden items-center gap-[2px] ms-3 sm:flex" aria-label={t("nav.primary")}>
             {items.map((item) => (
               <NavLink
                 key={item.key}
@@ -53,6 +65,23 @@ export default function PortalChrome() {
           <div className="flex-1" />
 
           <LanguageToggle profileLanguage={me?.language} />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg hover:bg-surface-3 sm:hidden"
+              aria-label={t("nav.primary")}
+              data-testid="portal-mobile-nav-trigger"
+            >
+              <Menu aria-hidden className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[12rem]">
+              {items.map((item) => (
+                <DropdownMenuItem key={item.key} onSelect={() => navigate(item.to)}>
+                  {t(item.labelKey)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {me ? <UserChip me={me} compact /> : null}
         </header>

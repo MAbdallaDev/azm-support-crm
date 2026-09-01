@@ -59,8 +59,8 @@ export function PortalChatWidget() {
       {open ? (
         <div
           data-testid="chat-widget-panel"
-          className="fixed bottom-5 z-50 flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl bg-background shadow-2xl"
-          style={{ insetInlineEnd: "20px" }}
+          className="fixed bottom-5 z-50 flex h-[min(520px,calc(100vh-40px))] w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-2xl bg-background shadow-2xl"
+          style={{ insetInlineEnd: "12px" }}
         >
           <div className="flex flex-none items-start gap-2.5 bg-ink px-4 pb-3.5 pt-4">
             <span
