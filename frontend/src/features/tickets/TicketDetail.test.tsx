@@ -143,3 +143,35 @@ describe("the three tabs", () => {
     expect(screen.queryByText("Visible to the customer")).not.toBeInTheDocument();
   });
 });
+
+describe("live-chat polling", () => {
+  it("polls for new messages on a chat-channel ticket", async () => {
+    vi.useFakeTimers();
+    try {
+      setup(detail({ channel: "chat" }));
+      await vi.waitFor(() => expect(mock.requests.filter((r) => r.includes("/messages/")).length).toBe(1));
+
+      await vi.advanceTimersByTimeAsync(4000);
+
+      await vi.waitFor(() =>
+        expect(mock.requests.filter((r) => r.includes("/messages/")).length).toBeGreaterThan(1),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not poll on any other channel", async () => {
+    vi.useFakeTimers();
+    try {
+      setup(detail({ channel: "sms" }));
+      await vi.waitFor(() => expect(mock.requests.filter((r) => r.includes("/messages/")).length).toBe(1));
+
+      await vi.advanceTimersByTimeAsync(12000);
+
+      expect(mock.requests.filter((r) => r.includes("/messages/")).length).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

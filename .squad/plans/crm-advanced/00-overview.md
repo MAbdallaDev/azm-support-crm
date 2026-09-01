@@ -23,5 +23,11 @@ ticket scoping), not on any other `crm-advanced` story. Story 12 depends only on
 
 **Story 11 — Suggested solutions.** *(filled in after implementation)*
 
-**Story 12 — Live chat.** Implemented on its own branch, **not merged into `dev`** per explicit
-instruction. *(rest filled in after implementation)*
+**Story 12 — Live chat.** Implemented on branch `feature/live-chat`, **not merged into `dev`** per
+explicit instruction. Confirmed the backend already accepted `channel: "chat"` on both ticket
+creation and message-sending with zero code changes; the story is almost entirely a scoped
+frontend change — a `live` parameter on `useTicketMessages`/`usePortalMessages` setting
+`refetchInterval: 4000` only for `channel === "chat"` tickets (the codebase's first polling query),
+and a "Start a live chat" portal entry point. 3 new backend tests, 5 new frontend tests, all green.
+Live-verified end to end in the running app: agent → portal and portal → agent messages each
+appeared within the 4-second interval with no reload. Full detail in `docs/AI_USAGE.md`.

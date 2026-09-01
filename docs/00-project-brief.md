@@ -99,7 +99,7 @@ portal** under `/portal/*`, separated by route and auth scope, sharing one compo
 |---|---|---|
 | 1 | Customer Management | Profiles with tier and branch, multiple contacts, notes, attachments, interaction history |
 | 2 | Ticket Management | Number, category, priority, status machine, escalation, assignment, tags, watchers, Conversation / Internal notes / Activity log tabs, attachments |
-| 3 | Communication Channels | `channel` field (`web · email · whatsapp · sms · chat`) badged on every ticket and message, driving the composer's *Sending via* label. Portal and agent app are the live transports; the rest are labels only |
+| 3 | Communication Channels | `channel` field (`web · email · whatsapp · sms · chat`) badged on every ticket and message, driving the composer's *Sending via* label. Portal, agent app, and **Live chat** (near-real-time, added post-hand-in — see below) are live; email/WhatsApp/SMS stay labels only |
 | 4 | Agent Dashboard | Queue tabs All / Mine / Escalated / Breaching, filters, search, quick replies |
 | 5 | SLA & Automation | Response and resolution due timestamps, progress bars, breach flags, escalation threshold, round-robin assignment that records its own provenance |
 | 6 | Knowledge Base | Bilingual articles and categories, draft/publish, search, insert-link-into-reply |
@@ -117,7 +117,7 @@ portal** under `/portal/*`, separated by route and auth scope, sharing one compo
 | Channels | Real **email** transport (IMAP/SMTP, threading, quote stripping) | Mail parsing, message-id threading, deliverability |
 | Channels | **WhatsApp Business Cloud API** | Meta app review, verified number, webhook signatures, 24-hour session rules, template approval |
 | Channels | **SMS** (Twilio / Unifonic) | Paid account, sender-ID registration, delivery receipts |
-| Channels | **Live chat** + embeddable widget | WebSocket infrastructure, presence, cross-origin widget, offline fallback |
+| Channels | Embeddable live-chat **widget** for third-party sites | Cross-origin embedding, presence, offline fallback. (Live chat itself — customer portal ↔ agent, near-real-time via scoped polling, no WebSockets needed — shipped post-hand-in; see Communication Channels above) |
 | AI | **Chatbot with RAG over the KB** | Embeddings, `pgvector`, chunking, retrieval tuning, hallucination guards, human handoff |
 | SLA | **Background jobs and real escalation automation** (Celery + Redis) | Worker fleet, retries, idempotency |
 | SLA | **Visual automation rule builder + macros** | Condition/action DSL, safe evaluation, dry-run, builder UI |

@@ -1495,3 +1495,125 @@ until they said otherwise.
 The honest move when a later request seems to call for reversing one is to name the original
 tradeoff out loud and let the same person re-make the call with full context, not to treat the
 passage of time as new authorization.
+
+---
+
+## Post-hand-in — Global search dropdown, message-body search, snippet highlight (`fix/global-search-dropdown`, `fix/search-message-body`, `feat/search-matched-snippet`)          (elapsed: ~3h)
+
+Three commits, three PRs, one continuous thread — recorded as one entry since each built directly
+on the last and none stood alone as a separable decision.
+
+**What I asked for:** started as a design-only request ("design the search dropdown mockup"), then
+"start implementing the feature" once a direction was chosen on the canvas.
+
+**What the AI built:**
+
+- A Claude Design canvas (https://claude.ai/code/artifact/f0758438-5eab-452d-a835-640cbdb7614e)
+  exploring the panel-width/anchor question through three real options before writing any code —
+  Option A (reach the language toggle), Option B (anchor to the field alone), Option C
+  (`clamp()`-based width, no anchor decision needed) — plus an honest overflow demo proving Option
+  A's fixed-width panel clips at the real `lg` breakpoint, and a mobile full-screen takeover mockup
+  since the app had no mobile search entry point at all.
+- `frontend/src/components/shell/GlobalSearch.tsx` rebuilt from an inert field into a live grouped
+  Tickets/Customers results dropdown: keyboard nav, click-to-navigate, a "see all results"
+  fallback, `width: clamp(280px, 26vw, 480px)` (Option C, chosen after verifying it can never claim
+  more room than the header has), a mobile search icon + full-screen takeover.
+- `backend/apps/tickets/filters.py`'s `filter_q` extended to also match `messages__body__icontains`
+  (with `.distinct()`, since a ticket can have more than one matching message) — a customer-reported
+  gap: an Arabic word ("تنفيذ") that only appeared inside a reply came back empty.
+- A duplicate clear-button bug fixed: WebKit's native search-cancel-button was rendering alongside
+  the custom one; hidden via `[&::-webkit-search-cancel-button]:appearance-none`.
+- `TicketSearchResultSerializer.matched_snippet` — a plain-text excerpt of the matching message,
+  computed only when the match isn't already visible in the subject/customer, and only when the
+  request carries `q` (so the plain queue never pays for it, preserving `TicketListSerializer`'s
+  documented "never touch messages" rule for every other view). The frontend highlights the term
+  inside the snippet the way a browser's own find-in-page does.
+- 20 new backend tests, 18 new frontend tests, across the three PRs.
+
+**Decisions the AI made on its own:**
+
+- **Caught my own earlier design mistake mid-thread.** Option A (built first, per the user's own
+  explicit instruction to extend the width to reach the language toggle) was flagged, unprompted,
+  as spanning two unrelated controls — then proven wrong with an honest clipping demo rather than
+  just asserted. Option C, not A or B, is what shipped.
+- **`.distinct()` on the message-body join.** Without it, a ticket with two messages both matching
+  the query would appear twice in the results — caught before shipping, not after.
+- **Snippet computation lives on a `TicketSearchResultSerializer` subclass, not on the base
+  `TicketListSerializer`.** The base serializer's own docstring forbids referencing `messages` (the
+  exact N+1 `test_queue_performance.py` guards against); the subclass is the documented exception,
+  selected only when `q` is present, so the plain queue keeps its performance guarantee untouched.
+
+**What I had to correct:** the double clear-button and the missing message-body match were both
+real bugs a live user caught by using the feature, not found by review — both fixed the same
+session they were reported, each backed by a regression test.
+
+**What I learned:** building a UI feature by *watching it fail* first (the honest overflow demo,
+the real duplicate-icon screenshot, the real "no results" for a term that should have matched) is
+more convincing than asserting a fix works — and cheaper to verify, since the same failing case
+becomes the regression test.
+
+---
+
+## Post-hand-in — Live chat (`feature/live-chat`, `crm-advanced` story 12)          (elapsed: ~1h 15m)
+
+The first post-hand-in item to go through the full squad-kit ceremony (intake → generated plan →
+implementation) rather than being built ad hoc, per explicit request.
+
+**What I asked for:** "implement the live chat between two users" — closing the last
+unimplemented item in the requirements PDF's Communication Channels area. Clarified before writing
+the intake: the PDF's own "Live chat" line sits alongside Email/WhatsApp/SMS/Web forms as a
+*channel*, not a general messenger — so "between two users" means the customer in the portal and
+the agent working their ticket, on that ticket, the same way every other channel already works.
+
+**What the AI built:**
+
+- `.squad/stories/crm-advanced/12-live-chat/intake.md` and
+  `.squad/plans/crm-advanced/12-story-live-chat.md`, generated only after research confirmed the
+  backend already accepted a `channel: "chat"` write on both ticket creation and message-sending —
+  so the plan is almost entirely a frontend change, and says so.
+- `useTicketMessages`/`usePortalMessages` each gained an optional `live` parameter setting
+  `refetchInterval: 4000` only when the viewed ticket's `channel === "chat"` — this codebase's
+  first polling query, deliberately narrow: every other channel keeps its old fetch-once behavior.
+- `PortalHome.tsx` gained a "Start a live chat" button, distinct from "Submit a request": reuses an
+  existing open chat ticket if the customer has one, otherwise creates one with no form shown and
+  navigates straight into its conversation view.
+- `useSubmitPortalTicket` widened to accept an optional `channel`, wiring through a field
+  (`PortalTicketCreateSerializer.channel`) that existed in the backend and even in a frontend
+  *type* (`PortalTicketCreate`) but was never actually sent by any caller until this story.
+- 3 new backend tests (channel persists on create, defaults to `web` when omitted, a reply on a
+  chat ticket is itself `channel="chat"`) and 5 new frontend tests (2 polling-scope, 3
+  start-a-live-chat).
+
+**Decisions the AI made on its own:**
+
+- **No Django Channels, no WebSockets, no Redis** — confirmed against the intake before planning:
+  the "transport" a live chat needs is this app's own REST API, used more often while a
+  conversation is open, not a new infrastructure layer. Named as a deliberate scope boundary in the
+  intake's "Out of scope" section, not discovered as a limitation later.
+- **Polling gated to `channel === "chat"` specifically**, not applied to every conversation tab.
+  Email/WhatsApp/SMS/Web are asynchronous by nature — polling them serves no product purpose and
+  would have quietly made this the first feature to introduce a global refresh habit instead of a
+  scoped one.
+- **Confirmed, not assumed, that the backend needed zero changes** for messaging — the research
+  step (a background agent) found `TicketMessageSerializer` and `PortalTicketCreateSerializer`
+  already accept `channel` as a writable field, so the plan didn't invent an endpoint that already
+  existed. The one backend change that shipped is a test, not new logic.
+
+**What I had to correct:** two live-browser test flakes, both automation artifacts, not application
+bugs. First, `.focus()` dispatched via JavaScript in the sandboxed browser pane doesn't reliably
+trigger React's `onFocus` handler the way a real click does (a limitation seen earlier in this same
+session with the search dropdown) — worked around by using a real click. Second, verifying the
+*polling* live required recognizing that the sandboxed pane reports `document.visibilityState` as
+permanently `hidden` (it isn't actually composited on screen), which correctly triggers TanStack
+Query's own `refetchIntervalInBackground: false` default and pauses polling — not a bug in the
+feature, the feature working exactly as designed against an environment that never becomes
+"visible." Confirmed by patching `document.visibilityState` for the verification session only, at
+which point both directions (agent → portal, portal → agent) updated within the 4-second interval
+with no reload.
+
+**What I learned:** the same automation-vs-application distinction that came up during the
+notification centre's live verification recurred here in a new form — this time not a
+wrong-pixel-click, but a background-tab optimization correctly refusing to run in an environment
+that never reports itself as foregrounded. The fix each time was the same: check the actual browser
+state (`document.activeElement`, `document.visibilityState`) before concluding the feature, rather
+than the harness, is what's broken.

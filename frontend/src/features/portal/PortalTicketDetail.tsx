@@ -98,7 +98,10 @@ export default function PortalTicketDetail() {
   const ticketId = id ? Number(id) : null;
 
   const { data: ticket, isPending } = usePortalTicket(ticketId);
-  const { data: messages, isPending: messagesPending } = usePortalMessages(ticketId);
+  const { data: messages, isPending: messagesPending } = usePortalMessages(
+    ticketId,
+    ticket?.channel === "chat",
+  );
   const sendMessage = useSendPortalMessage();
 
   const [body, setBody] = React.useState("");

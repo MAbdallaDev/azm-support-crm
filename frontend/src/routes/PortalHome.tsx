@@ -1,14 +1,15 @@
-import { Plus, Search } from "lucide-react";
+import { MessageSquare, Plus, Search } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
-import { usePortalTickets } from "@/api/portal";
+import { usePortalTickets, useSubmitPortalTicket } from "@/api/portal";
 import type { PortalTicket } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 
 /**
@@ -53,21 +54,55 @@ export default function PortalHome() {
   const open = tickets.filter((ticket) => !CLOSED_STATUSES.has(ticket.status));
   const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
 
+  const submitChat = useSubmitPortalTicket();
+
   const onSearch = (event: React.FormEvent) => {
     event.preventDefault();
     navigate(query ? `/portal/kb?q=${encodeURIComponent(query)}` : "/portal/kb");
+  };
+
+  const onStartLiveChat = () => {
+    const existing = open.find((ticket) => ticket.channel === "chat");
+    if (existing) {
+      navigate(`/portal/tickets/${existing.id}`);
+      return;
+    }
+    submitChat.mutate(
+      {
+        subject: t("portal.liveChatSubject"),
+        description: t("portal.liveChatSubject"),
+        category: null,
+        channel: "chat",
+        attachments: [],
+      },
+      {
+        onSuccess: (created) => navigate(`/portal/tickets/${created.id}`),
+        onError: () => toast.error(t("portal.submitFailed")),
+      },
+    );
   };
 
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[22px] font-bold tracking-[-0.01em]">{t("portal.home")}</h1>
-        <Button asChild data-testid="submit-request">
-          <Link to="/portal/new">
-            <Plus aria-hidden className="h-4 w-4" />
-            {t("portal.submitRequest")}
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            data-testid="start-live-chat"
+            onClick={onStartLiveChat}
+            disabled={submitChat.isPending}
+          >
+            <MessageSquare aria-hidden className="h-4 w-4" />
+            {t("portal.startLiveChat")}
+          </Button>
+          <Button asChild data-testid="submit-request">
+            <Link to="/portal/new">
+              <Plus aria-hidden className="h-4 w-4" />
+              {t("portal.submitRequest")}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isError ? (
