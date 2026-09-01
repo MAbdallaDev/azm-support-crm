@@ -116,6 +116,64 @@ class TicketListSerializer(serializers.ModelSerializer):
         return sla_state(obj, RESOLUTION, self.context.get("now"))
 
 
+def build_message_snippet(body, query, context=40):
+    """A short, plain-text excerpt of `body` centred on `query`, or `None`.
+
+    Character-based rather than word-based on purpose: it works the same for
+    Arabic and English, and needs no tokenizer. The caller highlights the
+    match client-side by splitting on `query` — this returns plain text, not
+    HTML, so there's nothing here that needs escaping.
+    """
+    index = body.lower().find(query.lower())
+    if index == -1:
+        return None
+    start = max(0, index - context)
+    end = min(len(body), index + len(query) + context)
+    snippet = body[start:end].strip()
+    prefix = "…" if start > 0 else ""
+    suffix = "…" if end < len(body) else ""
+    return f"{prefix}{snippet}{suffix}"
+
+
+class TicketSearchResultSerializer(TicketListSerializer):
+    """`TicketListSerializer` plus one field, used only for a `q` search.
+
+    `TicketListSerializer` documents that it must never reference `messages`
+    — the queue renders up to a full page of rows and that field is exactly
+    the N+1 story 04's `test_queue_performance.py` guards against. This
+    subclass is the deliberate exception: `TicketViewSet.get_serializer_class`
+    only selects it when the request actually carries `q`, so the extra
+    per-row message lookup only ever runs against a search result set, never
+    the plain queue.
+    """
+
+    matched_snippet = serializers.SerializerMethodField()
+
+    class Meta(TicketListSerializer.Meta):
+        fields = TicketListSerializer.Meta.fields + ("matched_snippet",)
+
+    def get_matched_snippet(self, obj) -> str | None:
+        request = self.context.get("request")
+        query = request.query_params.get("q") if request else None
+        if not query:
+            return None
+
+        ql = query.lower()
+        # Already visible elsewhere on the row — no snippet needed to explain it.
+        if (
+            ql in obj.subject.lower()
+            or ql in obj.number.lower()
+            or (obj.customer and ql in obj.customer.name.lower())
+            or (obj.customer and obj.customer.company and ql in obj.customer.company.lower())
+        ):
+            return None
+
+        message = obj.messages.filter(body__icontains=query).order_by("created_at").first()
+        if not message:
+            return None
+        return build_message_snippet(message.body, query)
+
+
 class TicketPersonSerializer(serializers.Serializer):
     """A person as the detail page shows them. Read-only projection."""
 
