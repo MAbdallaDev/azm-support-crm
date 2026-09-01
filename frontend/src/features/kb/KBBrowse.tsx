@@ -1,4 +1,4 @@
-import { Inbox } from "lucide-react";
+import { ArrowLeft, Inbox } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -60,9 +60,25 @@ export default function KBBrowse() {
   const totalCount = data?.count ?? 0;
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-0">
+    <div
+      className={cn(
+        "flex h-[calc(100vh-3.5rem)] min-h-0 flex-col overflow-y-auto",
+        "md:flex-row md:overflow-y-hidden",
+      )}
+    >
+      {/* Below `md` this is a genuinely stacked, one-thing-at-a-time flow —
+          a 236px category rail plus a 420px article list plus a reader pane
+          add up to well over 650px, which never fits a phone width. Picking
+          an article hides the rail and list entirely rather than squeezing
+          all three into one row, the same shape Tickets.tsx/LiveChat.tsx use. */}
       {/* ============ CATEGORY SIDEBAR ============ */}
-      <aside className="w-[236px] flex-none overflow-y-auto border-e border-line bg-background p-4">
+      <aside
+        className={cn(
+          "w-full flex-none border-b border-line bg-background p-4",
+          "md:w-[236px] md:overflow-y-auto md:border-b-0 md:border-e",
+          slug !== undefined && "hidden md:block",
+        )}
+      >
         <p className="text-[15px] font-bold">{t("kb.categories")}</p>
         <div className="mt-3.5 flex flex-col gap-0.5">
           <button
@@ -140,7 +156,13 @@ export default function KBBrowse() {
       </aside>
 
       {/* ============ ARTICLE LIST ============ */}
-      <section className="w-[420px] flex-none overflow-y-auto border-e border-line bg-background">
+      <section
+        className={cn(
+          "w-full flex-none border-b border-line bg-background",
+          "md:w-[420px] md:overflow-y-auto md:border-b-0 md:border-e",
+          slug !== undefined && "hidden md:block",
+        )}
+      >
         <div className="p-4 pb-3.5">
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-bold">{t("kb.title")}</span>
@@ -177,24 +199,36 @@ export default function KBBrowse() {
 
       {/* ============ READER ============ */}
       {slug === undefined ? (
-        <div className="flex flex-1 items-center justify-center bg-background">
+        <div className="hidden flex-1 items-center justify-center bg-background md:flex">
           <EmptyState icon={Inbox} title={t("kb.selectTitle")} description={t("kb.selectBody")} />
         </div>
-      ) : articlePending ? (
-        <div className="flex-1 space-y-4 bg-background p-6">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-      ) : articleError || !article ? (
-        <div className="flex flex-1 items-center justify-center bg-background">
-          <EmptyState title={t("kb.notFound")} description="" />
-        </div>
       ) : (
-        <KBArticleReader
-          article={article}
-          onEdit={() => navigate(`/app/kb/${article.slug}/edit`)}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Link
+            to="/app/kb"
+            className="flex items-center gap-1.5 border-b border-line bg-background px-4 py-2.5 text-[12.5px] font-semibold text-brand hover:text-brand-strong md:hidden"
+            data-testid="back-to-kb-list"
+          >
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5 rtl:-scale-x-100" />
+            {t("kb.title")}
+          </Link>
+          {articlePending ? (
+            <div className="flex-1 space-y-4 bg-background p-6">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-8 w-2/3" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : articleError || !article ? (
+            <div className="flex flex-1 items-center justify-center bg-background">
+              <EmptyState title={t("kb.notFound")} description="" />
+            </div>
+          ) : (
+            <KBArticleReader
+              article={article}
+              onEdit={() => navigate(`/app/kb/${article.slug}/edit`)}
+            />
+          )}
+        </div>
       )}
     </div>
   );

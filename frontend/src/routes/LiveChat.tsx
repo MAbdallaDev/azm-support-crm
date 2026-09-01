@@ -1,4 +1,4 @@
-import { ExternalLink, MessageSquare, Send } from "lucide-react";
+import { ArrowLeft, ExternalLink, MessageSquare, Send } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -103,7 +103,18 @@ export default function LiveChat() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0">
-      <aside className="flex w-[320px] flex-none flex-col border-e border-line bg-background">
+      {/* Below `md` this is a genuinely two-page flow, the same shape
+          Tickets.tsx already established: the inbox list OR the open
+          conversation fill the whole screen, never both side by side —
+          a fixed 320px list plus a conversation pane simply do not fit a
+          phone width. */}
+      <aside
+        data-testid="live-chat-inbox"
+        className={cn(
+          "flex w-full flex-none flex-col border-e border-line bg-background md:w-[320px]",
+          selectedId !== null && "hidden md:flex",
+        )}
+      >
         <div className="flex-none px-4 pb-3 pt-4">
           <h1 className="text-[17px] font-bold tracking-[-0.01em]">{t("liveChat.title")}</h1>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
@@ -137,7 +148,7 @@ export default function LiveChat() {
       </aside>
 
       {selected === null ? (
-        <section className="flex min-w-0 flex-1 items-center justify-center bg-surface-2">
+        <section className="hidden min-w-0 flex-1 items-center justify-center bg-surface-2 md:flex">
           <EmptyState
             icon={MessageSquare}
             title={t("liveChat.selectTitle")}
@@ -146,6 +157,14 @@ export default function LiveChat() {
         </section>
       ) : (
         <section className="flex min-w-0 flex-1 flex-col bg-surface-2">
+          <Link
+            to="/app/live-chat"
+            className="flex items-center gap-1.5 border-b border-line bg-background px-[22px] py-2.5 text-[12.5px] font-semibold text-brand hover:text-brand-strong md:hidden"
+            data-testid="back-to-inbox"
+          >
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5 rtl:-scale-x-100" />
+            {t("liveChat.title")}
+          </Link>
           <header className="flex flex-none items-center gap-2.5 border-b border-line bg-background px-[22px] py-3.5">
             <span
               aria-hidden

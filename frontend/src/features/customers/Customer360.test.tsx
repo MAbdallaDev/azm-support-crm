@@ -82,6 +82,33 @@ describe("the stats strip", () => {
   });
 });
 
+describe("the ticket-history table on a narrow screen", () => {
+  it("wraps its own table in a scroll container, rather than leaking overflow to the page", async () => {
+    // Found live at 375px: this bespoke table (unlike CustomerList's shared
+    // DataTable, which already does this) had no overflow-x-auto of its own,
+    // so its five whitespace-nowrap columns overflowed the card and widened
+    // the whole scrollable page instead of scrolling locally.
+    mock.on("/tickets/", () => page([listRow({ id: 1, status: "open" })]));
+    setup();
+
+    const table = await screen.findByRole("table");
+    expect(table.parentElement?.className).toContain("overflow-x-auto");
+  });
+
+  it("stacks the contacts/notes rail above the ticket history instead of squeezing both into one row", async () => {
+    // A fixed 330px rail plus a flex-1 table has nowhere to go below `md` —
+    // the row must become a column there.
+    mock.on("/tickets/", () => page([]));
+    setup();
+
+    await screen.findAllByText("Khalid Omari");
+
+    const row = screen.getByText("Contacts").closest("div.mt-4");
+    expect(row?.className).toContain("flex-col");
+    expect(row?.className).toContain("md:flex-row");
+  });
+});
+
 describe("editing the customer", () => {
   it("survives a write-serializer response that omits contacts, without crashing", async () => {
     // CustomerViewSet.get_serializer_class() returns CustomerWriteSerializer

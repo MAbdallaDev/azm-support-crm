@@ -356,8 +356,11 @@ export default function Customer360() {
         </div>
       </div>
 
-      <div className="mt-4 flex gap-4">
-        <div className="w-[330px] flex-none space-y-4">
+      {/* Below `md` a fixed 330px sidebar plus a flex-1 ticket-history table
+          squeezes the table into an unreadable sliver — the two panels stack
+          instead, same shape as every other fixed-two-pane screen. */}
+      <div className="mt-4 flex flex-col gap-4 md:flex-row">
+        <div className="w-full space-y-4 md:w-[330px] md:flex-none">
           <div className="rounded-[9px] border border-line bg-background">
             <div className="flex items-center justify-between border-b border-line px-[15px] py-3">
               <span className="text-[13.5px] font-bold">{t("customers.contacts")}</span>
@@ -452,52 +455,59 @@ export default function Customer360() {
           ) : filteredRows.length === 0 ? (
             <EmptyState title={t("customers.noTickets")} description="" />
           ) : (
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
-                    {t("customers.colTicket")}
-                  </th>
-                  <th className="border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
-                    {t("customers.colSubject")}
-                  </th>
-                  <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
-                    {t("customers.colChannel")}
-                  </th>
-                  <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
-                    {t("customers.colStatus")}
-                  </th>
-                  <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
-                    {t("customers.colCreated")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => (
-                  <tr key={row.id} className="border-b border-line-2 last:border-b-0">
-                    <td className="px-3 py-[11px]">
-                      <Link to={`/app/tickets/${row.id}`} className="mono-ltr text-[12.5px] text-muted-foreground hover:text-brand">
-                        {row.number}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-[11px] text-[12.5px] font-medium">
-                      <Link to={`/app/tickets/${row.id}`} className="hover:text-brand">
-                        {row.subject}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-[11px]">
-                      <ChannelBadge channel={row.channel} />
-                    </td>
-                    <td className="px-3 py-[11px]">
-                      <StatusBadge status={row.status} />
-                    </td>
-                    <td className="px-3 py-[11px] text-[12.5px] text-muted-foreground">
-                      {formatDate(row.created_at)}
-                    </td>
+            // Unlike CustomerList's shared `DataTable` (which already wraps its
+            // own `<table>` this way), this is a bespoke table — without its
+            // own `overflow-x-auto` the five `whitespace-nowrap` columns
+            // overflow the card and leak into `<main>`'s own scroll area,
+            // becoming reachable only by scrolling the whole page sideways.
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
+                      {t("customers.colTicket")}
+                    </th>
+                    <th className="border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
+                      {t("customers.colSubject")}
+                    </th>
+                    <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
+                      {t("customers.colChannel")}
+                    </th>
+                    <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
+                      {t("customers.colStatus")}
+                    </th>
+                    <th className="whitespace-nowrap border-b border-line px-3 py-[9px] text-start text-[11px] font-semibold text-muted-foreground">
+                      {t("customers.colCreated")}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredRows.map((row) => (
+                    <tr key={row.id} className="border-b border-line-2 last:border-b-0">
+                      <td className="px-3 py-[11px]">
+                        <Link to={`/app/tickets/${row.id}`} className="mono-ltr text-[12.5px] text-muted-foreground hover:text-brand">
+                          {row.number}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-[11px] text-[12.5px] font-medium">
+                        <Link to={`/app/tickets/${row.id}`} className="hover:text-brand">
+                          {row.subject}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-[11px]">
+                        <ChannelBadge channel={row.channel} />
+                      </td>
+                      <td className="px-3 py-[11px]">
+                        <StatusBadge status={row.status} />
+                      </td>
+                      <td className="px-3 py-[11px] text-[12.5px] text-muted-foreground">
+                        {formatDate(row.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           <div className="border-t border-line-2 px-[15px] py-3">
