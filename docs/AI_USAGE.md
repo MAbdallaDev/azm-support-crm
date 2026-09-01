@@ -1985,3 +1985,31 @@ confirmed clean at 360px in one language is not confirmed clean at 360px in the 
 each time was recognizable on sight only because the previous fixes in this same branch had already
 named the shape: unwrapped flex content with nowhere to go needs either wrapping/stacking or its own
 `overflow-x-auto`, chosen by whether the content reads better as a column or a locally-scrollable row.
+
+**Third addendum, same branch:** the user then pointed at two cropped screenshots of the very screen
+this branch had just fixed — "this part height is so tiny" for the AI-summary banner and composer
+tab row, and just "button" for the composer's Attach/Suggest/Send row — without further detail. Two
+more layout bugs, both a size down from the ones already fixed:
+
+1. **`AiSummaryBanner.tsx`**: the badge, the message text, and the "Generate summary" action shared
+   one `items-start` row. The earlier fixes in this branch had made the *tabs above* and the
+   *composer mode row below* it scroll correctly, but never touched this banner sitting between
+   them — at 360px its text column got squeezed so narrow that even "No summary yet." wrapped across
+   three lines, which is what "so tiny" pointed at. Fixed by giving the badge+text pair their own
+   full-width row below `sm` (via `sm:contents`, so the single-row layout at `sm` and up is
+   unchanged) and letting the actions become their own row underneath.
+2. **`Composer.tsx`**'s bottom button row: Attach + Suggest reply + a `flex-1` spacer + Send reply
+   didn't all fit one row at 360px, and — a flexbox-specific trap — a `flex-1` spacer that can't
+   shrink far enough wraps onto its *own* empty full-width line when the row wraps, rather than
+   simply letting the next button follow it down; Send ended up crowded flush against the composer
+   card's rounded corner with no margin. Fixed by dropping the spacer for `flex-wrap` on the row and
+   `ms-auto` on the Send button, which doesn't have that wrapping side effect.
+
+2 new regression tests (`AiSummaryBanner.test.tsx`, new file; `Composer.test.tsx`), 294 total passing.
+
+**What I learned, a fourth time:** "fits without horizontal overflow" and "looks right" are still two
+different bars — both of these screens already passed the overflow check from the earlier fixes in
+this branch; the actual complaint was readability and touch-target crowding, not a page that scrolled
+sideways. A terse two-word user report ("button") pointing at a screenshot was enough to locate the
+real issue once the surrounding fixes had already established which specific rows on that screen were
+fixed-width-constrained.

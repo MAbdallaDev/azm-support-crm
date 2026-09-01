@@ -253,7 +253,13 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
 
       <ArticlePicker open={pickerOpen} onOpenChange={setPickerOpen} onPick={insertAtCursor} />
 
-      <div className="flex items-center gap-2 p-3.5">
+      {/* `flex-wrap` + `ms-auto` on Send rather than a flex-1 spacer: at a
+          phone width "Attach" + "Suggest reply" + "Send reply" don't all fit
+          one row, and a spacer sized by flex-1 wraps onto its own empty
+          full-width line instead of just letting Send drop to the next
+          line — found live as Send crowded flush against the card's
+          rounded corner with no breathing room. */}
+      <div className="flex flex-wrap items-center gap-2 p-3.5">
         <input
           ref={fileInput}
           type="file"
@@ -295,9 +301,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
           </Button>
         ) : null}
 
-        <span className="flex-1" />
-
-        <Button type="submit" size="sm" disabled={!body.trim() || send.isPending}>
+        <Button type="submit" size="sm" className="ms-auto" disabled={!body.trim() || send.isPending}>
           {send.isPending ? (
             <>
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
