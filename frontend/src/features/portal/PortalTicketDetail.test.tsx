@@ -88,6 +88,31 @@ describe("CSAT — survives a reload rather than only the current session", () =
   });
 });
 
+describe("the ticket cannot be found or fails to load", () => {
+  it("shows a not-found state instead of an endless skeleton on a 404", async () => {
+    mock.fail("/portal/tickets/5/", 404);
+    renderWithDataRouter(<PortalTicketDetail />, {
+      queryClient: makeQueryClient(),
+      path: "/tickets/:id",
+      route: "/tickets/5",
+    });
+
+    expect(await screen.findByText("That request is not available.")).toBeInTheDocument();
+    expect(screen.queryByTestId("portal-ticket-skeleton")).not.toBeInTheDocument();
+  });
+
+  it("shows a load-error state, not a 404 message, on a server error", async () => {
+    mock.fail("/portal/tickets/5/", 500);
+    renderWithDataRouter(<PortalTicketDetail />, {
+      queryClient: makeQueryClient(),
+      path: "/tickets/:id",
+      route: "/tickets/5",
+    });
+
+    expect(await screen.findByText("The request could not be loaded.")).toBeInTheDocument();
+  });
+});
+
 describe("attachments", () => {
   it("shows nothing when the ticket has none", async () => {
     setup();

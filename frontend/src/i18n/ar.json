@@ -116,6 +116,8 @@
   "portal": {
     "home": "طلباتي",
     "loadFailed": "تعذّر تحميل طلباتك.",
+    "ticketNotFound": "هذا الطلب غير متاح.",
+    "ticketLoadError": "تعذّر تحميل الطلب.",
     "openTickets": "المفتوحة",
     "closedTickets": "المغلقة",
     "noOpenTickets": "لا توجد طلبات مفتوحة",

@@ -14,6 +14,7 @@ import {
 } from "@/api/portal";
 import type { PortalAttachment } from "@/api/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
@@ -130,7 +131,8 @@ export default function PortalTicketDetail() {
   const { id } = useParams<{ id: string }>();
   const ticketId = id ? Number(id) : null;
 
-  const { data: ticket, isPending } = usePortalTicket(ticketId);
+  const { data: ticket, isPending, isError, error } = usePortalTicket(ticketId);
+  const notFound = isError && (error as AxiosError).response?.status === 404;
   const { data: messages, isPending: messagesPending } = usePortalMessages(
     ticketId,
     ticket?.channel === "chat",
@@ -173,11 +175,22 @@ export default function PortalTicketDetail() {
     );
   };
 
-  if (isPending || !ticket) {
+  if (isPending) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="portal-ticket-skeleton">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (isError || !ticket) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center">
+        {/* 404 means out of scope (someone else's ticket, or one that no
+            longer exists) — "not available" is the honest wording for both,
+            the same rule Tickets.tsx already applies on the agent side. */}
+        <EmptyState title={t(notFound ? "portal.ticketNotFound" : "portal.ticketLoadError")} description="" />
       </div>
     );
   }

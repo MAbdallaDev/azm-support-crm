@@ -1692,3 +1692,44 @@ the link would have rendered but 404'd. Verifying end-to-end (a real seeded atta
 `curl`-checked for a 200, then confirmed rendering and downloading in the browser as both a
 customer and a manager) is what caught the second bug; a unit test alone that mocked the file URL
 would not have.
+
+## Post-hand-in — Portal ticket detail spun forever on a missing ticket (`fix/portal-ticket-not-found`)          (elapsed: ~20m)
+
+**What I asked for:** the previous fix's own test ticket (TK-0152, `id=455`) was deleted directly
+from the database as clean-up. Its portal detail page (`/portal/tickets/455`) was still open in the
+browser and, on reload, sat on an endless loading skeleton instead of any kind of error — a real bug
+surfaced by accident while tidying up test data, not something asked for directly, but worth fixing
+immediately since it would affect any customer whose ticket link goes stale for any reason (deleted,
+or simply someone else's).
+
+**What the AI built:** `PortalTicketDetail.tsx`'s loading guard was `if (isPending || !ticket)`,
+which renders the skeleton forever once the query settles into an error state (`isPending` becomes
+`false`, but `ticket` stays `undefined` — matching neither branch, falling through to a skeleton
+that never resolves). Split it into two guards, mirroring the pattern the agent side's own
+`Tickets.tsx` already established for this exact situation: a real skeleton while `isPending`, then
+a distinct not-found/load-error `EmptyState` once the query has actually failed, telling a 404 apart
+from a 500 the same way (`notFound = isError && error.response?.status === 404`). Added
+`portal.ticketNotFound` / `portal.ticketLoadError` i18n keys and 2 new tests (404 shows "not
+available", 500 shows "could not be loaded", neither ever shows the skeleton test id once settled).
+
+**Decisions the AI made on its own:** reused the exact 404-vs-other-error distinction already coded
+in `Tickets.tsx` rather than inventing new wording or logic — the reasoning (a 404 here means "out
+of scope," which the API returns instead of a 403 on purpose, so "not available" is the honest
+message for both a truly-missing ticket and someone else's) applies identically on the portal side,
+and a second, slightly different error-handling convention for the same situation would be a
+maintenance trap.
+
+**What I had to correct:** nothing in the fix itself, but the live-verification step needed care —
+the fix landed via a container restart mid-session, and the first two reload attempts in the browser
+still showed the stale skeleton because of leftover HMR/error-boundary state from unrelated earlier
+work in the same tab (visible in the console as stale module timestamps and a broken WebSocket HMR
+connection). Restarting the `web` container and re-navigating cleared it; the page then rendered
+correctly. Worth noting for next time: a still-broken-looking page after a source fix is not
+automatically evidence the fix is wrong — check the actual network response and a fresh reload
+before concluding that.
+
+**What I learned:** an early-return loading guard written as `isPending || !ticket` is a common
+enough shape that it is worth checking every future "has this data arrived yet" guard against
+explicitly asking "what does this render on a *settled* error, not just before data arrives?" —
+`!ticket` alone cannot distinguish "not fetched yet" from "fetched and failed," and only looks
+correct until the failure path is actually exercised.

@@ -116,6 +116,8 @@
   "portal": {
     "home": "My requests",
     "loadFailed": "Your requests could not be loaded.",
+    "ticketNotFound": "That request is not available.",
+    "ticketLoadError": "The request could not be loaded.",
     "openTickets": "Open",
     "closedTickets": "Closed",
     "noOpenTickets": "No open requests",
