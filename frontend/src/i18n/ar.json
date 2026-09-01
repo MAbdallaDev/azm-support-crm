@@ -535,10 +535,11 @@
   "notifications": {
     "title": "الإشعارات",
     "empty": "لا جديد",
-    "emptyBody": "ستظهر هنا الإسنادات والتصعيدات.",
+    "emptyBody": "ستظهر هنا الإسنادات والتصعيدات وتجاوزات اتفاقية مستوى الخدمة.",
     "assigned": "قام {{actor}} بإسناد {{ticket}} إليك",
     "escalated": "قام {{actor}} بتصعيد {{ticket}}",
     "assignedNoActor": "تم إسناد {{ticket}} إليك",
-    "escalatedNoActor": "تم تصعيد {{ticket}}"
+    "escalatedNoActor": "تم تصعيد {{ticket}}",
+    "slaBreached": "تجاوزت {{ticket}} اتفاقية مستوى الخدمة"
   }
 }

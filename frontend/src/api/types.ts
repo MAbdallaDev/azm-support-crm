@@ -570,9 +570,10 @@ export type PortalCSATSubmit = { ticket: number; score: number; comment?: string
 // Post-hand-in — notification centre.
 // ---------------------------------------------------------------------------
 
-/** `Notification.Verb` — only these two; SLA breach is not a notification
- *  verb (see `backend/apps/accounts/notifications.py`'s module docstring). */
-export type NotificationVerb = "ticket_assigned" | "ticket_escalated";
+/** `Notification.Verb` — see `backend/apps/accounts/notifications.py`'s
+ *  module docstring for why `ticket_sla_breached` is written by a management
+ *  command rather than inline from a request, unlike the other two. */
+export type NotificationVerb = "ticket_assigned" | "ticket_escalated" | "ticket_sla_breached";
 
 /** `NotificationSerializer`. `ticket`/`ticket_number`/`ticket_subject` are
  *  empty/null when the underlying ticket has since been deleted. */

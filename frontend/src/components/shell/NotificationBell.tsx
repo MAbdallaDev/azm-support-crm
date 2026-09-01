@@ -44,6 +44,10 @@ export function NotificationBell() {
         ? t("notifications.assigned", { actor: notification.actor_name, ticket })
         : t("notifications.assignedNoActor", { ticket });
     }
+    if (notification.verb === "ticket_sla_breached") {
+      // Always actor-less — see notify_sla_breach's docstring.
+      return t("notifications.slaBreached", { ticket });
+    }
     return notification.actor_name
       ? t("notifications.escalated", { actor: notification.actor_name, ticket })
       : t("notifications.escalatedNoActor", { ticket });

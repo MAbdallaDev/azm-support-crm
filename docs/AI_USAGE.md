@@ -1433,3 +1433,65 @@ does front-load the thinking the previous two post-hand-in tracks paid for mid-i
 instead. The GET-vs-POST question, the useQuery-vs-useMutation question, and the
 optional-resolution-note edge case were all settled on paper before any code existed, and none of
 them needed revisiting once implementation started.
+
+---
+
+## Post-hand-in — SLA-breach notifications (`feature/notification-centre-sla-breach`)          (elapsed: ~45m)
+
+Reverses one of the notification centre's own documented decisions, on purpose: "two verbs only, no
+SLA breach" (see the entry above) was the *original* call, made when the tradeoff was framed as
+"skip it, or ship a lossy check." Re-raised when the user asked to pick the notification centre back
+up; this time the sweep option was offered honestly alongside it and chosen.
+
+**What I asked for:** the user said "start with notification centre." Before writing anything, this
+session re-surfaced the exact tradeoff the *previous* session had already resolved the other way —
+`sla_service.py` and `Notification`'s own docstring both say, in explicit language, not to add a
+scheduler for this. Flagged it back to the user rather than silently reversing a documented decision:
+a real periodic sweep (a management command, the project's own `ir.cron` mapping), a lossy
+opportunistic check, a different verb entirely, or leaving the two-verb design as-is. The user chose
+the sweep.
+
+**What the AI built:**
+
+- `Notification.Verb.TICKET_SLA_BREACHED`, plus a migration (`0005_alter_notification_verb`) —
+  choices-only, no schema change.
+- `apps/accounts/notifications.py` — `notify_sla_breach(ticket)`: no `actor` (a breach isn't caused
+  by anyone), a no-op when unassigned, idempotent **per ticket** rather than per sweep run (returns
+  whether it actually sent one, so the caller can report a real count without a second existence
+  check of its own).
+- `apps/tickets/management/commands/check_sla_breaches.py` — the sweep itself: every ticket
+  `sla_service.breached_q()` matches, assigned, notifies once via `notify_sla_breach`. Nothing in
+  this repo schedules it — no Celery beat, no cron container — so it is a manually-triggered command
+  until an actual `cron`/systemd-timer entry is wired up as deployment configuration, explicitly out
+  of scope here.
+- `NotificationBell.tsx` — a third label branch, always actor-less; new `notifications.slaBreached`
+  key in both languages.
+- Updated both docstrings that documented the old decision (`Notification`, `notifications.py`
+  module) to explain the sweep and why it doesn't contradict `sla_service`'s "no scheduler for
+  *state*" rule — breach state is still always recomputed from the stored due timestamps on every
+  read; only the notification's existence is now written, and only by this one command.
+- Ten new backend tests (`notify_sla_breach`'s three cases, the sweep's four: notifies every
+  candidate, ignores within-SLA and resolved tickets, doesn't duplicate across two runs) and one new
+  frontend test.
+
+**Decisions the AI made on its own:**
+
+- **Idempotent per ticket, not per sweep.** A ticket that breaches, gets reopened, and breaches again
+  does not notify a second time in this MVP — checking "is there already a breach notification for
+  this ticket" rather than tracking the specific due-date instance that was notified about. Simpler,
+  and stated as a deliberate simplification rather than discovered as a gap later.
+- **Left `sla_service.breached_q()` untouched** and imported it rather than writing a second
+  breach expression — the module's own docstring warns that a third copy is how a queue tab and a
+  notification start disagreeing.
+
+**What I had to correct:** nothing during implementation. The one thing worth recording is what
+*wasn't* corrected: the temptation to just build the sweep without re-asking, since it's clearly the
+technically-correct answer. The previous decision was deliberate and documented with unusually
+emphatic language ("Do not 'improve' this into a scheduled task") — reversing it without surfacing
+that would have been quietly overriding a choice a human made for reasons that were still valid
+until they said otherwise.
+
+**What I learned:** a documented "we decided not to" is not the same as a bug waiting to be fixed.
+The honest move when a later request seems to call for reversing one is to name the original
+tradeoff out loud and let the same person re-make the call with full context, not to treat the
+passage of time as new authorization.

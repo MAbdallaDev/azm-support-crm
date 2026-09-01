@@ -1,8 +1,12 @@
-"""Notification centre: assignment and escalation only (SLA breach is not a
-verb here — see accounts.notifications' module docstring for why), and the
+"""Notification centre: assignment, escalation, and SLA breach — plus the
 `recipient=request.user` trust boundary, tested the same way the portal's
 ticket scoping is: by trying to read or act on someone else's row and
 asserting it fails, not just that the happy path succeeds.
+
+The breach verb's own tests (idempotency, no-op when unassigned, the
+`check_sla_breaches` sweep itself) live in `test_sla_breach_notifications.py`
+— kept separate because they need a breached ticket's SLA fields set up,
+which the assignment/escalation fixtures here have no reason to carry.
 """
 
 import pytest
