@@ -64,6 +64,24 @@ const mockPortalTickets = (existing: PortalTicket[]) => {
   mock.on("/messages/", () => []);
 };
 
+describe("My requests never lists a live chat conversation", () => {
+  it("excludes a chat-channel ticket from both the open and closed sections", async () => {
+    // Live chat has its own floating widget, reachable from every portal
+    // page — showing the same conversation again in "My requests" would
+    // just be the identical thing listed twice.
+    mockPortalTickets([
+      ticket({ id: 5, channel: "chat", status: "open", subject: "Live chat" }),
+      ticket({ id: 6, channel: "chat", status: "closed", subject: "Old live chat" }),
+      ticket({ id: 7, channel: "email", status: "open", subject: "A real email ticket" }),
+    ]);
+    setup();
+
+    expect(await screen.findByText("A real email ticket")).toBeInTheDocument();
+    expect(screen.queryByText("Live chat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old live chat")).not.toBeInTheDocument();
+  });
+});
+
 describe("Start a live chat", () => {
   it("creates a new chat ticket and opens the widget panel when none is open", async () => {
     mockPortalTickets([]);
@@ -85,10 +103,13 @@ describe("Start a live chat", () => {
     mockPortalTickets([ticket({ id: 7, channel: "chat", status: "open" })]);
     setup();
 
-    // Wait for the ticket list itself to load — the button renders
-    // immediately regardless, but clicking before `open` is populated would
-    // read it as empty and create a new ticket instead of reusing this one.
-    await screen.findByText("Cannot access invoice portal");
+    // Wait for the ticket list itself to load before clicking — the button
+    // renders immediately regardless, but clicking before the query settles
+    // would read it as empty and create a new ticket instead of reusing this
+    // one. The chat ticket itself is never rendered in "My requests" (it has
+    // its own widget), so its absence — "No open requests" — is exactly what
+    // a loaded list with only a chat ticket in it looks like here.
+    await screen.findByText("No open requests");
     fireEvent.click(screen.getByTestId("start-live-chat"));
 
     expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();

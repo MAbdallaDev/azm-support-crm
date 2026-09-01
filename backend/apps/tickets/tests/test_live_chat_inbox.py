@@ -122,6 +122,33 @@ def test_a_chat_ticket_with_no_messages_is_not_awaiting_reply(api, customer):
 
 
 @pytest.mark.django_db
+def test_a_chat_ticket_never_appears_in_the_general_queue(api, customer):
+    """Live chat has its own dedicated inbox — showing the same conversation
+    again in `/tickets/` (and in its `q` search results, which share this
+    same action) would just be the identical thing listed twice.
+    """
+    chat = Ticket.objects.create(customer=customer, subject="Live chat", channel="chat", status=Status.OPEN)
+    email = Ticket.objects.create(customer=customer, subject="Email ticket", channel="email", status=Status.OPEN)
+
+    ids = {row["id"] for row in api.get("/api/v1/tickets/").data["results"]}
+
+    assert chat.pk not in ids
+    assert email.pk in ids
+
+
+@pytest.mark.django_db
+def test_a_chat_ticket_is_still_reachable_directly_by_id(api, customer):
+    """Excluded from the *list*, not from `retrieve` — the Live Chat screen's
+    own "View ticket record" link opens the ticket by id directly."""
+    chat = Ticket.objects.create(customer=customer, subject="Live chat", channel="chat", status=Status.OPEN)
+
+    response = api.get(f"/api/v1/tickets/{chat.pk}/")
+
+    assert response.status_code == 200
+    assert response.data["id"] == chat.pk
+
+
+@pytest.mark.django_db
 def test_the_endpoint_is_scoped_like_every_other_agent_list(customer):
     """Reuses `get_queryset()`'s scoping — an agent outside the ticket's
     department must not see it, the same rule the ticket queue itself enforces.
