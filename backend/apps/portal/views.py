@@ -267,6 +267,11 @@ class PortalKBArticleViewSet(ScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet)
                 | Q(body_en__icontains=search)
                 | Q(body_ar__icontains=search)
             )
+        # Same slug filter KBArticleViewSet (the agent side) already applies —
+        # the portal home's category shortcuts send this, not a free-text q.
+        category = self.request.query_params.get("category")
+        if category:
+            qs = qs.filter(category__slug=category)
         return qs
 
 

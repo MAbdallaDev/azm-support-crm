@@ -33,6 +33,7 @@ const setup = () =>
 beforeEach(() => {
   mock = installApiMock();
   tokenStore.set({ access: "a", refresh: "r", role: "customer" });
+  mock.on("/auth/me/", () => ({ id: 48, full_name: "Hind Al-Subaie", role: "customer" }));
 });
 
 afterEach(() => {
@@ -91,5 +92,61 @@ describe("Start a live chat", () => {
       expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(true),
     );
     await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/42"));
+  });
+});
+
+describe("matching the design canvas", () => {
+  it("greets the customer by first name in the hero", async () => {
+    mockPortalTickets([]);
+    setup();
+
+    expect(await screen.findByText("How can we help, Hind?")).toBeInTheDocument();
+  });
+
+  it("shows a colour-coded status badge and channel badge per row, not plain text", async () => {
+    mockPortalTickets([ticket({ id: 3, status: "on_hold", channel: "whatsapp" })]);
+    setup();
+
+    expect(await screen.findByTestId("status-on_hold")).toBeInTheDocument();
+    expect(screen.getByTestId("channel-whatsapp")).toBeInTheDocument();
+  });
+
+  it("shows a live rating for a rated closed ticket, and a 'rate this' prompt for an unrated one", async () => {
+    mockPortalTickets([
+      ticket({ id: 10, status: "resolved", csat: { score: 5, comment: "" } }),
+      ticket({ id: 11, status: "resolved", csat: null }),
+    ]);
+    setup();
+
+    expect(await screen.findByText("you rated 5")).toBeInTheDocument();
+    expect(screen.getByText("rate this")).toBeInTheDocument();
+  });
+
+  it("caps the closed list and reveals the rest via 'View all N'", async () => {
+    const closedTickets = Array.from({ length: 7 }, (_, i) =>
+      ticket({ id: 100 + i, status: "closed", subject: `Closed ticket ${i}` }),
+    );
+    mockPortalTickets(closedTickets);
+    setup();
+
+    await screen.findByText("Closed ticket 0");
+    expect(screen.queryByText("Closed ticket 6")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("view-all-closed"));
+
+    expect(screen.getByText("Closed ticket 6")).toBeInTheDocument();
+  });
+
+  it("a KB shortcut chip filters the KB by that category's slug, not a text search", async () => {
+    mockPortalTickets([]);
+    const { router } = setup();
+
+    fireEvent.click(await screen.findByText("Billing & Invoices"));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname + router.state.location.search).toBe(
+        "/portal/kb?category=billing",
+      ),
+    );
   });
 });
