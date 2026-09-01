@@ -288,32 +288,46 @@ after it).
 
 ### Post-hand-in additions
 
-Three small MVP fixes and two closed Phase-2 items, done after the ten-story hand-in and merged the
-same way (branch → PR → `dev` → `main`): a queue-panel layout fix and the scroll-escape bug it led
-to being found and fixed, a self-service profile page (view/edit phone and language, change
-password), personalized demo account display names, a **notification centre** (bell with an
-unread badge, notifying on ticket assignment, escalation, and SLA breach — closing the SLA &
-Automation area's "alerts and notifications" item fully; the breach verb is written by a
-`check_sla_breaches` management command — a real periodic sweep, the project's own Odoo `ir.cron`
-mapping — rather than the lossy check bolted onto an unrelated write that was rejected the first time
-this was built, since the SLA engine's breach *state* stays lazily derived either way, on branch
-`feature/notification-centre-sla-breach`, not yet merged), and **suggested
-solutions** (`.squad/stories/crm-advanced/11-suggested-solutions/` — an agent viewing a ticket sees
-up to three already-resolved tickets that look similar, each with how it was resolved; a real
-deterministic database ranking, not semantic search or an external model — closing the fourth of
-the AI Features area's five sub-items. The fifth, an AI chatbot, stays deferred: it needs a live
-LLM to be credible and no key is available for this project). Full detail, decisions and
-corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entries.
+Done after the ten-story hand-in, branch → PR → `dev` → `main` each time unless noted otherwise:
+
+- A queue-panel layout fix and the scroll-escape bug it led to being found and fixed, a
+  self-service profile page (view/edit phone and language, change password), and personalized demo
+  account display names.
+- A **notification centre** (bell with an unread badge, notifying on ticket assignment,
+  escalation, and SLA breach — closing the SLA & Automation area's "alerts and notifications" item
+  fully; the breach verb is written by a `check_sla_breaches` management command, a real periodic
+  sweep — the project's own Odoo `ir.cron` mapping — rather than the lossy check bolted onto an
+  unrelated write that was rejected the first time this was built, since the SLA engine's breach
+  *state* stays lazily derived either way). Merged.
+- **Suggested solutions** (`.squad/stories/crm-advanced/11-suggested-solutions/` — an agent viewing
+  a ticket sees up to three already-resolved tickets that look similar, each with how it was
+  resolved; a real deterministic database ranking, not semantic search or an external model —
+  closing the fourth of the AI Features area's five sub-items. The fifth, an AI chatbot, stays
+  deferred: it needs a live LLM to be credible and no key is available for this project). Merged.
+- A **global search results dropdown** in the header (grouped Tickets/Customers, keyboard nav,
+  a mobile full-screen takeover), extended to also match message-body text (not just
+  subject/customer), and to show a highlighted excerpt of the matching message when that's the
+  only reason a ticket matched. Merged.
+- **Live chat** (`.squad/stories/crm-advanced/12-live-chat/` — turns the "Live chat" channel from a
+  label into a real, near-real-time channel: a "Start a live chat" entry point in the portal, and
+  both sides of the conversation polling every 4 seconds while a chat-channel ticket is open — the
+  codebase's first `refetchInterval`, deliberately scoped to that one channel, no Django
+  Channels/WebSockets/Redis. Closes the last unimplemented item in the Communication Channels area).
+  **On branch `feature/live-chat`, not merged into `dev`** per explicit instruction.
+
+Full detail, decisions and corrections for each are in `docs/AI_USAGE.md`'s post-hand-in entries.
 
 ---
 
 ## Status
 
-**All ten stories are complete, plus the post-hand-in work above; `dev` has been merged into `main`.**
+**All ten stories are complete, plus the merged post-hand-in work above; `dev` has been merged into
+`main`.** Live chat (above) is implemented but intentionally sitting on its own unmerged branch.
 
-**411 backend tests** pass against PostgreSQL. **225 frontend tests** pass. Both RTL and i18n-parity
-guards are clean, the production build is clean, and lint has zero errors (two pre-existing,
-accepted `react-refresh` warnings only).
+**428 backend tests** pass against PostgreSQL (on `feature/live-chat`; 421 on `main`). **251
+frontend tests** pass (`feature/live-chat`; 244 on `main`). Both RTL and i18n-parity guards are
+clean, the production build is clean, and lint has zero errors (the same pre-existing, accepted
+`react-refresh` warnings only).
 
 Four things worth knowing about how the backend works:
 

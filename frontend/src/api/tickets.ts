@@ -71,12 +71,20 @@ export const useTicket = (id: number | null) =>
     enabled: id !== null,
   });
 
-export const useTicketMessages = (id: number | null) =>
+/**
+ * `live` (default `false`) is this codebase's first `refetchInterval` —
+ * deliberately scoped to a `channel: "chat"` ticket's Conversation tab, not a
+ * new global default. Every other channel keeps the old fetch-once behavior.
+ * `refetchIntervalInBackground` stays at its default `false`, so polling also
+ * stops the moment the tab is backgrounded, with no extra code.
+ */
+export const useTicketMessages = (id: number | null, live: boolean = false) =>
   useQuery({
     queryKey: qk.tickets.messages(id ?? 0),
     queryFn: () =>
       api.get<TicketMessage[]>(`/tickets/${id}/messages/`).then((r) => r.data),
     enabled: id !== null,
+    refetchInterval: live ? 4000 : false,
   });
 
 export const useTicketEvents = (id: number | null) =>

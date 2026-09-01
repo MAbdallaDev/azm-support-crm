@@ -121,6 +121,8 @@
     "noOpenTicketsBody": "قدّم طلبًا وسيظهر هنا.",
     "noClosedTickets": "لا توجد طلبات مغلقة بعد",
     "submitRequest": "تقديم طلب",
+    "startLiveChat": "بدء محادثة مباشرة",
+    "liveChatSubject": "محادثة مباشرة",
     "searchHelp": "ابحث في مقالات المساعدة",
     "registerTitle": "أنشئ حسابك",
     "registerSubtitle": "ستُسجَّل الدخول فور التسجيل — بلا خطوة إضافية.",
