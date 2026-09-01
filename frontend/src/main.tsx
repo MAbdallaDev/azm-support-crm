@@ -12,6 +12,7 @@ import { Toaster } from "./components/ui/toast";
 import "./i18n";
 import "./index.css";
 import Dashboard from "./routes/Dashboard";
+import LiveChat from "./routes/LiveChat";
 import Login from "./routes/Login";
 import NotFound from "./routes/NotFound";
 import PortalHome from "./routes/PortalHome";
@@ -78,6 +79,9 @@ export const appRouteChildren = [
   { path: "tickets", element: <Tickets /> },
   { path: "tickets/new", element: <NewTicket /> },
   { path: "tickets/:id", element: <Tickets /> },
+  // Same one-component-for-list-and-detail pattern as Tickets above.
+  { path: "live-chat", element: <LiveChat /> },
+  { path: "live-chat/:id", element: <LiveChat /> },
   { path: "customers", element: <CustomerList /> },
   { path: "customers/:id", element: <Customer360 /> },
   // KBBrowse handles both "/app/kb" and "/app/kb/:slug" — the same

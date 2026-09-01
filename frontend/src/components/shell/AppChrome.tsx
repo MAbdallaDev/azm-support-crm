@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useMe } from "@/api/auth";
+import { useLiveChatInbox } from "@/api/tickets";
 import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { Lockup } from "@/components/shell/Lockup";
 import { LanguageToggle } from "@/components/shell/LanguageToggle";
@@ -41,6 +42,11 @@ export default function AppChrome() {
 
   const items = visibleNavItems(appNavItems(), me?.role);
 
+  // Shares `useLiveChatInbox`'s query key with the Live Chat screen itself, so
+  // this badge and that page's list are always the same fetch, never two.
+  const { data: liveChat } = useLiveChatInbox();
+  const awaitingReplyCount = (liveChat ?? []).filter((c) => c.awaiting_reply).length;
+
   return (
     <div className="flex h-screen flex-col bg-surface-2">
       <header className="flex h-14 flex-none items-center gap-[10px] border-b border-line bg-background px-[14px] lg:gap-[18px] lg:px-[18px]">
@@ -58,9 +64,17 @@ export default function AppChrome() {
               <NavLink
                 key={item.key}
                 to={item.to}
-                className={({ isActive }) => cn(NAVLINK, isActive && NAVLINK_ON)}
+                className={({ isActive }) => cn(NAVLINK, "flex items-center gap-1.5", isActive && NAVLINK_ON)}
               >
                 {t(item.labelKey)}
+                {item.key === "live-chat" && awaitingReplyCount > 0 ? (
+                  <span
+                    data-testid="live-chat-nav-badge"
+                    className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-channel-chat px-[5px] py-px text-[10px] font-bold leading-[16px] text-white"
+                  >
+                    {awaitingReplyCount}
+                  </span>
+                ) : null}
               </NavLink>
             ),
           )}

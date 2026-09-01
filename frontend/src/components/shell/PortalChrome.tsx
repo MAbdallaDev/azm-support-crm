@@ -6,6 +6,8 @@ import { LanguageToggle } from "@/components/shell/LanguageToggle";
 import { Lockup } from "@/components/shell/Lockup";
 import { portalNavItems, visibleNavItems } from "@/components/shell/navItems";
 import { UserChip } from "@/components/shell/UserChip";
+import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
+import { PortalChatWidget } from "@/features/portal/PortalChatWidget";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,35 +32,41 @@ export default function PortalChrome() {
   const items = visibleNavItems(portalNavItems(), me?.role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-2">
-      <header className="flex h-[60px] flex-none items-center gap-[18px] border-b border-line bg-background px-7">
-        <Lockup product={t("app.portalProduct")} />
+    <ChatWidgetProvider>
+      <div className="flex min-h-screen flex-col bg-surface-2">
+        <header className="flex h-[60px] flex-none items-center gap-[18px] border-b border-line bg-background px-7">
+          <Lockup product={t("app.portalProduct")} />
 
-        <nav className="flex items-center gap-[2px] ms-3" aria-label={t("nav.primary")}>
-          {items.map((item) => (
-            <NavLink
-              key={item.key}
-              to={item.to}
-              end
-              className={({ isActive }) => cn(NAVLINK, isActive && NAVLINK_ON)}
-            >
-              {t(item.labelKey)}
-            </NavLink>
-          ))}
-        </nav>
+          <nav className="flex items-center gap-[2px] ms-3" aria-label={t("nav.primary")}>
+            {items.map((item) => (
+              <NavLink
+                key={item.key}
+                to={item.to}
+                end
+                className={({ isActive }) => cn(NAVLINK, isActive && NAVLINK_ON)}
+              >
+                {t(item.labelKey)}
+              </NavLink>
+            ))}
+          </nav>
 
-        <div className="flex-1" />
+          <div className="flex-1" />
 
-        <LanguageToggle profileLanguage={me?.language} />
+          <LanguageToggle profileLanguage={me?.language} />
 
-        {me ? <UserChip me={me} compact /> : null}
-      </header>
+          {me ? <UserChip me={me} compact /> : null}
+        </header>
 
-      <main className="min-h-0 flex-1 py-7">
-        <div className="mx-auto w-full max-w-[880px] px-4">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="min-h-0 flex-1 py-7">
+          <div className="mx-auto w-full max-w-[880px] px-4">
+            <Outlet />
+          </div>
+        </main>
+
+        {/* Persists across every portal route — a customer never leaves the
+            page they were on to talk to support. */}
+        <PortalChatWidget />
+      </div>
+    </ChatWidgetProvider>
   );
 }

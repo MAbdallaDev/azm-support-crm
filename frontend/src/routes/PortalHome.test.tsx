@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { tokenStore } from "@/api/tokenStore";
 import type { PortalTicket } from "@/api/types";
+import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
+import { PortalChatWidget } from "@/features/portal/PortalChatWidget";
 import PortalHome from "@/routes/PortalHome";
 import { installApiMock, page } from "@/test/apiMock";
 import type { ApiMock } from "@/test/apiMock";
@@ -28,7 +30,13 @@ const ticket = (over: Partial<PortalTicket> = {}): PortalTicket => ({
 });
 
 const setup = () =>
-  renderWithDataRouter(<PortalHome />, { queryClient: makeQueryClient(), path: "/", route: "/" });
+  renderWithDataRouter(
+    <ChatWidgetProvider>
+      <PortalHome />
+      <PortalChatWidget />
+    </ChatWidgetProvider>,
+    { queryClient: makeQueryClient(), path: "/", route: "/" },
+  );
 
 beforeEach(() => {
   mock = installApiMock();
@@ -50,12 +58,16 @@ const mockPortalTickets = (existing: PortalTicket[]) => {
       ? { id: 42, number: "TK-0042" }
       : page(existing),
   );
+  // Registered AFTER the broader "/portal/tickets/" match above — apiMock's
+  // substring `includes` check means that match also catches
+  // "/portal/tickets/<id>/messages/", so this override must come last.
+  mock.on("/messages/", () => []);
 };
 
 describe("Start a live chat", () => {
-  it("creates a new chat ticket and navigates to it when none is open", async () => {
+  it("creates a new chat ticket and opens the widget panel when none is open", async () => {
     mockPortalTickets([]);
-    const { router } = setup();
+    setup();
 
     await screen.findByText("No open requests");
     fireEvent.click(screen.getByTestId("start-live-chat"));
@@ -63,12 +75,15 @@ describe("Start a live chat", () => {
     await waitFor(() =>
       expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(true),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/42"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
+    // The full-page navigation this used to do is gone — a live chat stays a
+    // floating widget over whatever page the customer was on.
+    expect(screen.queryByTestId("start-live-chat")).toBeInTheDocument();
   });
 
   it("reuses an existing open chat ticket instead of creating a new one", async () => {
     mockPortalTickets([ticket({ id: 7, channel: "chat", status: "open" })]);
-    const { router } = setup();
+    setup();
 
     // Wait for the ticket list itself to load — the button renders
     // immediately regardless, but clicking before `open` is populated would
@@ -76,13 +91,13 @@ describe("Start a live chat", () => {
     await screen.findByText("Cannot access invoice portal");
     fireEvent.click(screen.getByTestId("start-live-chat"));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/7"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
     expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(false);
   });
 
   it("ignores a CLOSED chat ticket and starts a new one instead", async () => {
     mockPortalTickets([ticket({ id: 9, channel: "chat", status: "closed" })]);
-    const { router } = setup();
+    setup();
 
     // This ticket lands in the CLOSED section — the open list is empty.
     await screen.findByText("No open requests");
@@ -91,7 +106,7 @@ describe("Start a live chat", () => {
     await waitFor(() =>
       expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(true),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/42"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
   });
 });
 

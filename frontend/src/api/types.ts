@@ -110,6 +110,21 @@ export type TicketListRow = {
   matched_snippet?: string | null;
 };
 
+/**
+ * `LiveChatListSerializer` — one row of the dedicated Live Chat inbox.
+ * Deliberately carries none of `TicketListRow`'s priority/SLA/category
+ * fields — this list backs a messaging-app screen, not the ticket queue.
+ */
+export type LiveChatConversation = {
+  id: number;
+  number: string;
+  customer_name: string;
+  last_message: string;
+  last_message_at: string;
+  awaiting_reply: boolean;
+  created_at: string;
+};
+
 /** `TicketPersonSerializer` — a person as the detail page shows them. */
 export type TicketPerson = {
   id: number;

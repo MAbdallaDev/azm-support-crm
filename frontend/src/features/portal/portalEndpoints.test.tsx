@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { tokenStore } from "@/api/tokenStore";
 import PortalHome from "@/routes/PortalHome";
+import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
 import PortalKB from "@/features/portal/PortalKB";
 import PortalTicketDetail from "@/features/portal/PortalTicketDetail";
 import Register from "@/features/portal/Register";
@@ -64,7 +65,12 @@ const assertPortalOnly = () => {
 
 describe("every portal screen calls only /portal/* or /auth/* routes", () => {
   it("PortalHome", async () => {
-    renderWithDataRouter(<PortalHome />, { queryClient: makeQueryClient() });
+    renderWithDataRouter(
+      <ChatWidgetProvider>
+        <PortalHome />
+      </ChatWidgetProvider>,
+      { queryClient: makeQueryClient() },
+    );
     await screen.findByText("TK-0005");
     assertPortalOnly();
   });

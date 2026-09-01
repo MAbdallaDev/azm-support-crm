@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useMe } from "@/api/auth";
-import { usePortalTickets, useSubmitPortalTicket } from "@/api/portal";
+import { usePortalTickets } from "@/api/portal";
 import type { PortalTicket } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { toast } from "@/components/ui/toast";
+import { useChatWidget } from "@/features/portal/ChatWidgetContext";
 import { formatRelative } from "@/lib/format";
 import { PORTAL_KB_CATEGORIES } from "@/lib/portalKbCategories";
 
@@ -90,7 +90,7 @@ export default function PortalHome() {
   const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
   const visibleClosed = showAllClosed ? closed : closed.slice(0, CLOSED_PAGE_SIZE);
 
-  const submitChat = useSubmitPortalTicket();
+  const { openChat } = useChatWidget();
 
   const onSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -98,27 +98,6 @@ export default function PortalHome() {
   };
 
   const onCategoryShortcut = (slug: string) => navigate(`/portal/kb?category=${encodeURIComponent(slug)}`);
-
-  const onStartLiveChat = () => {
-    const existing = open.find((ticket) => ticket.channel === "chat");
-    if (existing) {
-      navigate(`/portal/tickets/${existing.id}`);
-      return;
-    }
-    submitChat.mutate(
-      {
-        subject: t("portal.liveChatSubject"),
-        description: t("portal.liveChatSubject"),
-        category: null,
-        channel: "chat",
-        attachments: [],
-      },
-      {
-        onSuccess: (created) => navigate(`/portal/tickets/${created.id}`),
-        onError: () => toast.error(t("portal.submitFailed")),
-      },
-    );
-  };
 
   const firstName = me?.full_name?.split(" ")[0];
 
@@ -151,8 +130,7 @@ export default function PortalHome() {
             variant="outline"
             className="h-[42px] flex-none border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
             data-testid="start-live-chat"
-            onClick={onStartLiveChat}
-            disabled={submitChat.isPending}
+            onClick={openChat}
           >
             <MessageSquare aria-hidden className="h-4 w-4" />
             {t("portal.startLiveChat")}

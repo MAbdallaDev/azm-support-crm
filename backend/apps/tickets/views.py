@@ -38,6 +38,8 @@ from apps.tickets.models import (
     Attachment,
     CannedReply,
     Category,
+    Channel,
+    Status,
     Tag,
     Ticket,
     TicketMessage,
@@ -49,6 +51,7 @@ from apps.tickets.serializers import (
     CannedReplySerializer,
     CategorySerializer,
     EscalateRequestSerializer,
+    LiveChatListSerializer,
     ResolveRequestSerializer,
     StatusRequestSerializer,
     TagSerializer,
@@ -179,6 +182,36 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
                 old=before,
                 new=ticket.priority,
             )
+
+    @extend_schema(
+        summary="The agent's Live Chat inbox — active chat-channel conversations",
+        responses={200: LiveChatListSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="live-chat")
+    def live_chat(self, request):
+        """Not a queue filter view — a distinct, unpaginated list for the
+        dedicated Live Chat screen, scoped through the same `get_queryset()`
+        (department/team visibility) every other list action gets, but never
+        `select_related`d for SLA/category the way `list` is, since none of
+        that renders here.
+        """
+        qs = (
+            self.filter_queryset(self.get_queryset())
+            .filter(channel=Channel.CHAT)
+            .exclude(status__in=[Status.CLOSED, Status.RESOLVED])
+            .select_related("customer")
+            .prefetch_related(
+                Prefetch(
+                    "messages",
+                    queryset=TicketMessage.objects.filter(is_internal=False)
+                    .select_related("author")
+                    .order_by("-created_at"),
+                    to_attr="prefetched_messages",
+                )
+            )
+            .order_by("-updated_at")
+        )
+        return Response(LiveChatListSerializer(qs, many=True).data)
 
     # -- sub-resources ------------------------------------------------------
 
