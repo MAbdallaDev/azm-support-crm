@@ -569,6 +569,18 @@ export type RegisterRequest = {
 
 export type PortalCSATSubmit = { ticket: number; score: number; comment?: string };
 
+/** `PortalAttachmentSerializer`. `uploaded_by_kind` mirrors
+ *  `PortalMessage.author_kind` — never a staff name. */
+export type PortalAttachment = {
+  id: number;
+  message: number | null;
+  file: string;
+  filename: string;
+  size: number;
+  uploaded_by_kind: "you" | "support";
+  created_at: string;
+};
+
 // ---------------------------------------------------------------------------
 // Post-hand-in — notification centre.
 // ---------------------------------------------------------------------------

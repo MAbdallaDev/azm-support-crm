@@ -1617,3 +1617,78 @@ wrong-pixel-click, but a background-tab optimization correctly refusing to run i
 that never reports itself as foregrounded. The fix each time was the same: check the actual browser
 state (`document.activeElement`, `document.visibilityState`) before concluding the feature, rather
 than the harness, is what's broken.
+
+## Post-hand-in — Attachments were invisible everywhere (`fix/attachment-visibility`)          (elapsed: ~1h 15m)
+
+**What I asked for:** "i discover issue in attachment when i create ticket and i add attachment,
+the attachment doesn't appear" — a portal bug report. Asked back whether the fix should cover the
+portal only or the agent side too, since a first look suggested the gap might be wider; chose
+**both, portal and agent**.
+
+**What the AI built:** the bug turned out to be three separate, independent defects stacked on top
+of each other, all now fixed:
+
+1. **No UI anywhere ever fetched or rendered an attachment list**, on either side, despite the
+   agent app already having a ready, unused `useTicketAttachments` hook and a working
+   `/tickets/{id}/attachments/` endpoint — `TicketDetail.tsx` simply never called it.
+   `TicketWorkspaceDetail` (`frontend/src/features/tickets/TicketDetail.tsx`) gained a fourth tab,
+   **Attachments**, with its own count badge, empty state, and a row per file (icon, filename,
+   size, uploader, relative time, an "Open" link).
+2. **`AttachmentSerializer`'s `file` field was root-relative** (`/media/attachments/...`) because
+   no `request` is in that serializer's context — correct only against the API's own origin, wrong
+   against the frontend's Vite origin. Added `attachmentUrl()` (`frontend/src/api/attachments.ts`)
+   to resolve a root-relative path against the API's real origin before it's ever used as an
+   `href`; left absolute URLs untouched.
+3. **Django was never serving `/media/` at all** — `backend/config/urls.py` had no `static()` call
+   registered, so every attachment ever uploaded, across the whole app's lifetime, 404'd
+   regardless of any UI or URL fix. Found by `curl`-ing a real seeded attachment's path directly
+   and getting a 404 with no display bug involved. Fixed with a `DEBUG`-gated `static()` call.
+
+On the portal side: a new `PortalAttachmentSerializer` and a `GET
+/portal/tickets/{id}/attachments/` action (`backend/apps/portal/views.py`), mirroring
+`PortalMessageSerializer.author_kind`'s `"you"`/`"support"` pattern via `uploaded_by_kind` — no
+staff name ever crosses the portal boundary, same rule as every other portal-facing field. A new
+`usePortalTicketAttachments` hook and an attachments section in `PortalTicketDetail.tsx`, styled to
+match the ticket detail page's existing density rather than copying the agent's larger row.
+
+Added `formatFileSize()` (`frontend/src/lib/format.ts`) — "62.4 KB" / "1.2 MB", used by both sides
+so a byte count is never shown raw. 5 new backend tests
+(`backend/apps/portal/tests/test_attachments_visible.py`) and 5 new frontend tests across
+`TicketDetail.test.tsx` and `PortalTicketDetail.test.tsx`.
+
+**Decisions the AI made on its own:**
+
+- Investigated whether the media-serving gap was new regression or original — it is original: no
+  code path anywhere in the repo's history ever wired up `static()`, so this was broken from story
+  02 onward and simply never noticed because nothing ever tried to display an attachment link
+  until now.
+- The portal's new serializer passes `context={"request": request}` (unlike the agent-side
+  endpoint that has the bug), so `FileField` there already builds an **absolute** URL via DRF's own
+  `build_absolute_uri` — `attachmentUrl()` still runs over it defensively (it already special-cases
+  a string that's already `http(s)://`), so the portal doesn't depend on the agent's bug being
+  fixed to also be correct, and a future change to either side's `request` context can't silently
+  break the other.
+- Reused `_create_attachments`, `ALLOWED_CONTENT_TYPES` and `MAX_ATTACHMENT_BYTES` as-is for the
+  new tests rather than duplicating validation assumptions — the fix is entirely about *reading*
+  attachments back, not about how they're written, which was already correct and already tested.
+
+**What I had to correct:** a self-inflicted test bug during this fix, not a real one. Two new
+`PortalTicketDetail.test.tsx` tests initially registered their attachment-list mock *before*
+calling the shared `setup()` helper — but `setup()` itself registers a broader
+`/portal/tickets/5/` handler afterward, and the test harness's mock matcher is a plain substring
+`includes` check where the **last** registered match wins. That broader handler also matches the
+narrower `/portal/tickets/5/attachments/` URL, so it silently overrode the test's own attachment
+data with the ticket object instead. Fixed by moving the override to *after* `setup()` — the same
+ordering rule the existing CSAT tests already followed, that I didn't apply consistently on the
+first pass. Also wrote the first backend test's own assertion wrong: I assumed the portal's new
+endpoint would carry the same root-relative bug as the agent one, and asserted `.startswith("/media/")`;
+the real response was an absolute URL (`http://testserver/media/...`) since this endpoint does pass
+`request` into its serializer context, so the assertion was corrected to match what's actually
+correct behavior, not what was originally guessed.
+
+**What I learned:** a single "attachment doesn't appear" report can be more than one bug at once,
+and fixing only the most visible layer (a missing UI) would have shipped a still-broken feature —
+the link would have rendered but 404'd. Verifying end-to-end (a real seeded attachment,
+`curl`-checked for a 200, then confirmed rendering and downloading in the browser as both a
+customer and a manager) is what caught the second bug; a unit test alone that mocked the file URL
+would not have.

@@ -39,6 +39,7 @@ const setup = (ticket = baseTicket) => {
 beforeEach(() => {
   mock = installApiMock();
   tokenStore.set({ access: "a", refresh: "r", role: "customer" });
+  mock.on("/portal/tickets/5/attachments/", () => []);
 });
 
 afterEach(() => {
@@ -84,6 +85,61 @@ describe("CSAT — survives a reload rather than only the current session", () =
 
     expect(screen.queryByTestId("csat-input")).not.toBeInTheDocument();
     expect(screen.queryByTestId("csat-readonly")).not.toBeInTheDocument();
+  });
+});
+
+describe("attachments", () => {
+  it("shows nothing when the ticket has none", async () => {
+    setup();
+    await screen.findByText("Cannot access invoice portal");
+
+    expect(screen.queryByText("Attachments")).not.toBeInTheDocument();
+  });
+
+  it("lists a real, resolvable download link for a ticket-creation attachment", async () => {
+    setup();
+    // Registered AFTER setup(): `setup()` itself registers the broader
+    // "/portal/tickets/5/" match, and apiMock's substring `includes` check
+    // means that broader match also catches "/portal/tickets/5/attachments/"
+    // — the LAST registration for a matching URL wins, so this override must
+    // be pushed after setup() to actually take effect.
+    mock.on("/portal/tickets/5/attachments/", () => [
+      {
+        id: 3,
+        message: null,
+        file: "/media/attachments/2026/09/tes.png",
+        filename: "tes.png",
+        size: 62453,
+        uploaded_by_kind: "you",
+        created_at: "2026-08-20T09:05:00Z",
+      },
+    ]);
+    await screen.findByText("Cannot access invoice portal");
+
+    const link = await screen.findByTestId("portal-attachment-3");
+    expect(link).toHaveAttribute("href", "http://localhost:8000/media/attachments/2026/09/tes.png");
+    expect(link).toHaveTextContent("tes.png");
+    expect(link).toHaveTextContent("61.0 KB");
+    expect(link).toHaveTextContent("from you");
+  });
+
+  it("labels a support-uploaded file as from support, not by name", async () => {
+    setup();
+    mock.on("/portal/tickets/5/attachments/", () => [
+      {
+        id: 4,
+        message: 1,
+        file: "/media/attachments/2026/09/policy.pdf",
+        filename: "policy.pdf",
+        size: 1024,
+        uploaded_by_kind: "support",
+        created_at: "2026-08-20T09:05:00Z",
+      },
+    ]);
+    await screen.findByText("Cannot access invoice portal");
+
+    const link = await screen.findByTestId("portal-attachment-4");
+    expect(link).toHaveTextContent("from support");
   });
 });
 

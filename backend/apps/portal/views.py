@@ -27,6 +27,7 @@ from apps.accounts.scoping import (
 )
 from apps.kb.models import KBArticle
 from apps.portal.serializers import (
+    PortalAttachmentSerializer,
     PortalCSATSerializer,
     PortalKBArticleSerializer,
     PortalMessageSerializer,
@@ -195,6 +196,18 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
         return Response(
             PortalMessageSerializer(message, context={"request": request}).data,
             status=http_status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        summary="Every file on this ticket — from creation and from replies",
+        responses={200: PortalAttachmentSerializer(many=True)},
+    )
+    @action(detail=True, methods=["get"], url_path="attachments")
+    def attachments(self, request, pk=None):
+        ticket = self.get_object()
+        qs = ticket.attachments.select_related("uploaded_by").all()
+        return Response(
+            PortalAttachmentSerializer(qs, many=True, context={"request": request}).data
         )
 
 

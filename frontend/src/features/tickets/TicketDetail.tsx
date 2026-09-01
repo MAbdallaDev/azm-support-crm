@@ -1,4 +1,5 @@
 import { AxiosError } from "axios";
+import { Paperclip } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,10 +7,12 @@ import {
   useChangeStatus,
   useEscalate,
   useResolve,
+  useTicketAttachments,
   useTicketEvents,
   useTicketMessages,
 } from "@/api/tickets";
-import type { TicketDetail as Ticket, TicketMessage, TicketStatus } from "@/api/types";
+import { attachmentUrl } from "@/api/attachments";
+import type { Attachment, TicketDetail as Ticket, TicketMessage, TicketStatus } from "@/api/types";
 import { ActivityLog } from "@/features/tickets/ActivityLog";
 import { AiSummaryBanner } from "@/features/tickets/AiSummaryBanner";
 import { Composer } from "@/features/tickets/Composer";
@@ -21,12 +24,39 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
-import { formatRelative } from "@/lib/format";
+import { formatFileSize, formatRelative } from "@/lib/format";
 import { cn, initials } from "@/lib/utils";
 
-/** The centre pane: header, three tabs, the thread, and the composer. */
+/** The centre pane: header, four tabs, the thread, and the composer. */
 
-type DetailTab = "conversation" | "internal" | "activity";
+type DetailTab = "conversation" | "internal" | "activity" | "attachments";
+
+function AttachmentRow({ attachment }: { attachment: Attachment }) {
+  const { t } = useTranslation();
+  return (
+    <li>
+      <a
+        href={attachmentUrl(attachment.file)}
+        target="_blank"
+        rel="noreferrer"
+        data-testid={`attachment-${attachment.id}`}
+        className="flex items-center gap-3 rounded-[9px] border border-line px-3.5 py-3 hover:bg-surface-2"
+      >
+        <Paperclip aria-hidden className="h-4 w-4 flex-none text-faint" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-ink">{attachment.filename}</p>
+          <p className="text-[11.5px] text-muted-foreground">
+            {formatFileSize(attachment.size)}
+            {attachment.uploaded_by_name ? ` · ${attachment.uploaded_by_name}` : ""}
+            {" · "}
+            {formatRelative(attachment.created_at)}
+          </p>
+        </div>
+        <span className="flex-none text-[12px] font-medium text-brand">{t("common.open")}</span>
+      </a>
+    </li>
+  );
+}
 
 function MessageBubble({ message }: { message: TicketMessage }) {
   return (
@@ -71,6 +101,7 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
     ticket.channel === "chat",
   );
   const { data: events, isPending: eventsPending } = useTicketEvents(ticket.id);
+  const { data: attachments, isPending: attachmentsPending } = useTicketAttachments(ticket.id);
 
   const changeStatus = useChangeStatus();
   const escalate = useEscalate();
@@ -190,13 +221,14 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
           {tabButton("conversation", t("tickets.tabConversation"), publicMessages.length)}
           {tabButton("internal", t("tickets.tabInternal"), internalMessages.length)}
           {tabButton("activity", t("tickets.tabActivity"), events?.length ?? 0)}
+          {tabButton("attachments", t("tickets.tabAttachments"), attachments?.length ?? 0)}
         </nav>
       </header>
 
       <div className="h-px bg-line-2" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[18px]">
-        {tab !== "activity" ? (
+        {tab === "conversation" || tab === "internal" ? (
           <div className="space-y-3">
             <AiSummaryBanner ticket={ticket} />
             <SuggestedSolutions ticket={ticket} />
@@ -212,6 +244,25 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
             </div>
           ) : (
             <ActivityLog events={events ?? []} isPending={eventsPending} />
+          )
+        ) : tab === "attachments" ? (
+          attachmentsPending ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <Skeleton key={index} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : (attachments ?? []).length === 0 ? (
+            <EmptyState
+              title={t("tickets.noAttachments")}
+              description={t("tickets.noAttachmentsBody")}
+            />
+          ) : (
+            <ul className="mt-5 space-y-2.5">
+              {(attachments ?? []).map((attachment) => (
+                <AttachmentRow key={attachment.id} attachment={attachment} />
+              ))}
+            </ul>
           )
         ) : messagesPending ? (
           <div className="mt-5 space-y-4">

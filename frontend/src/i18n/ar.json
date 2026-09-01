@@ -110,7 +110,8 @@
     "english": "English",
     "arabic": "العربية",
     "search": "بحث",
-    "remove": "إزالة"
+    "remove": "إزالة",
+    "open": "فتح"
   },
   "portal": {
     "home": "طلباتي",
@@ -151,6 +152,8 @@
     "submitTitle": "تقديم طلب",
     "category": "الفئة",
     "attachments": "المرفقات",
+    "attachmentFromYou": "منك",
+    "attachmentFromSupport": "من الدعم",
     "addAttachment": "إضافة مرفق",
     "submitted": "تم تقديم الطلب",
     "submittedBody": "نهدف إلى الرد بحلول {{date}}.",
@@ -240,10 +243,13 @@
     "tabConversation": "المحادثة",
     "tabInternal": "ملاحظات داخلية",
     "tabActivity": "سجل النشاط",
+    "tabAttachments": "المرفقات",
     "noMessages": "لا توجد رسائل بعد",
     "noMessagesBody": "أول رد ترسله سيظهر هنا.",
     "noNotes": "لا توجد ملاحظات داخلية",
     "noNotesBody": "الملاحظات هنا لا تُعرض على العميل أبدًا.",
+    "noAttachments": "لا توجد مرفقات بعد",
+    "noAttachmentsBody": "ستظهر هنا الملفات من نافذة الرد أو من ردود العميل نفسه.",
     "noActivity": "لم يُسجَّل شيء بعد",
     "statusChanged": "تغيّرت الحالة إلى {{status}}.",
     "escalated": "تم تصعيد التذكرة.",

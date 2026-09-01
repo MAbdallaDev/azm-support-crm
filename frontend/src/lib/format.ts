@@ -40,6 +40,19 @@ export const formatDateTime = (value: string | number | Date): string =>
 export const formatNumber = (value: number): string =>
   new Intl.NumberFormat(activeLocale()).format(value);
 
+/** An attachment's byte count as "62.4 KB" / "1.2 MB" — never raw bytes. */
+export const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
+};
+
 /**
  * A duration in seconds as the design writes it: `4h 05m`, `38m`, `2d 3h` —
  * and `4س 05د` in Arabic.

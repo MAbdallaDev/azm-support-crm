@@ -49,6 +49,7 @@ beforeEach(() => {
   mock.on("/portal/kb/articles/", () => page([{ id: 1, slug: "billing-faq", title_en: "Billing FAQ", title_ar: "", category: "Billing", updated_at: "2026-08-01T00:00:00Z", body_en: "", body_ar: "" }]));
   mock.on("/portal/tickets/5/", () => ticket);
   mock.on("/portal/tickets/5/messages/", () => []);
+  mock.on("/portal/tickets/5/attachments/", () => []);
 });
 
 afterEach(() => {

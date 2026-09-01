@@ -89,6 +89,7 @@ export const qk = {
       list: (params: string) => ["portal", "tickets", "list", params] as const,
       detail: (id: number) => ["portal", "tickets", "detail", id] as const,
       messages: (id: number) => ["portal", "tickets", id, "messages"] as const,
+      attachments: (id: number) => ["portal", "tickets", id, "attachments"] as const,
     },
     kb: {
       list: (params: string) => ["portal", "kb", "list", params] as const,

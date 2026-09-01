@@ -1,3 +1,19 @@
+import { api } from "./client";
+
+/**
+ * `AttachmentSerializer`/`PortalAttachmentSerializer` build their `file` URL
+ * with no `request` in context (neither `TicketViewSet.attachments` nor the
+ * portal's own action passes one), so `FileField` serializes a **root-relative**
+ * path (`/media/attachments/...`) — correct against the API's own origin,
+ * wrong against the frontend's. A bare `<a href={attachment.file}>` resolves
+ * against `window.location`, which is the Vite dev server, not the API.
+ */
+export const attachmentUrl = (file: string): string => {
+  if (/^https?:\/\//i.test(file)) return file;
+  const origin = new URL(api.defaults.baseURL ?? "http://localhost:8000/api/v1").origin;
+  return `${origin}${file}`;
+};
+
 /**
  * Upload limits, mirroring `backend/apps/tickets/views.py`.
  *

@@ -20,7 +20,7 @@ from rest_framework import serializers
 
 from apps.customers.models import Customer
 from apps.kb.models import KBArticle
-from apps.tickets.models import CSATRating, Priority, Ticket, TicketMessage
+from apps.tickets.models import Attachment, CSATRating, Priority, Ticket, TicketMessage
 
 User = get_user_model()
 
@@ -118,6 +118,30 @@ class PortalMessageSerializer(serializers.ModelSerializer):
         if user is not None and obj.author_id == user.pk:
             return "you"
         if obj.author_id and getattr(obj.author, "role", None) == "customer":
+            return "you"
+        return "support"
+
+
+class PortalAttachmentSerializer(serializers.ModelSerializer):
+    """A file on the ticket — from creation (`message=None`) or a reply.
+
+    `uploaded_by_kind` mirrors `PortalMessageSerializer.author_kind` exactly,
+    for the same reason: which agent handled a file is not the customer's
+    business, only whether it came from them or from support.
+    """
+
+    uploaded_by_kind = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attachment
+        fields = ("id", "message", "file", "filename", "size", "uploaded_by_kind", "created_at")
+        read_only_fields = fields
+
+    def get_uploaded_by_kind(self, obj) -> str:
+        user = self.context.get("request").user if self.context.get("request") else None
+        if user is not None and obj.uploaded_by_id == user.pk:
+            return "you"
+        if obj.uploaded_by_id and getattr(obj.uploaded_by, "role", None) == "customer":
             return "you"
         return "support"
 
