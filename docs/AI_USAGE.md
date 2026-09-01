@@ -1933,3 +1933,26 @@ claim in an app whose shell scrolls internally — three real bugs here would ha
 under the document-level check alone. The reliable signal turned out to be the most literal one
 ("is any element wider than the box that's supposed to contain it"), not a derived arithmetic
 comparison that depends on assumptions about which element does the scrolling.
+
+**Addendum, same branch:** the user then sent two real-device screenshots (360×780, an actual iPhone
+SE-class width rather than the 375–391px this session's browser-automation tool had been reporting)
+showing `AppChrome`'s own header — not just the pages beneath it — visibly wider than the frame. This
+was the exact header this session had earlier measured at ~390px of content in a ~391px window and
+judged "fits, barely" from a `scrollWidth`/`clientWidth` comparison that turned out to be right at the
+threshold where the RTL-scrollbar measurement noise (documented above) could mask a few pixels of
+genuine overflow; at a true 360px it no longer fit at all. Fixed by moving the 32px segmented EN/ع
+language toggle into the mobile hamburger menu below `sm` (extracting its switching logic into a
+reusable `useLanguageSwitch` hook so the menu item and the standalone control share one
+implementation) rather than trimming padding further, which had already been reduced as far as it
+could go without every other element on the bar changing size. Verified at a real 360px width this
+time, and added a regression test using `pointerdown`/`pointerup` events rather than a bare `click` —
+the fireEvent sequence Radix's `DropdownMenu` trigger actually listens for, discovered only once a
+test that couldn't pass by accident (an earlier test in this session had asserted against text that
+also existed, hidden, outside the dropdown, and so proved nothing about whether the click worked at
+all) forced the real gap into the open.
+
+**What I learned, again:** the 375–391px range this session's own tooling reported is close enough to
+a real 360px phone that a bug sitting in that gap can pass every automated check and still be visible
+to an actual user on an actual device — the fix here shipped only because the user tested on
+something this session's tooling couldn't faithfully reproduce, not because the audit above was
+insufficiently thorough at the widths it actually checked.
