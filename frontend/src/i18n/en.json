@@ -110,7 +110,8 @@
     "english": "English",
     "arabic": "العربية",
     "search": "Search",
-    "remove": "Remove"
+    "remove": "Remove",
+    "open": "Open"
   },
   "portal": {
     "home": "My requests",
@@ -151,6 +152,8 @@
     "submitTitle": "Submit a request",
     "category": "Category",
     "attachments": "Attachments",
+    "attachmentFromYou": "from you",
+    "attachmentFromSupport": "from support",
     "addAttachment": "Add attachment",
     "submitted": "Request submitted",
     "submittedBody": "We aim to respond by {{date}}.",
@@ -240,10 +243,13 @@
     "tabConversation": "Conversation",
     "tabInternal": "Internal notes",
     "tabActivity": "Activity log",
+    "tabAttachments": "Attachments",
     "noMessages": "No messages yet",
     "noMessagesBody": "The first reply you send appears here.",
     "noNotes": "No internal notes",
     "noNotesBody": "Notes here are never shown to the customer.",
+    "noAttachments": "No attachments yet",
+    "noAttachmentsBody": "Files from the composer or the customer's own replies appear here.",
     "noActivity": "Nothing logged yet",
     "statusChanged": "Status changed to {{status}}.",
     "escalated": "Ticket escalated.",

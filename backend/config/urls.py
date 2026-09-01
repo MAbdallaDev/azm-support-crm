@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -26,3 +28,10 @@ urlpatterns = [
     # than sharing the agent routes with a filter.
     path("api/v1/portal/", include("apps.portal.urls")),
 ]
+
+# Every uploaded attachment 404'd — nothing ever served MEDIA_ROOT. Dev-only
+# by design: `django.views.static.serve` (what `static()` wires up) has no
+# place in a production deployment, which would front uploads with a real
+# web server or object storage instead.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

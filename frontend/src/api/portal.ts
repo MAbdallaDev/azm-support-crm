@@ -7,6 +7,7 @@ import type {
   LoginResponse,
   Me,
   Paginated,
+  PortalAttachment,
   PortalKBArticle,
   PortalMessage,
   PortalTicket,
@@ -120,6 +121,14 @@ export const usePortalMessages = (id: number | null, live: boolean = false) =>
     refetchInterval: live ? 4000 : false,
   });
 
+export const usePortalTicketAttachments = (id: number | null) =>
+  useQuery({
+    queryKey: qk.portal.tickets.attachments(id ?? 0),
+    queryFn: () =>
+      api.get<PortalAttachment[]>(`/portal/tickets/${id}/attachments/`).then((r) => r.data),
+    enabled: id !== null,
+  });
+
 export const useSendPortalMessage = () => {
   const queryClient = useQueryClient();
 
@@ -140,6 +149,8 @@ export const useSendPortalMessage = () => {
         previous ? [...previous, message] : [message],
       );
       void queryClient.invalidateQueries({ queryKey: qk.portal.tickets.detail(id) });
+      // A reply may have carried its own attachments — the list just went stale.
+      void queryClient.invalidateQueries({ queryKey: qk.portal.tickets.attachments(id) });
     },
   });
 };
