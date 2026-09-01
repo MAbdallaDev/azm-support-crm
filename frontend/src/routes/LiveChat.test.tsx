@@ -100,6 +100,24 @@ describe("an open conversation", () => {
     expect(link).toHaveTextContent("TK-0151");
   });
 
+  it("carries a mobile-only back-to-inbox link, hidden at md and up", async () => {
+    // The inbox list and the open conversation are a fixed 320px + flex-1 row
+    // that only fits from `md` up — below that, opening a conversation must
+    // be a genuine "back" flow, not a squeeze. Found live at 375px: the list
+    // and thread rendered side by side with no way back, both unreadable.
+    setup();
+    await screen.findByText("Hi there");
+
+    const back = screen.getByTestId("back-to-inbox");
+    expect(back).toHaveAttribute("href", "/app/live-chat");
+    expect(back.className).toContain("md:hidden");
+
+    // The inbox list itself hides below `md` once a conversation is open —
+    // it stays in the DOM (so desktop's side-by-side layout still works),
+    // it's just not shown as a second column on a phone.
+    expect(screen.getByTestId("live-chat-inbox").className).toContain("hidden");
+  });
+
   it("sends a reply and clears the composer", async () => {
     mock.on("/tickets/1/messages/", (config) =>
       (config.method ?? "get").toLowerCase() === "post"

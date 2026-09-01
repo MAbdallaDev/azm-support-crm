@@ -26,8 +26,13 @@ export type LanguageToggleProps = {
   className?: string;
 };
 
-export function LanguageToggle({ profileLanguage, className }: LanguageToggleProps) {
-  const { i18n, t } = useTranslation();
+/**
+ * The switching logic on its own, so a narrow-screen menu (AppChrome's mobile
+ * dropdown) can offer the same two choices without re-rendering the 32px
+ * segmented control there's no room for below `sm`.
+ */
+export function useLanguageSwitch(profileLanguage?: Language) {
+  const { i18n } = useTranslation();
   const current = (i18n.language ?? "en").startsWith("ar") ? "ar" : "en";
 
   const applied = React.useRef(false);
@@ -50,6 +55,13 @@ export function LanguageToggle({ profileLanguage, className }: LanguageTogglePro
     applyDocumentLanguage(lang);
     storeLanguage(lang);
   };
+
+  return { current, select };
+}
+
+export function LanguageToggle({ profileLanguage, className }: LanguageToggleProps) {
+  const { t } = useTranslation();
+  const { current, select } = useLanguageSwitch(profileLanguage);
 
   const half = (lang: Language, extra: string) =>
     cn(

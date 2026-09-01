@@ -220,3 +220,27 @@ describe("the attachments tab", () => {
     await waitFor(() => expect(screen.getByTestId("detail-tab-attachments")).toHaveTextContent("2"));
   });
 });
+
+describe("the tab bar and composer mode row on a narrow screen", () => {
+  // Found live at 360px in English: four tab labels ("Internal notes",
+  // "Activity log") plus counts, and separately "Reply" + "Internal note" +
+  // "Sending via" + the channel badge, had no wrap and no scroll container
+  // of their own — both leaked overflow into the whole page instead of
+  // scrolling locally, clipping unrelated content above and below them.
+  it("scrolls the detail tabs locally instead of wrapping or leaking overflow", async () => {
+    setup();
+    await screen.findByTestId("detail-tab-conversation");
+
+    const nav = screen.getByTestId("detail-tab-conversation").closest("nav");
+    expect(nav?.className).toContain("overflow-x-auto");
+    expect(screen.getByTestId("detail-tab-internal").className).toContain("whitespace-nowrap");
+  });
+
+  it("scrolls the composer's mode row locally too", async () => {
+    setup();
+    const replyTab = await screen.findByTestId("composer-mode-reply");
+
+    expect(replyTab.parentElement?.className).toContain("overflow-x-auto");
+    expect(replyTab.className).toContain("whitespace-nowrap");
+  });
+});

@@ -42,44 +42,51 @@ export function AiSummaryBanner({ ticket }: { ticket: TicketDetail }) {
   return (
     <section
       data-testid="ai-summary"
-      className="flex items-start gap-3 rounded-[9px] border border-[#ddd8fb] bg-[#f6f4ff] px-3.5 py-3"
+      className="flex flex-col gap-2.5 rounded-[9px] border border-[#ddd8fb] bg-[#f6f4ff] px-3.5 py-3 sm:flex-row sm:items-start sm:gap-3"
     >
-      <Pill className="mt-[1px] flex-none bg-[#e5e0fc] text-[#4c37b5]">
-        <Sparkles aria-hidden className="h-3 w-3" />
-        {t("ai.summary")}
-      </Pill>
+      {/* Below `sm` the badge and the actions used to share one row with the
+          text, squeezing it so narrow that even "No summary yet." wrapped
+          onto three lines. `sm:contents` lets this pair sit on their own
+          full-width row on mobile while still joining the single-row layout
+          at `sm` and up, unchanged. */}
+      <div className="flex items-start gap-3 sm:contents">
+        <Pill className="mt-[1px] flex-none bg-[#e5e0fc] text-[#4c37b5]">
+          <Sparkles aria-hidden className="h-3 w-3" />
+          {t("ai.summary")}
+        </Pill>
 
-      <div className="min-w-0 flex-1">
-        {failed ? (
-          <div className="flex items-start gap-2" role="alert">
-            <p className="flex-1 text-[12.5px] leading-[1.55] text-priority-urgent">
-              {t("ai.failed")}
-            </p>
-            <button
-              type="button"
-              onClick={() => setDismissedError(true)}
-              className="flex-none text-priority-urgent hover:opacity-70"
-              title={t("ai.dismiss")}
+        <div className="min-w-0 flex-1">
+          {failed ? (
+            <div className="flex items-start gap-2" role="alert">
+              <p className="flex-1 text-[12.5px] leading-[1.55] text-priority-urgent">
+                {t("ai.failed")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setDismissedError(true)}
+                className="flex-none text-priority-urgent hover:opacity-70"
+                title={t("ai.dismiss")}
+              >
+                <X aria-hidden className="h-3.5 w-3.5" />
+                <span className="sr-only">{t("ai.dismiss")}</span>
+              </button>
+            </div>
+          ) : summary ? (
+            <p
+              data-testid="ai-summary-text"
+              className={cn(
+                "text-[12.5px] leading-[1.55] text-ink-2",
+                !expanded && "line-clamp-2",
+              )}
             >
-              <X aria-hidden className="h-3.5 w-3.5" />
-              <span className="sr-only">{t("ai.dismiss")}</span>
-            </button>
-          </div>
-        ) : summary ? (
-          <p
-            data-testid="ai-summary-text"
-            className={cn(
-              "text-[12.5px] leading-[1.55] text-ink-2",
-              !expanded && "line-clamp-2",
-            )}
-          >
-            {summary}
-          </p>
-        ) : (
-          <p className="text-[12.5px] leading-[1.55] text-muted-foreground">
-            {generating ? t("ai.generating") : t("ai.empty")}
-          </p>
-        )}
+              {summary}
+            </p>
+          ) : (
+            <p className="text-[12.5px] leading-[1.55] text-muted-foreground">
+              {generating ? t("ai.generating") : t("ai.empty")}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-none items-center gap-3">

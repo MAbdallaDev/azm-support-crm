@@ -106,4 +106,19 @@ describe("AppChrome", () => {
     fireEvent.change(field, { target: { value: "invoice" } });
     expect(field).toHaveValue("invoice");
   });
+
+  it("hides the standalone language toggle below sm, offering it from the mobile menu instead", async () => {
+    // Found live at 360px: the 32px segmented EN/ع control was the last thing
+    // still overflowing the header once everything else had already been
+    // trimmed for mobile — the whole bar rendered wider than the viewport.
+    renderChrome("agent");
+
+    expect(screen.getByLabelText(en.common.language).className).toContain("hidden");
+
+    const trigger = screen.getByTestId("mobile-nav-trigger");
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerId: 1 });
+    fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false, pointerId: 1 });
+    fireEvent.click(trigger);
+    expect(await screen.findByText("العربية")).toBeInTheDocument();
+  });
 });

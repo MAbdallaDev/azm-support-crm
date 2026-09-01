@@ -143,7 +143,7 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
       aria-pressed={tab === value}
       data-testid={`detail-tab-${value}`}
       className={cn(
-        "flex items-center gap-1.5 border-b-2 pb-2.5 text-[13px]",
+        "flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 pb-2.5 text-[13px]",
         tab === value
           ? "border-brand font-semibold text-ink"
           : "border-transparent font-medium text-muted-foreground hover:text-ink-2",
@@ -217,7 +217,11 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
 
         <h1 className="mt-3 text-[20px] font-bold tracking-[-0.01em]">{ticket.subject}</h1>
 
-        <nav className="mt-4 flex gap-5">
+        {/* Four English labels ("Internal notes", "Activity log") with counts
+            don't fit a phone width — this row had no wrap and no scroll
+            container of its own, so it overflowed and leaked into the
+            page's own horizontal scroll instead of scrolling locally. */}
+        <nav className="mt-4 flex gap-5 overflow-x-auto">
           {tabButton("conversation", t("tickets.tabConversation"), publicMessages.length)}
           {tabButton("internal", t("tickets.tabInternal"), internalMessages.length)}
           {tabButton("activity", t("tickets.tabActivity"), events?.length ?? 0)}

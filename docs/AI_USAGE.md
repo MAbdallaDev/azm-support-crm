@@ -1865,3 +1865,151 @@ not just itself — the first time a real narrow viewport hits it, because uncon
 doesn't wrap, it expands the whole document. `AppChrome` had already solved this once; the fix here
 was recognizing the same shape of problem in the sibling component that never got the same treatment,
 rather than treating it as a new kind of bug.
+
+## Post-hand-in — Full mobile audit, three more fixed-layout screens broken (`fix/mobile-audit`)          (elapsed: ~1h 45m)
+
+**What I asked for:** "review all pages in mobile perspective and verify that all designs are mobile
+friendly" — a full sweep, not a specific bug report, following directly from the portal-header fix
+just before it.
+
+**What the AI built:** methodically checked every route in both the agent app and the customer
+portal at a 375px viewport (`/app/dashboard`, `/tickets`, `/tickets/:id`, `/tickets/new`,
+`/live-chat`, `/live-chat/:id`, `/customers`, `/customers/:id`, `/kb`, `/kb/:slug`, `/kb/new`,
+`/reports`, `/profile`, and the portal's `/`, `/new`, `/tickets/:id`, `/kb`, `/kb/:slug`,
+`/register`), using an automated "does any element render wider than its scroll container" check
+rather than relying on screenshots alone. Found and fixed three real, previously-unnoticed bugs, all
+in screens with a fixed multi-pane desktop layout and no responsive fallback:
+
+1. **`LiveChat.tsx`** (built earlier this session, never tested at mobile width): the 320px inbox
+   list and the conversation pane rendered side by side unconditionally, squeezing the open
+   conversation into an unusable ~50px sliver with text wrapping one character per line. Fixed with
+   the same two-page pattern `Tickets.tsx` already established: the list hides below `md` once a
+   conversation is selected, with a "← Live Chat" back link.
+2. **`KBBrowse.tsx`**: a 236px category rail + 420px article list + reader pane (656px minimum)
+   never had any responsive handling at all, unlike `Tickets.tsx`. Restructured to stack the rail and
+   list vertically when no article is selected, and hide both behind a "← Knowledge base" back link
+   once one is open — the same shape as the `LiveChat.tsx` fix, applied to a three-pane rather than
+   two-pane layout.
+3. **`Customer360.tsx`**: a fixed-330px contacts/notes rail next to a flex-1 ticket-history table
+   squeezed the table to near-zero width, and — a second, independent bug in the same table — the
+   table itself had no `overflow-x-auto` of its own (unlike `CustomerList`'s shared `DataTable`,
+   which already wraps every table this way), so its overflow leaked into and widened the whole
+   page's scroll area instead of scrolling locally. Fixed both: the rail and table now stack below
+   `md`, and the table gained its own scroll wrapper.
+
+Confirmed clean with no changes needed: `Dashboard`, the ticket queue and detail, `NewTicket`,
+`CustomerList`, the KB editor, `Reports` (its agent-performance table already had `overflow-x-auto`),
+`Profile`, and every portal screen including the floating chat widget panel. 6 new regression tests
+added across `LiveChat.test.tsx`, `KBBrowse.test.tsx`, and `Customer360.test.tsx`.
+
+**Decisions the AI made on its own:**
+
+- **Rejected `document.documentElement.scrollWidth` as the audit signal after the first page passed
+  it while visibly broken.** This app's shell is a fixed `h-screen` layout where `<main>` itself
+  scrolls (`overflow-y-auto`), not the document — so document-level width was reporting "fine" while
+  `KBBrowse` was actually 740px of content squeezed into a 375px `<main>`. Switched to checking
+  `main.scrollWidth` vs `main.clientWidth`, then refined further to "does any single element render
+  wider than its container" after even the `main`-level numbers turned out to disagree with reality
+  on one page for reasons traced to an RTL/scrollbar rendering quirk of the specific browser engine in
+  use, not a real bug — the per-element check doesn't depend on that arithmetic at all.
+- **Distinguished a genuinely broken overflow from a properly-scoped one** before treating either as
+  a bug: `Reports`' agent-performance table is also wider than its container, but it already sits
+  inside its own `overflow-x-auto` wrapper and scrolls locally without affecting the page — correct,
+  left untouched. `Customer360`'s ticket-history table had no such wrapper — that was the bug.
+- **Fixed the `Customer360` table's local overflow-x-auto in the same commit as its layout-stacking
+  fix**, even though only one of the two was strictly necessary to make it usable, because both are
+  one-line changes in a component this same investigation already had open, and shipping the layout
+  fix without the scroll wrapper would have left a second, related bug for the exact same table.
+
+**What I had to correct:** treated an apparent 30px `main`-level overflow on the fixed `LiveChat`
+detail view as real at first, until a targeted check ("does any element actually render wider than
+375px") came back empty — no element was wider than its container, so the `scrollWidth` gap was
+measurement noise from the same RTL-scrollbar quirk seen once already this session, not a live bug.
+Verified this conclusion against the screenshot, which showed a clean, correctly laid-out screen,
+before moving on rather than chasing a number that disagreed with everything else.
+
+**What I learned:** "no page-level horizontal scrollbar" and "mobile-friendly" are not the same
+claim in an app whose shell scrolls internally — three real bugs here would have all read as clean
+under the document-level check alone. The reliable signal turned out to be the most literal one
+("is any element wider than the box that's supposed to contain it"), not a derived arithmetic
+comparison that depends on assumptions about which element does the scrolling.
+
+**Addendum, same branch:** the user then sent two real-device screenshots (360×780, an actual iPhone
+SE-class width rather than the 375–391px this session's browser-automation tool had been reporting)
+showing `AppChrome`'s own header — not just the pages beneath it — visibly wider than the frame. This
+was the exact header this session had earlier measured at ~390px of content in a ~391px window and
+judged "fits, barely" from a `scrollWidth`/`clientWidth` comparison that turned out to be right at the
+threshold where the RTL-scrollbar measurement noise (documented above) could mask a few pixels of
+genuine overflow; at a true 360px it no longer fit at all. Fixed by moving the 32px segmented EN/ع
+language toggle into the mobile hamburger menu below `sm` (extracting its switching logic into a
+reusable `useLanguageSwitch` hook so the menu item and the standalone control share one
+implementation) rather than trimming padding further, which had already been reduced as far as it
+could go without every other element on the bar changing size. Verified at a real 360px width this
+time, and added a regression test using `pointerdown`/`pointerup` events rather than a bare `click` —
+the fireEvent sequence Radix's `DropdownMenu` trigger actually listens for, discovered only once a
+test that couldn't pass by accident (an earlier test in this session had asserted against text that
+also existed, hidden, outside the dropdown, and so proved nothing about whether the click worked at
+all) forced the real gap into the open.
+
+**What I learned, again:** the 375–391px range this session's own tooling reported is close enough to
+a real 360px phone that a bug sitting in that gap can pass every automated check and still be visible
+to an actual user on an actual device — the fix here shipped only because the user tested on
+something this session's tooling couldn't faithfully reproduce, not because the audit above was
+insufficiently thorough at the widths it actually checked.
+
+**Second addendum, same branch:** two more real-device screenshots (still 360×780, now in English
+rather than the Arabic this session's own sweep happened to test in) showed two further bugs, both in
+screens the sweep had already visited and passed:
+
+1. **`Customer360.tsx`'s header card**: the avatar/name/company column and the "Edit"/"New ticket"
+   buttons shared one `items-center` row. In Arabic the company line was short enough to stay on one
+   line, so the row never actually wrapped during this session's own testing; the user's English
+   content ("Arabian Gulf Trading Co. · Riyadh · prefers Arabic") was long enough to wrap onto three
+   lines, and `items-center` then centered the buttons against that full wrapped height — rendering
+   them floating mid-way through the company address rather than below it. Fixed by splitting into
+   its own row that stacks below `sm`.
+2. **`TicketDetail.tsx`'s four-tab bar and `Composer.tsx`'s mode row**: both were plain unwrapped flex
+   rows with no `overflow-x-auto` of their own. Arabic's short labels ("المحادثة", "رد") fit; English's
+   longer ones ("Internal notes", "Activity log", "Sending via") did not, and — the same failure shape
+   as `Customer360`'s ticket-history table earlier in this branch — the overflow leaked into and
+   widened the whole page rather than scrolling locally, clipping unrelated text above and below
+   it (a back link, the ticket number) that had nothing to do with either row. Fixed by giving each
+   its own `overflow-x-auto` plus `whitespace-nowrap`/`flex-none` on its items, matching the pattern
+   already used elsewhere in this same branch.
+
+**What I learned, a third time:** this session's own testing had been running mobile checks
+disproportionately in Arabic, whose typically-shorter labels quietly hid two more instances of the
+exact bug shape this branch already knew about (fixed-row content with no local scroll container).
+Content-length is a real, separate axis from viewport width when auditing "does this fit" — a screen
+confirmed clean at 360px in one language is not confirmed clean at 360px in the other, and the fix
+each time was recognizable on sight only because the previous fixes in this same branch had already
+named the shape: unwrapped flex content with nowhere to go needs either wrapping/stacking or its own
+`overflow-x-auto`, chosen by whether the content reads better as a column or a locally-scrollable row.
+
+**Third addendum, same branch:** the user then pointed at two cropped screenshots of the very screen
+this branch had just fixed — "this part height is so tiny" for the AI-summary banner and composer
+tab row, and just "button" for the composer's Attach/Suggest/Send row — without further detail. Two
+more layout bugs, both a size down from the ones already fixed:
+
+1. **`AiSummaryBanner.tsx`**: the badge, the message text, and the "Generate summary" action shared
+   one `items-start` row. The earlier fixes in this branch had made the *tabs above* and the
+   *composer mode row below* it scroll correctly, but never touched this banner sitting between
+   them — at 360px its text column got squeezed so narrow that even "No summary yet." wrapped across
+   three lines, which is what "so tiny" pointed at. Fixed by giving the badge+text pair their own
+   full-width row below `sm` (via `sm:contents`, so the single-row layout at `sm` and up is
+   unchanged) and letting the actions become their own row underneath.
+2. **`Composer.tsx`**'s bottom button row: Attach + Suggest reply + a `flex-1` spacer + Send reply
+   didn't all fit one row at 360px, and — a flexbox-specific trap — a `flex-1` spacer that can't
+   shrink far enough wraps onto its *own* empty full-width line when the row wraps, rather than
+   simply letting the next button follow it down; Send ended up crowded flush against the composer
+   card's rounded corner with no margin. Fixed by dropping the spacer for `flex-wrap` on the row and
+   `ms-auto` on the Send button, which doesn't have that wrapping side effect.
+
+2 new regression tests (`AiSummaryBanner.test.tsx`, new file; `Composer.test.tsx`), 294 total passing.
+
+**What I learned, a fourth time:** "fits without horizontal overflow" and "looks right" are still two
+different bars — both of these screens already passed the overflow check from the earlier fixes in
+this branch; the actual complaint was readability and touch-target crowding, not a page that scrolled
+sideways. A terse two-word user report ("button") pointing at a screenshot was enough to locate the
+real issue once the surrounding fixes had already established which specific rows on that screen were
+fixed-width-constrained.

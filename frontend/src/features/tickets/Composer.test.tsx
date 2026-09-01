@@ -258,3 +258,19 @@ describe("suggest reply", () => {
     expect(mock.urls().some((url) => url.includes("/messages/"))).toBe(false);
   });
 });
+
+describe("the bottom button row on a narrow screen", () => {
+  it("wraps instead of using a flex-1 spacer, so Send can drop to its own line", () => {
+    // Found live at 360px: Attach + Suggest reply + Send reply didn't all
+    // fit one row, and the flex-1 spacer between them wrapped onto its own
+    // empty line instead of letting Send follow naturally — Send rendered
+    // crowded flush against the composer card's rounded corner.
+    setup();
+
+    const row = screen.getByTestId("composer-suggest").parentElement;
+    expect(row?.className).toContain("flex-wrap");
+
+    const sendButton = screen.getByRole("button", { name: /send/i });
+    expect(sendButton.className).toContain("ms-auto");
+  });
+});

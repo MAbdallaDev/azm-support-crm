@@ -161,7 +161,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
       aria-pressed={internal === isInternal}
       data-testid={`composer-mode-${isInternal ? "internal" : "reply"}`}
       className={cn(
-        "border-b-2 pb-[9px] text-[13px]",
+        "flex-none whitespace-nowrap border-b-2 pb-[9px] text-[13px]",
         internal === isInternal
           ? "border-brand font-semibold text-ink"
           : "border-transparent font-medium text-muted-foreground hover:text-ink-2",
@@ -179,16 +179,19 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
         internal ? "border-priority-high/40" : "border-line",
       )}
     >
-      <div className="flex items-center gap-[18px] px-3.5 pt-[11px]">
+      {/* Below a phone width "Reply" + "Internal note" + "Sending via" + the
+          channel badge don't fit one unwrapped row — this leaked into the
+          page's own horizontal scroll the same way the tabs above it did. */}
+      <div className="flex items-center gap-[18px] overflow-x-auto px-3.5 pt-[11px]">
         {modeTab(false, t("composer.reply"))}
         {modeTab(true, t("composer.internalNote"))}
         <span className="flex-1" />
         {!internal ? (
           <>
-            <span className="pb-[9px] text-[11.5px] text-muted-foreground">
+            <span className="flex-none whitespace-nowrap pb-[9px] text-[11.5px] text-muted-foreground">
               {t("composer.sendingVia")}
             </span>
-            <ChannelBadge channel={ticket.channel} className="mb-[9px]" />
+            <ChannelBadge channel={ticket.channel} className="mb-[9px] flex-none" />
           </>
         ) : null}
       </div>
@@ -250,7 +253,13 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
 
       <ArticlePicker open={pickerOpen} onOpenChange={setPickerOpen} onPick={insertAtCursor} />
 
-      <div className="flex items-center gap-2 p-3.5">
+      {/* `flex-wrap` + `ms-auto` on Send rather than a flex-1 spacer: at a
+          phone width "Attach" + "Suggest reply" + "Send reply" don't all fit
+          one row, and a spacer sized by flex-1 wraps onto its own empty
+          full-width line instead of just letting Send drop to the next
+          line — found live as Send crowded flush against the card's
+          rounded corner with no breathing room. */}
+      <div className="flex flex-wrap items-center gap-2 p-3.5">
         <input
           ref={fileInput}
           type="file"
@@ -292,9 +301,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
           </Button>
         ) : null}
 
-        <span className="flex-1" />
-
-        <Button type="submit" size="sm" disabled={!body.trim() || send.isPending}>
+        <Button type="submit" size="sm" className="ms-auto" disabled={!body.trim() || send.isPending}>
           {send.isPending ? (
             <>
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
