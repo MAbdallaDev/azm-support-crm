@@ -137,7 +137,7 @@ describe("matching the design canvas", () => {
     expect(screen.getByText("Closed ticket 6")).toBeInTheDocument();
   });
 
-  it("a KB shortcut chip searches the KB with that category's name", async () => {
+  it("a KB shortcut chip filters the KB by that category's slug, not a text search", async () => {
     mockPortalTickets([]);
     const { router } = setup();
 
@@ -145,7 +145,7 @@ describe("matching the design canvas", () => {
 
     await waitFor(() =>
       expect(router.state.location.pathname + router.state.location.search).toBe(
-        "/portal/kb?q=Billing%20%26%20Invoices",
+        "/portal/kb?category=billing",
       ),
     );
   });

@@ -1,7 +1,7 @@
-import { Inbox } from "lucide-react";
+import { Inbox, X } from "lucide-react";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { usePortalArticle, usePortalArticles } from "@/api/portal";
 import type { PortalKBArticle } from "@/api/types";
@@ -10,6 +10,8 @@ import { Pill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/format";
 import { MarkdownBody } from "@/lib/markdown";
+import { PORTAL_KB_CATEGORIES } from "@/lib/portalKbCategories";
+import { useUrlFilters } from "@/lib/urlFilters";
 
 /**
  * `/portal/kb` and `/portal/kb/:slug` — browse and search published articles,
@@ -79,17 +81,22 @@ function PortalReader({ article }: { article: PortalKBArticle }) {
   );
 }
 
+const FILTER_KEYS = ["q", "category"] as const;
+
 export default function PortalKB() {
   const { t } = useTranslation();
   const { slug } = useParams();
-  const [search, setSearch] = useSearchParams();
-  const q = search.get("q") ?? "";
+  const filters = useUrlFilters({ keys: FILTER_KEYS });
+  const q = filters.value("q") ?? "";
+  const category = filters.value("category") ?? "";
+  const categoryLabel = PORTAL_KB_CATEGORIES.find((c) => c.slug === category)?.labelKey;
 
   const apiParams = React.useMemo(() => {
     const params = new URLSearchParams({ page_size: "50" });
     if (q) params.set("q", q);
+    if (category) params.set("category", category);
     return params;
-  }, [q]);
+  }, [q, category]);
 
   const { data, isPending } = usePortalArticles(apiParams);
   const rows = data?.results ?? [];
@@ -103,13 +110,27 @@ export default function PortalKB() {
           <input
             type="search"
             value={q}
-            onChange={(event) => setSearch(event.target.value ? { q: event.target.value } : {})}
+            onChange={(event) => filters.setFilter("q", event.target.value || null)}
             placeholder={t("kb.search")}
             aria-label={t("kb.search")}
             data-testid="portal-kb-list-search"
             className="h-9 w-full rounded-lg border border-line bg-background px-3 text-[13px] outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
+        {categoryLabel ? (
+          <div className="flex items-center justify-between border-t border-line-2 px-3.5 py-2">
+            <span className="text-[11.5px] text-muted-foreground">{t(categoryLabel)}</span>
+            <button
+              type="button"
+              data-testid="portal-kb-clear-category"
+              onClick={() => filters.setFilter("category", null)}
+              aria-label={t("kb.clearCategory")}
+              className="text-faint hover:text-ink-2"
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
         <div className="h-px bg-line-2" />
         {isPending ? (
           <div className="space-y-3 p-4">

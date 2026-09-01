@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { toast } from "@/components/ui/toast";
 import { formatRelative } from "@/lib/format";
+import { PORTAL_KB_CATEGORIES } from "@/lib/portalKbCategories";
 
 /**
  * `/portal` — `PortalHome.dc.html`: a dark hero (personalized greeting, KB
@@ -26,22 +27,14 @@ import { formatRelative } from "@/lib/format";
  * Arabic session during story 10's sweep. Rendered here via the same
  * `StatusBadge`/`ChannelBadge` the agent queue uses, not a second colour map.
  *
- * The four search shortcuts below the hero search box are real seeded KB
- * category names (`backend/apps/tickets/demo_content.py`'s `KB_CATEGORIES`),
- * not decorative labels — each just pre-fills the same `/portal/kb?q=`
- * search the box itself performs, no new endpoint or category filter.
+ * The four chips below the hero search box are real category filters
+ * (`?category=<slug>` into `/portal/kb`, matching the agent-side KB
+ * browser's own `category` param) — see `lib/portalKbCategories.ts`.
  */
 
 const CLOSED_STATUSES = new Set(["resolved", "closed"]);
 const RATEABLE_STATUSES = new Set(["resolved", "closed"]);
 const CLOSED_PAGE_SIZE = 5;
-
-const KB_SHORTCUTS = [
-  "portal.shortcutBilling",
-  "portal.shortcutTechnical",
-  "portal.shortcutAccount",
-  "portal.shortcutGettingStarted",
-] as const;
 
 function TicketRow({ ticket }: { ticket: PortalTicket }) {
   const { t } = useTranslation();
@@ -104,7 +97,7 @@ export default function PortalHome() {
     navigate(query ? `/portal/kb?q=${encodeURIComponent(query)}` : "/portal/kb");
   };
 
-  const onShortcut = (label: string) => navigate(`/portal/kb?q=${encodeURIComponent(label)}`);
+  const onCategoryShortcut = (slug: string) => navigate(`/portal/kb?category=${encodeURIComponent(slug)}`);
 
   const onStartLiveChat = () => {
     const existing = open.find((ticket) => ticket.channel === "chat");
@@ -176,14 +169,14 @@ export default function PortalHome() {
         </form>
 
         <div className="mt-3.5 flex flex-wrap gap-2">
-          {KB_SHORTCUTS.map((key) => (
+          {PORTAL_KB_CATEGORIES.map(({ slug, labelKey }) => (
             <button
-              key={key}
+              key={slug}
               type="button"
-              onClick={() => onShortcut(t(key))}
+              onClick={() => onCategoryShortcut(slug)}
               className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-[#c9cfda] hover:bg-white/15"
             >
-              {t(key)}
+              {t(labelKey)}
             </button>
           ))}
         </div>
