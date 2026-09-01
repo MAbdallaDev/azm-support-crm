@@ -9,4 +9,4 @@ across all features when `naming.globalSequence` is `true` in `config.yaml`.
 | crm-advanced | [crm-advanced/00-overview.md](crm-advanced/00-overview.md) | 11+ |
 
 `crm-advanced` picks one Phase 2 item at a time from `docs/00-project-brief.md` part B — story 11
-is the first.
+(suggested solutions) was the first, story 12 (live chat) the second.

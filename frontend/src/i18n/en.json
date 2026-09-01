@@ -121,6 +121,8 @@
     "noOpenTicketsBody": "Submit a request and it will appear here.",
     "noClosedTickets": "No closed requests yet",
     "submitRequest": "Submit a request",
+    "startLiveChat": "Start a live chat",
+    "liveChatSubject": "Live chat",
     "searchHelp": "Search help articles",
     "registerTitle": "Create your account",
     "registerSubtitle": "Sign in once you register — no separate step.",

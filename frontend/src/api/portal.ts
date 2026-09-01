@@ -85,13 +85,19 @@ export const useSubmitPortalTicket = () => {
       subject: string;
       description: string;
       category: number | null;
+      channel?: string;
       attachments: File[];
     }) =>
       api
         .post<{ id: number; number: string }>(
           "/portal/tickets/",
           toFormData(
-            { subject: args.subject, description: args.description, category: args.category },
+            {
+              subject: args.subject,
+              description: args.description,
+              category: args.category,
+              ...(args.channel ? { channel: args.channel } : {}),
+            },
             args.attachments,
             "attachments",
           ),
@@ -104,11 +110,14 @@ export const useSubmitPortalTicket = () => {
   });
 };
 
-export const usePortalMessages = (id: number | null) =>
+/** `live` — see `useTicketMessages`'s doc comment in `tickets.ts`; same scoped
+ *  polling, mirrored on the portal side. */
+export const usePortalMessages = (id: number | null, live: boolean = false) =>
   useQuery({
     queryKey: qk.portal.tickets.messages(id ?? 0),
     queryFn: () => api.get<PortalMessage[]>(`/portal/tickets/${id}/messages/`).then((r) => r.data),
     enabled: id !== null,
+    refetchInterval: live ? 4000 : false,
   });
 
 export const useSendPortalMessage = () => {

@@ -66,7 +66,10 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
   const [confirm, setConfirm] = React.useState<"escalate" | "resolve" | null>(null);
   const [reason, setReason] = React.useState("");
 
-  const { data: messages, isPending: messagesPending } = useTicketMessages(ticket.id);
+  const { data: messages, isPending: messagesPending } = useTicketMessages(
+    ticket.id,
+    ticket.channel === "chat",
+  );
   const { data: events, isPending: eventsPending } = useTicketEvents(ticket.id);
 
   const changeStatus = useChangeStatus();
