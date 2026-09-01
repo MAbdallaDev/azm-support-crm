@@ -131,7 +131,15 @@ class TicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
             # each row renders customer, assignee, category and SLA state. Without
             # these joins that is five extra queries per row against ~150 seeded
             # tickets. test_queue_performance.py pins the property.
-            return qs.select_related(
+            #
+            # Live chat conversations are excluded here on purpose: they have
+            # their own dedicated inbox (the `live_chat` action below) and
+            # screen, so showing them again in the general queue — and in `q`
+            # search results, which this same action serves — would just be
+            # the identical conversation listed twice. `retrieve` is
+            # deliberately NOT filtered: opening one by id (e.g. the Live
+            # Chat screen's own "View ticket record" link) still works.
+            return qs.exclude(channel=Channel.CHAT).select_related(
                 "customer", "contact", "assignee", "category",
                 "department", "branch", "sla_policy",
             )

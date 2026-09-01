@@ -85,7 +85,11 @@ export default function PortalHome() {
 
   const { data: me } = useMe();
   const { data, isPending, isError, refetch } = usePortalTickets(new URLSearchParams({ page_size: "100" }));
-  const tickets = data?.results ?? [];
+  // Live chat has its own floating widget now (reachable from every portal
+  // page), so its conversation is deliberately left out of "My requests" —
+  // filtered here, not from the query itself, since `ChatWidgetContext`
+  // shares this exact cached list to find an existing chat ticket to reuse.
+  const tickets = (data?.results ?? []).filter((ticket) => ticket.channel !== "chat");
   const open = tickets.filter((ticket) => !CLOSED_STATUSES.has(ticket.status));
   const closed = tickets.filter((ticket) => CLOSED_STATUSES.has(ticket.status));
   const visibleClosed = showAllClosed ? closed : closed.slice(0, CLOSED_PAGE_SIZE);

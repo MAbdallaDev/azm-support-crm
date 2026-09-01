@@ -83,7 +83,10 @@ def test_customer_gets_403_on_agent_routes(users, django_db_blocker):
 @pytest.mark.django_db
 def test_admin_sees_every_ticket(users, django_db_blocker):
     with django_db_blocker.unblock():
-        assert len(all_ids(client_for(users["admin"]))) == Ticket.objects.count()
+        # Excluding "chat" here, not a scoping gap: live-chat conversations
+        # are deliberately absent from `/tickets/` for every role, admin
+        # included — they have their own dedicated inbox.
+        assert len(all_ids(client_for(users["admin"]))) == Ticket.objects.exclude(channel="chat").count()
 
 
 @pytest.mark.django_db
@@ -107,7 +110,7 @@ def test_agent_sees_department_plus_assigned_and_watched(users, django_db_blocke
             set(Ticket.objects.filter(department=agent.department).values_list("id", flat=True))
             | set(Ticket.objects.filter(assignee=agent).values_list("id", flat=True))
             | set(Ticket.objects.filter(watchers=agent).values_list("id", flat=True))
-        )
+        ) - set(Ticket.objects.filter(channel="chat").values_list("id", flat=True))
         assert set(ids) == expected
 
 
@@ -129,7 +132,11 @@ def test_out_of_scope_detail_is_404_not_403(users, django_db_blocker):
     with django_db_blocker.unblock():
         agent = users["agent"]
         visible = set(all_ids(client_for(agent)))
-        hidden = Ticket.objects.exclude(id__in=visible).first()
+        # `.exclude(channel="chat")` here too — a chat ticket absent from
+        # `all_ids()` is absent because the list excludes that channel for
+        # everyone, not because it is genuinely out of this agent's scope,
+        # and picking one would make this a test of the wrong thing.
+        hidden = Ticket.objects.exclude(id__in=visible).exclude(channel="chat").first()
         assert hidden is not None, "fixture is broken: agent can see every ticket"
 
         response = client_for(agent).get(f"{TICKETS_URL}{hidden.pk}/")
@@ -144,7 +151,10 @@ def test_out_of_scope_write_actions_are_also_404(users, django_db_blocker):
     with django_db_blocker.unblock():
         agent = users["agent"]
         visible = set(all_ids(client_for(agent)))
-        hidden = Ticket.objects.exclude(id__in=visible).first()
+        # Same reasoning as the 404 test above: exclude "chat" from the
+        # candidates so "hidden" means genuinely out of scope, not merely
+        # excluded from the list by channel.
+        hidden = Ticket.objects.exclude(id__in=visible).exclude(channel="chat").first()
         client = client_for(agent)
 
         for method, url, payload in (

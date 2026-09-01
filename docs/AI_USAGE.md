@@ -2013,3 +2013,51 @@ this branch; the actual complaint was readability and touch-target crowding, not
 sideways. A terse two-word user report ("button") pointing at a screenshot was enough to locate the
 real issue once the surrounding fixes had already established which specific rows on that screen were
 fixed-width-constrained.
+
+## Post-hand-in — Live chat no longer shows up twice (`fix/live-chat-hidden-from-ticket-list`)          (elapsed: ~45m)
+
+**What I asked for:** two screenshots — the customer portal's "My requests" list and the agent's
+ticket queue, both showing a live-chat conversation as an ordinary row — with "no need to put live
+chat within tickets for all user... we can reach to live chat from other places so remove it from
+ticket list."
+
+**What the AI built:**
+
+- Backend: `TicketViewSet.get_queryset()` now excludes `channel=chat` specifically for the `list`
+  action (agent queue + `q` search, which shares that same action) — `retrieve` is untouched, so
+  opening a chat ticket directly by id (the Live Chat screen's own "View ticket record" link) still
+  works.
+- `TicketQueue.tsx`: removed "Live chat" from the channel filter dropdown — with the queue itself
+  never returning one, that option would only ever have produced an empty list.
+- `PortalHome.tsx`: filters `channel !== "chat"` out of the rendered Open/Closed lists —
+  client-side, not from the query itself, since `ChatWidgetContext`'s own "does an open chat ticket
+  already exist" check shares that exact cached list and still needs to see it.
+- 5 new tests (2 backend, 3 frontend) plus 4 pre-existing backend scoping tests updated (see below).
+
+**Decisions the AI made on its own:**
+
+- **Backend exclusion for the agent side, frontend-only filtering for the portal side** — a
+  deliberate asymmetry, not an inconsistency. The agent ticket queue has no other consumer that needs
+  chat tickets in its result set, so excluding at the query level is strictly cleaner. The portal's
+  own `usePortalTickets` list, though, is shared cache: `ChatWidgetContext` reads the *same* query to
+  find an existing open chat ticket to reuse when the widget opens. Filtering there instead of in the
+  hook keeps that internal lookup working while "My requests" itself never renders one.
+- **Excluded from `list`, not from `retrieve`** on the backend, specifically so a chat ticket stays
+  reachable by direct id — the exact path the Live Chat screen's "View ticket record" link already
+  depends on.
+
+**What I had to correct:** the backend exclusion broke four pre-existing scoping tests
+(`test_scoping_endpoints.py`) that had been silently relying on "a ticket absent from the list
+response is a ticket outside this role's scope" as their definition of "hidden" — now a chat ticket
+can be absent from the list for an unrelated reason (channel, not scope), which made two tests
+compute the wrong expected set (`test_admin_sees_every_ticket`, `test_agent_sees_department_...`)
+and two others accidentally pick an in-scope chat ticket as their "hidden" fixture and then fail when
+write actions against it correctly succeeded instead of 404ing. Fixed by explicitly excluding
+`channel="chat"` from each test's own expected-set computation and from the "hidden ticket" candidate
+pool, rather than loosening the assertions — the tests were right to enforce scope-by-role; they
+just needed to stop conflating that with "excluded from the list for an unrelated reason."
+
+**What I learned:** a query-level exclusion married to a semantically loose test helper ("whatever
+`all_ids()` returns defines the scope boundary") is a trap that only surfaces the moment a second,
+legitimate reason to leave something out of a list shows up — the four failures here were the test
+suite doing exactly its job, not collateral damage to shrug off.

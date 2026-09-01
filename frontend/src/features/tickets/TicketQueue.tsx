@@ -244,7 +244,10 @@ export function TicketQueue({
                 value={filters.value("channel")}
                 placeholder={t("tickets.anyChannel")}
                 onChange={filters.setFilter}
-                options={CHANNELS.map((channel) => ({
+                // "chat" excluded on purpose: the queue itself never returns
+                // live-chat tickets (they have their own inbox), so offering
+                // it here would be a filter that always yields nothing.
+                options={CHANNELS.filter((channel) => channel !== "chat").map((channel) => ({
                   value: channel,
                   label: t(`channel.${channel}`),
                 }))}
