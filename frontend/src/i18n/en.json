@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "tickets": "Tickets",
+    "liveChat": "Live Chat",
     "customers": "Customers",
     "kb": "Knowledge base",
     "reports": "Reports",
@@ -111,7 +112,8 @@
     "arabic": "العربية",
     "search": "Search",
     "remove": "Remove",
-    "open": "Open"
+    "open": "Open",
+    "close": "Close"
   },
   "portal": {
     "home": "My requests",
@@ -126,6 +128,9 @@
     "submitRequest": "Submit a request",
     "startLiveChat": "Start a live chat",
     "liveChatSubject": "Live chat",
+    "chatWidgetTitle": "Live support",
+    "chatWidgetSubtitle": "Usually replies in a few minutes",
+    "chatWidgetStarting": "Starting your chat…",
     "heroTitle": "How can we help?",
     "heroTitleNamed": "How can we help, {{name}}?",
     "heroSubtitle": "Search our help articles first — most questions are answered there in under a minute.",
@@ -258,6 +263,19 @@
     "resolved": "Ticket resolved.",
     "actionFailed": "That did not work. Nothing was changed.",
     "resizeQueue": "Resize ticket queue"
+  },
+  "liveChat": {
+    "title": "Live Chat",
+    "activeCount": "{{count}} active",
+    "noConversations": "No active conversations",
+    "noConversationsBody": "A new live chat from the portal will appear here.",
+    "selectTitle": "Select a conversation",
+    "selectBody": "Pick one from the list to open it.",
+    "startedRelative": "Customer · started {{when}}",
+    "viewTicketRecord": "View ticket record ({{number}})",
+    "typeMessage": "Type a message…",
+    "send": "Send",
+    "sendFailed": "The message was not sent. Try again."
   },
   "ai": {
     "summary": "AI SUMMARY",

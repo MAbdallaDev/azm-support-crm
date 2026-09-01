@@ -7,6 +7,7 @@ import type {
   Attachment,
   CannedReply,
   Category,
+  LiveChatConversation,
   Paginated,
   Tag,
   TicketDetail,
@@ -45,6 +46,20 @@ export const useTicketList = (params: URLSearchParams) => {
     placeholderData: (previous) => previous,
   });
 };
+
+/**
+ * The Live Chat inbox — a small, distinct list, so it polls unconditionally
+ * (unlike `useTicketList`, which never polls): the whole point of this screen
+ * is knowing the moment a new chat conversation needs a reply. Shared query
+ * key with the nav badge in `AppChrome.tsx`, so the two never disagree and
+ * opening the Live Chat page doesn't trigger a second, redundant fetch.
+ */
+export const useLiveChatInbox = () =>
+  useQuery({
+    queryKey: qk.liveChat,
+    queryFn: () => api.get<LiveChatConversation[]>("/tickets/live-chat/").then((r) => r.data),
+    refetchInterval: 15000,
+  });
 
 /**
  * A tab's badge count.

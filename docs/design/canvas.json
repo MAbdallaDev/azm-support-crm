@@ -107,6 +107,78 @@
       "h": 940,
       "title": "Manager reports",
       "page": "agent-app"
+    },
+    {
+      "file": "SearchOptionA.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 620,
+      "title": "Search dropdown — Option A",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "SearchOptionB.dc.html",
+      "x": 0,
+      "y": 700,
+      "w": 1440,
+      "h": 620,
+      "title": "Search dropdown — Option B (recommended)",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "SearchOptionC.dc.html",
+      "x": 0,
+      "y": 1400,
+      "w": 1260,
+      "h": 560,
+      "title": "Search dropdown — Option C (shipped)",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "SearchRTL.dc.html",
+      "x": 1500,
+      "y": 0,
+      "w": 1040,
+      "h": 460,
+      "title": "Search dropdown — RTL",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "SearchProblem.dc.html",
+      "x": 1500,
+      "y": 620,
+      "w": 1088,
+      "h": 400,
+      "title": "Search dropdown — the problem with Option A",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "SearchMobile.dc.html",
+      "x": 1500,
+      "y": 1120,
+      "w": 1280,
+      "h": 780,
+      "title": "Search — mobile takeover",
+      "page": "search-dropdown"
+    },
+    {
+      "file": "LiveChatInbox.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 860,
+      "title": "Live Chat — agent inbox",
+      "page": "live-chat"
+    },
+    {
+      "file": "PortalChatWidget.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1280,
+      "h": 760,
+      "title": "Live Chat — portal widget",
+      "page": "live-chat"
     }
   ],
   "annotations": [
@@ -133,11 +205,59 @@
       "w": 560,
       "text": "Ticket workspace is the primary spec — story 07 builds this screen.\nQueue left, conversation centre, context right. Everything else on this page reuses its vocabulary.",
       "page": "agent-app"
+    },
+    {
+      "id": "search-option-a-note",
+      "x": 0,
+      "y": -140,
+      "w": 460,
+      "text": "Option A — reaches the language toggle. Fixes the edge-hugging bug (inset-inline-end:0) but the 540px panel spans two unrelated controls (search + language switcher), which can blur which one triggered it.",
+      "page": "search-dropdown"
+    },
+    {
+      "id": "search-option-b-note",
+      "x": 0,
+      "y": 560,
+      "w": 460,
+      "text": "Option B — anchored to the search field's own edge only, 480px, matching how the bell and user-menu dropdowns are each scoped to their own single trigger.",
+      "page": "search-dropdown"
+    },
+    {
+      "id": "search-option-c-note",
+      "x": 0,
+      "y": 1260,
+      "w": 700,
+      "text": "Option C — shipped. width: clamp(280px, 26vw, 480px) instead of a fixed anchor. Verified at 1024/1200/1440px: the panel is always a proportional fraction of the viewport, so it can never claim more room than the header actually has. This is what's live in GlobalSearch.tsx.",
+      "page": "search-dropdown"
+    },
+    {
+      "id": "search-problem-note",
+      "x": 1500,
+      "y": 480,
+      "w": 700,
+      "text": "The problem with Option A, shown honestly: 1024px is GlobalSearch.tsx's own real breakpoint. The window below clips with overflow:hidden like a real viewport — Option A's fixed 540px panel runs past the edge and gets clipped, even placed more generously than its real position.",
+      "page": "search-dropdown"
+    },
+    {
+      "id": "search-mobile-note",
+      "x": 1500,
+      "y": 1980,
+      "w": 700,
+      "text": "Mobile search is new UX, not an adaptation — there was no search entry point at all below the 1024px breakpoint. A full-screen takeover sidesteps the anchoring question entirely: no floating panel, no edge to hug.",
+      "page": "search-dropdown"
+    },
+    {
+      "id": "live-chat-note",
+      "x": 0,
+      "y": -160,
+      "w": 640,
+      "text": "Live chat used to be a Ticket shown in the ordinary queue and detail page — indistinguishable from email/WhatsApp. This redesign makes it a real messaging screen: a dedicated agent inbox (no SLA/category/priority/internal-note chrome) and a floating portal widget instead of a full-page navigation. The data model is unchanged — still channel=\"chat\" on the same Ticket — only the presentation is new.",
+      "page": "live-chat"
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "agent-app"
+    "page": "live-chat"
   },
   "pages": [
     {
@@ -151,6 +271,14 @@
     {
       "id": "arabic-foundations",
       "name": "Arabic & foundations"
+    },
+    {
+      "id": "search-dropdown",
+      "name": "Search dropdown"
+    },
+    {
+      "id": "live-chat",
+      "name": "Live chat redesign"
     }
   ]
 }

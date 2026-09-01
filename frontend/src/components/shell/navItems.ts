@@ -32,6 +32,7 @@ export const adminUrl = (): string => {
 export const appNavItems = (): readonly NavItem[] => [
   { key: "dashboard", labelKey: "nav.dashboard", to: "/app/dashboard", roles: STAFF },
   { key: "tickets", labelKey: "nav.tickets", to: "/app/tickets", roles: STAFF },
+  { key: "live-chat", labelKey: "nav.liveChat", to: "/app/live-chat", roles: STAFF },
   { key: "customers", labelKey: "nav.customers", to: "/app/customers", roles: STAFF },
   { key: "kb", labelKey: "nav.kb", to: "/app/kb", roles: STAFF },
   // Reports are manager-or-admin on the API too (story 05); this mirrors that

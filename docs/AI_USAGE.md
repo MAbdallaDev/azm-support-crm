@@ -1733,3 +1733,84 @@ enough shape that it is worth checking every future "has this data arrived yet" 
 explicitly asking "what does this render on a *settled* error, not just before data arrives?" —
 `!ticket` alone cannot distinguish "not fetched yet" from "fetched and failed," and only looks
 correct until the failure path is actually exercised.
+
+## Post-hand-in — Live chat redesign: a real messaging screen, not a disguised ticket (`feature/live-chat-redesign`)          (elapsed: ~2h 30m)
+
+**What I asked for:** direct product feedback after using the earlier live-chat feature — "I am not
+satisfied with the design of live chat. I put it with the ticket... live chat is a ticket called
+'محادثة مباشرة' — that's not good for me. Behave as a UI/UX designer and change this design. First
+give me the design before implementation." A design-first request, explicitly gated on approval
+before any code changed.
+
+**What the AI built, in two stages:**
+
+1. **A design proposal, published as a canvas, before writing any application code.** Two mockups
+   matching the app's real design tokens (read from `tailwind.config.js`/`index.css`, not
+   guessed): an agent-side dedicated Live Chat inbox (messaging-app list + a plain conversation
+   thread, no SLA/category/priority/internal-note chrome) and a portal-side floating chat widget
+   (launcher bubble + compact panel) in place of the old full-page ticket navigation. Reviewed once
+   in the background against the brief (RTL logical properties, no forbidden ticket fields, color
+   tokens) before handing it over. Approved as-is with "yes, implement it."
+2. **The approved design, for real, once given the go-ahead:**
+   - Backend: `LiveChatListSerializer` and `GET /tickets/live-chat/`
+     (`backend/apps/tickets/views.py`/`serializers.py`) — a distinct, unpaginated inbox list scoped
+     through the same `get_queryset()` every other agent list uses, with `last_message`/
+     `last_message_at`/`awaiting_reply` computed from a `Prefetch(..., to_attr="prefetched_messages")`
+     rather than a raw `obj.messages` access, to stay N+1-free. Deliberately excludes every
+     priority/SLA/category field `TicketListSerializer` carries — the whole point of the new screen.
+   - Agent frontend: a new `/app/live-chat` (+ `/app/live-chat/:id`) route
+     (`frontend/src/routes/LiveChat.tsx`) with its own top-nav entry and an unread-style badge
+     (`AppChrome.tsx`) sharing one query/poll with the page itself, so opening the nav item is never
+     a second fetch.
+   - Portal frontend: `ChatWidgetContext` + `PortalChatWidget` (`frontend/src/features/portal/`),
+     mounted once in `PortalChrome` so the launcher/panel persist across every portal route.
+     `PortalHome`'s "Start a live chat" button now calls the same shared `openChat()` the widget's
+     own launcher uses, rather than owning its own find-or-create-ticket logic — one place decides
+     whether to reuse an existing chat ticket or create one.
+   - 8 new backend tests, 14 new/updated frontend tests (`LiveChat.test.tsx`,
+     `PortalChatWidget.test.tsx`, plus fixes to `PortalHome.test.tsx`/`portalEndpoints.test.tsx` for
+     the button's new behavior).
+
+**Decisions the AI made on its own:**
+
+- **The underlying data model did not change** — a live chat is still a `Ticket` with
+  `channel="chat"`, still reusing `useTicketMessages`/`useSendMessage`/`usePortalMessages`/
+  `useSendPortalMessage` exactly as they were. Only the *presentation* changed. This kept the
+  redesign backend-light (one new read endpoint) and meant every existing attachment/audit/security
+  guarantee on tickets carried over automatically instead of needing to be re-proven for a new
+  concept.
+- **"Awaiting reply" is a heuristic, not a real read-state model**: whichever party sent the most
+  recent message is the one *not* waiting. Building actual per-agent read receipts was judged out of
+  scope for this fix — the existing app has no such model anywhere else either (the notification
+  centre's own unread count is the closest precedent, and that is a separate, coarser mechanism).
+- **The portal widget's "unread" badge is a client-side, `localStorage`-backed approximation**
+  (compare current message count against a `seen` count written when the panel opens), not a
+  server-tracked field — deliberately kept out of the backend for the same reason.
+- Kept the small, secondary "View ticket record" link on the agent side rather than removing the
+  bridge to the ticket workspace entirely — attachments, and anything else the ticket workspace can
+  do that the slimmed-down chat screen deliberately can't, still need a way back to the full record.
+
+**What I had to correct:**
+
+- Two rounds of the exact same self-inflicted test-ordering bug this session had already hit once
+  before, in `PortalHome.test.tsx` and `portalEndpoints.test.tsx`: registering a narrow mock handler
+  (`/portal/tickets/7/messages/`) *before* a broader one (`/portal/tickets/`) that the test harness's
+  substring-`includes` matcher also matches, with "last registered wins" semantics — so the broader
+  handler silently overrode the narrower one and crashed the widget's `.map()` on non-array data.
+  Fixed by moving the messages stub to register *after* the broader ticket handler in both files.
+- Live-verifying the portal widget in the browser initially looked broken — typed text was not
+  appearing in the composer input at all. Traced to the browser-automation harness itself: a manual
+  viewport resize (`resize_window` with explicit pixel dimensions) had put the tool's click
+  coordinates and the page's actual device pixels out of sync, so clicks were landing at the wrong
+  physical position despite `elementFromPoint` reporting the right element for the coordinate I
+  separately checked in JS (a different coordinate space, which I initially and wrongly treated as
+  equivalent). Resetting to the `desktop` viewport preset restored correct click targeting; the
+  widget was already working correctly the whole time, matching the 6 passing automated tests for
+  exactly this flow.
+
+**What I learned:** a direct, specific piece of UX feedback ("this looks like a ticket, not a chat")
+is worth designing before implementing even when the fix could technically be described in a
+sentence — seeing the two states (agent inbox, portal widget) side by side against the real design
+tokens surfaced the "no SLA/category chrome" and "no full-page navigation" requirements more
+precisely than the verbal complaint alone would have, and meant the approval ("yes, implement it")
+covered a concrete, already-reviewed shape rather than an open-ended redo.
