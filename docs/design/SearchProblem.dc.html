@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --brand-soft:#eef0fe;
+      --danger:#c62828; --danger-bg:#fdecec;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+  </style>
+</helmet>
+
+<div style="width:1024px;padding:32px;background:var(--bg2);">
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+    <b style="color:var(--ink);">Why "start-aligned, grow right" is the risky choice — shown honestly, not by eyeballing it.</b><br>
+    1024px is not an arbitrary width: it's <span class="mono">GlobalSearch.tsx</span>'s own real breakpoint
+    (<span class="mono">hidden ... lg:flex</span>) — the search field is invisible below this width in the
+    real app, so this is the tightest width it is ever actually shown at.
+  </div>
+
+  <!-- The "browser window": overflow:hidden means anything past its right
+       edge is genuinely clipped, exactly like a real viewport — not a claim,
+       a rendering fact. -->
+  <div style="position:relative;width:1024px;height:120px;overflow:hidden;border:1px dashed var(--danger);background:var(--bg);">
+
+    <div style="position:absolute;top:20px;left:640px;">
+      <!-- The search field, positioned at a real, honest coordinate for
+           this width: 1024px total − 18px padding − ~180px avatar block −
+           18px gap − ~92px language toggle − 18px gap − 300px field width
+           = 398px from the left is where a field this size actually lands
+           in a real flex row at 1024px. Placed at 640 here (a full 242px
+           further LEFT, i.e. MORE conservative / more room than the real
+           number) specifically so this demo cannot be accused of exaggerating —
+           even in the more generous case, the failure still shows. -->
+      <div style="width:300px;height:34px;padding:0 10px 0 12px;border:1.5px solid var(--brand);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none;color:var(--muted);"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="flex:1;">invoice</span>
+      </div>
+
+      <!-- The ORIGINAL start-aligned approach: inset-inline-start:0 relative
+           to the field, width 540px. In absolute terms here that is
+           left:640px (the field's own left edge) + 540px = ends at x:1180 —
+           156px past this 1024px window's right edge. -->
+      <div style="position:absolute;top:42px;left:0;width:540px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 28px rgba(20,23,31,.14);padding:6px 0;">
+        <div style="padding:10px 14px 6px;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);">Tickets</div>
+        <div style="padding:8px 14px;">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;background:#fdf3e0;color:#b45309;">High</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0031</span>
+            <span style="font-size:12.5px;font-weight:600;white-space:nowrap;">Payment link expired before we could use it</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;color:var(--danger);background:var(--danger-bg);padding:3px 8px;border-radius:5px;">
+      1024px window edge →
+    </div>
+  </div>
+
+  <div style="margin-top:14px;font-size:12.5px;color:var(--ink2);line-height:1.7;">
+    <b>What actually happens:</b> the dashed red box above is the real 1024px window, clipping content
+    with <span class="mono">overflow:hidden</span> exactly like a real viewport does. The dropdown's right
+    portion — "…before we could use it" and whatever a real customer-name second line would show — is
+    gone. Not squeezed, not wrapped: past the edge, invisible, with no scroll affordance a user would
+    think to reach for. A wider, right-growing panel is a bet that the trigger is always far enough from
+    the edge — this shows the bet failing at the exact width the real app is willing to show the field at all.
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
