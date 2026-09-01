@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useMe } from "@/api/auth";
+import { useLiveChatInbox } from "@/api/tickets";
 import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { Lockup } from "@/components/shell/Lockup";
-import { LanguageToggle } from "@/components/shell/LanguageToggle";
+import { LanguageToggle, useLanguageSwitch } from "@/components/shell/LanguageToggle";
 import { appNavItems, visibleNavItems } from "@/components/shell/navItems";
 import { NotificationBell } from "@/components/shell/NotificationBell";
 import { UserChip } from "@/components/shell/UserChip";
@@ -41,6 +42,17 @@ export default function AppChrome() {
 
   const items = visibleNavItems(appNavItems(), me?.role);
 
+  // Shares `useLiveChatInbox`'s query key with the Live Chat screen itself, so
+  // this badge and that page's list are always the same fetch, never two.
+  const { data: liveChat } = useLiveChatInbox();
+  const awaitingReplyCount = (liveChat ?? []).filter((c) => c.awaiting_reply).length;
+
+  // Below `sm` the 32px segmented EN/ع control has nowhere left to go —
+  // Lockup's secondary label is already gone and the nav is already a menu
+  // button. Folded into that same menu below `sm` instead of losing the
+  // ability to switch language on a phone entirely.
+  const { current: currentLanguage, select: selectLanguage } = useLanguageSwitch(me?.language);
+
   return (
     <div className="flex h-screen flex-col bg-surface-2">
       <header className="flex h-14 flex-none items-center gap-[10px] border-b border-line bg-background px-[14px] lg:gap-[18px] lg:px-[18px]">
@@ -58,9 +70,17 @@ export default function AppChrome() {
               <NavLink
                 key={item.key}
                 to={item.to}
-                className={({ isActive }) => cn(NAVLINK, isActive && NAVLINK_ON)}
+                className={({ isActive }) => cn(NAVLINK, "flex items-center gap-1.5", isActive && NAVLINK_ON)}
               >
                 {t(item.labelKey)}
+                {item.key === "live-chat" && awaitingReplyCount > 0 ? (
+                  <span
+                    data-testid="live-chat-nav-badge"
+                    className="inline-flex min-w-[16px] items-center justify-center rounded-full bg-channel-chat px-[5px] py-px text-[10px] font-bold leading-[16px] text-white"
+                  >
+                    {awaitingReplyCount}
+                  </span>
+                ) : null}
               </NavLink>
             ),
           )}
@@ -70,7 +90,7 @@ export default function AppChrome() {
 
         <GlobalSearch />
 
-        <LanguageToggle profileLanguage={me?.language} />
+        <LanguageToggle profileLanguage={me?.language} className="hidden sm:flex" />
 
         <NotificationBell />
 
@@ -91,9 +111,20 @@ export default function AppChrome() {
               ) : (
                 <DropdownMenuItem key={item.key} onSelect={() => navigate(item.to)}>
                   {t(item.labelKey)}
+                  {item.key === "live-chat" && awaitingReplyCount > 0 ? (
+                    <span className="ms-auto inline-flex min-w-[16px] items-center justify-center rounded-full bg-channel-chat px-[5px] py-px text-[10px] font-bold leading-[16px] text-white">
+                      {awaitingReplyCount}
+                    </span>
+                  ) : null}
                 </DropdownMenuItem>
               ),
             )}
+            <DropdownMenuItem
+              className="sm:hidden"
+              onSelect={() => selectLanguage(currentLanguage === "en" ? "ar" : "en")}
+            >
+              {currentLanguage === "en" ? "العربية" : "English"}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

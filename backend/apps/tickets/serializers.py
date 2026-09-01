@@ -116,6 +116,51 @@ class TicketListSerializer(serializers.ModelSerializer):
         return sla_state(obj, RESOLUTION, self.context.get("now"))
 
 
+class LiveChatListSerializer(serializers.ModelSerializer):
+    """One row of the agent Live Chat inbox — a messaging-app-style list, not a
+    ticket queue row. Deliberately carries none of `TicketListSerializer`'s
+    priority/SLA/category fields; the live-chat screen has no case-management
+    chrome by design.
+
+    `last_message` / `last_message_at` / `awaiting_reply` all read from
+    `prefetched_messages`, an `attribute name set by the view's
+    `Prefetch(..., to_attr="prefetched_messages")` — never `obj.messages`
+    directly, which would be an extra query per row.
+    """
+
+    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    last_message = serializers.SerializerMethodField()
+    last_message_at = serializers.SerializerMethodField()
+    awaiting_reply = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ticket
+        fields = (
+            "id", "number", "customer_name", "last_message", "last_message_at",
+            "awaiting_reply", "created_at",
+        )
+
+    def _last_message(self, obj):
+        messages = getattr(obj, "prefetched_messages", None) or []
+        return messages[0] if messages else None
+
+    def get_last_message(self, obj) -> str:
+        message = self._last_message(obj)
+        return message.body if message else ""
+
+    def get_last_message_at(self, obj):
+        message = self._last_message(obj)
+        return message.created_at if message else obj.created_at
+
+    def get_awaiting_reply(self, obj) -> bool:
+        """The customer sent the most recent message — a stand-in for "unread"
+        since there is no per-agent read-state model. A message from staff (or
+        no messages yet) means nothing is waiting on this agent right now.
+        """
+        message = self._last_message(obj)
+        return bool(message and message.author_id and getattr(message.author, "role", None) == "customer")
+
+
 def build_message_snippet(body, query, context=40):
     """A short, plain-text excerpt of `body` centred on `query`, or `None`.
 

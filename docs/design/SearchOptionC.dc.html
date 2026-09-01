@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --danger:#c62828; --danger-bg:#fdecec;
+      --ok:#0f7a52; --ok-bg:#e3f5ec;
+      --warn:#b45309; --warn-bg:#fdf3e0; --slate:#4a5567; --slate-bg:#eef1f5;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;flex:none;}
+    .p-high{background:var(--warn-bg);color:var(--warn);}
+    .p-normal{background:var(--slate-bg);color:var(--slate);}
+    .ok{background:var(--ok-bg);color:var(--ok);}
+    .caps{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+  </style>
+</helmet>
+
+<div style="padding:24px;background:var(--bg3);width:1220px;">
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;max-width:1100px;">
+    <b style="color:var(--ink);">Fix: clamp the panel's own width instead of anchoring a fixed one.</b><br>
+    Both the field and the dropdown switch from a fixed px width to
+    <span class="mono">width: clamp(280px, 26vw, 480px)</span> (dropdown) and a proportionally
+    smaller field. Below, the same three window widths from the earlier discussion — 1024px, 1200px,
+    1440px — each rendered as a real box with <span class="mono">overflow:hidden</span>, same honest
+    clipping rule as the Problem artboard. If the panel's right edge stays inside the box, it fits.
+  </div>
+
+  <div style="display:flex;gap:28px;flex-wrap:wrap;">
+
+    <!-- 1024px: the tightest real width this field is ever shown at -->
+    <div>
+      <div class="caps" style="margin-bottom:6px;">1024px window (tightest — field just became visible)</div>
+      <div style="position:relative;width:1024px;height:110px;overflow:hidden;border:1px dashed var(--line);background:var(--bg);">
+        <div style="position:absolute;top:20px;right:18px;">
+          <!-- clamp(280,26vw,480) at 1024px viewport = 26% of 1024 = 266px, clamped up to 280px min -->
+          <div style="width:280px;height:34px;padding:0 10px 0 12px;border:1.5px solid var(--brand);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;display:flex;align-items:center;">invoice</div>
+          <div style="position:absolute;top:42px;right:0;width:280px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 28px rgba(20,23,31,.14);padding:8px 12px;">
+            <div style="font-size:11.5px;font-weight:600;">TK-0031 · Payment link…</div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;color:var(--ok);font-weight:700;">panel: 280px (clamp floor) — right edge at x:1006, inside 1024 ✓</div>
+      </div>
+      <div style="margin-top:6px;"><span class="pill ok">Fits</span></div>
+    </div>
+
+    <!-- 1200px -->
+    <div>
+      <div class="caps" style="margin-bottom:6px;">1200px window</div>
+      <div style="position:relative;width:1200px;height:110px;overflow:hidden;border:1px dashed var(--line);background:var(--bg);">
+        <div style="position:absolute;top:20px;right:18px;">
+          <!-- 26% of 1200 = 312px -->
+          <div style="width:312px;height:34px;padding:0 10px 0 12px;border:1.5px solid var(--brand);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;display:flex;align-items:center;">invoice</div>
+          <div style="position:absolute;top:42px;right:0;width:312px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 28px rgba(20,23,31,.14);padding:8px 12px;">
+            <div style="font-size:11.5px;font-weight:600;white-space:nowrap;">TK-0031 · Payment link expired before…</div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;color:var(--ok);font-weight:700;">panel: 312px (26vw) — right edge at x:1182, inside 1200 ✓</div>
+      </div>
+      <div style="margin-top:6px;"><span class="pill ok">Fits</span></div>
+    </div>
+
+    <!-- 1440px: full desktop, ceiling applies -->
+    <div>
+      <div class="caps" style="margin-bottom:6px;">1440px window (full desktop — ceiling applies)</div>
+      <div style="position:relative;width:1440px;height:110px;overflow:hidden;border:1px dashed var(--line);background:var(--bg);">
+        <div style="position:absolute;top:20px;right:18px;">
+          <!-- 26% of 1440 = 374, still under 480 ceiling; showing ceiling reached at ~1846px would need separate note -->
+          <div style="width:374px;height:34px;padding:0 10px 0 12px;border:1.5px solid var(--brand);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;display:flex;align-items:center;">invoice</div>
+          <div style="position:absolute;top:42px;right:0;width:374px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 28px rgba(20,23,31,.14);padding:8px 12px;">
+            <div style="font-size:11.5px;font-weight:600;white-space:nowrap;">TK-0031 · Payment link expired before we could use it</div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;color:var(--ok);font-weight:700;">panel: 374px (26vw) — right edge at x:1418, inside 1440 ✓ (480px ceiling only reached above ~1846px)</div>
+      </div>
+      <div style="margin-top:6px;"><span class="pill ok">Fits</span></div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;font-size:12.5px;color:var(--ink2);line-height:1.7;max-width:1100px;">
+    <b>Why this closes the problem for good, not just at the widths tested:</b> because the panel's
+    width is a function of the current viewport (<span class="mono">vw</span>) rather than a fixed
+    number, its right edge is <i>always</i> a fixed proportional distance from the window edge —
+    there is no width at or above 1024px where it can run out of room, since it never claims more
+    room than a fraction of what actually exists. This replaces Option A/B's fixed-540px/480px
+    tradeoff entirely: no anchor-direction decision needed, because the panel can no longer be wider
+    than the space it has.
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -40,6 +40,7 @@ beforeEach(() => {
   tokenStore.set({ access: "a", refresh: "r", role: "agent" });
   mock.on("/messages/", () => [message()]);
   mock.on("/events/", () => []);
+  mock.on("/attachments/", () => []);
   mock.on("/canned-replies/", () => []);
 });
 
@@ -173,5 +174,73 @@ describe("live-chat polling", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("the attachments tab", () => {
+  it("shows an empty state when there are none", async () => {
+    setup();
+
+    fireEvent.click(screen.getByTestId("detail-tab-attachments"));
+
+    expect(await screen.findByText("No attachments yet")).toBeInTheDocument();
+  });
+
+  it("lists a real, resolvable download link, not the raw root-relative path", async () => {
+    mock.on("/attachments/", () => [
+      {
+        id: 9,
+        ticket: 1,
+        message: null,
+        file: "/media/attachments/2026/09/statement.pdf",
+        filename: "statement.pdf",
+        size: 62453,
+        uploaded_by: 12,
+        uploaded_by_name: "Abdulaziz Al-Rashid",
+        created_at: "2026-08-26T09:00:00Z",
+      },
+    ]);
+    setup();
+
+    fireEvent.click(screen.getByTestId("detail-tab-attachments"));
+
+    const link = await screen.findByTestId("attachment-9");
+    expect(link).toHaveAttribute("href", "http://localhost:8000/media/attachments/2026/09/statement.pdf");
+    expect(link).toHaveTextContent("statement.pdf");
+    expect(link).toHaveTextContent("61.0 KB");
+  });
+
+  it("the tab count reflects the real attachment count, not zero", async () => {
+    mock.on("/attachments/", () => [
+      { id: 1, ticket: 1, message: null, file: "/media/a.png", filename: "a.png", size: 10, uploaded_by: null, uploaded_by_name: "", created_at: "2026-08-26T09:00:00Z" },
+      { id: 2, ticket: 1, message: null, file: "/media/b.png", filename: "b.png", size: 10, uploaded_by: null, uploaded_by_name: "", created_at: "2026-08-26T09:00:00Z" },
+    ]);
+    setup();
+
+    await waitFor(() => expect(screen.getByTestId("detail-tab-attachments")).toHaveTextContent("2"));
+  });
+});
+
+describe("the tab bar and composer mode row on a narrow screen", () => {
+  // Found live at 360px in English: four tab labels ("Internal notes",
+  // "Activity log") plus counts, and separately "Reply" + "Internal note" +
+  // "Sending via" + the channel badge, had no wrap and no scroll container
+  // of their own — both leaked overflow into the whole page instead of
+  // scrolling locally, clipping unrelated content above and below them.
+  it("scrolls the detail tabs locally instead of wrapping or leaking overflow", async () => {
+    setup();
+    await screen.findByTestId("detail-tab-conversation");
+
+    const nav = screen.getByTestId("detail-tab-conversation").closest("nav");
+    expect(nav?.className).toContain("overflow-x-auto");
+    expect(screen.getByTestId("detail-tab-internal").className).toContain("whitespace-nowrap");
+  });
+
+  it("scrolls the composer's mode row locally too", async () => {
+    setup();
+    const replyTab = await screen.findByTestId("composer-mode-reply");
+
+    expect(replyTab.parentElement?.className).toContain("overflow-x-auto");
+    expect(replyTab.className).toContain("whitespace-nowrap");
   });
 });

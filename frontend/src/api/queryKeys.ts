@@ -32,6 +32,8 @@ export const qk = {
     attachments: (id: number) => ["tickets", id, "attachments"] as const,
   },
 
+  liveChat: ["tickets", "live-chat"] as const,
+
   globalSearch: (query: string) => ["global-search", query] as const,
 
   cannedReplies: ["canned-replies"] as const,
@@ -89,6 +91,7 @@ export const qk = {
       list: (params: string) => ["portal", "tickets", "list", params] as const,
       detail: (id: number) => ["portal", "tickets", "detail", id] as const,
       messages: (id: number) => ["portal", "tickets", id, "messages"] as const,
+      attachments: (id: number) => ["portal", "tickets", id, "attachments"] as const,
     },
     kb: {
       list: (params: string) => ["portal", "kb", "list", params] as const,

@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --brand-soft:#eef0fe;
+      --danger:#c62828; --danger-bg:#fdecec;
+      --warn:#b45309; --warn-bg:#fdf3e0;
+      --ok:#0f7a52; --ok-bg:#e3f5ec;
+      --gold:#8a6100; --gold-bg:#fdf0d5;
+      --sky:#0b6a9e; --sky-bg:#e4f3fb;
+      --violet:#6b3fc4; --violet-bg:#f0eafd;
+      --slate:#4a5567; --slate-bg:#eef1f5;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+    .caps{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;flex:none;}
+    .p-urgent{background:var(--danger-bg);color:var(--danger);}
+    .p-high{background:var(--warn-bg);color:var(--warn);}
+    .p-normal{background:var(--slate-bg);color:var(--slate);}
+    .tier{background:var(--gold-bg);color:var(--gold);letter-spacing:.07em;font-size:10px;text-transform:uppercase;}
+    .navlink{padding:6px 11px;border-radius:7px;font-size:13px;font-weight:500;color:var(--ink2);}
+    .navlink.on{background:var(--bg3);color:var(--ink);font-weight:600;}
+    .avatar{display:flex;align-items:center;justify-content:center;border-radius:999px;background:#2f3a56;color:#fff;font-size:10px;font-weight:600;flex:none;}
+    .row{display:flex;align-items:center;}
+    .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .result-row{display:flex;flex-direction:column;gap:3px;padding:8px 14px;cursor:pointer;border-radius:6px;margin:0 4px;}
+    .result-row:hover, .result-row.active{background:var(--bg2);}
+    .section-label{padding:10px 14px 6px;}
+  </style>
+</helmet>
+
+<div style="width:1440px;padding-bottom:48px;background:var(--bg2);font-family:'IBM Plex Sans',system-ui,sans-serif;">
+
+  <!-- ============ TOP CHROME ============ -->
+  <div style="height:56px;flex:none;display:flex;align-items:center;gap:18px;padding:0 18px;background:var(--bg);border-bottom:1px solid var(--line);position:relative;">
+    <div style="display:flex;align-items:center;gap:9px;flex:none;">
+      <div style="width:28px;height:28px;border-radius:7px;background:#14171f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:.03em;">AZ</div>
+      <div style="font-size:14px;font-weight:700;">AZM Squad</div>
+      <div style="width:1px;height:16px;background:var(--line);"></div>
+      <div style="font-size:13px;color:var(--muted);">Support CRM</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:2px;margin-inline-start:14px;">
+      <div class="navlink">Dashboard</div>
+      <div class="navlink on">Tickets</div>
+      <div class="navlink">Customers</div>
+      <div class="navlink">Knowledge base</div>
+      <div class="navlink">Reports</div>
+      <div class="navlink">Admin</div>
+    </div>
+
+    <div style="flex:1;"></div>
+
+    <!-- RECOMMENDED: anchored to the search field alone (its own
+         inline-end edge), the same way this app's other near-the-edge
+         dropdowns (the notification bell, the user menu) are each scoped to
+         their own single trigger, not a multi-control group. Solves the
+         same "hugs the screen edge" problem the field-only+start-aligned
+         version had, without making the panel span two unrelated controls. -->
+    <div style="position:relative;flex:none;">
+      <div style="display:flex;align-items:center;gap:8px;width:300px;height:34px;padding:0 10px 0 12px;border:1.5px solid var(--brand);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;box-shadow:0 0 0 3px rgba(79,70,229,.12);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none;color:var(--muted);"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="flex:1;">invoice</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none;color:var(--faint);"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
+      </div>
+
+      <!-- Results dropdown — end-aligned to the search field only -->
+      <div style="position:absolute;top:42px;inset-inline-end:0;width:480px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 28px rgba(20,23,31,.14), 0 2px 6px rgba(20,23,31,.06);padding:6px 0;z-index:20;">
+
+        <div class="section-label caps">Tickets</div>
+
+        <div class="result-row">
+          <div class="row" style="gap:7px;">
+            <span class="pill p-high">High</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0031</span>
+            <span class="truncate" style="font-size:12.5px;font-weight:600;">Payment link expired before we could use it</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);padding-inline-start:1px;">Abdulaziz Al-Rashid</div>
+        </div>
+
+        <div class="result-row active">
+          <div class="row" style="gap:7px;">
+            <span class="pill p-urgent">Urgent</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0164</span>
+            <span class="truncate" style="font-size:12.5px;font-weight:600;">Bank transfer sent but account still shows unpaid</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);padding-inline-start:1px;">Reem Al-Juhani</div>
+        </div>
+
+        <div class="result-row">
+          <div class="row" style="gap:7px;">
+            <span class="pill p-normal">Normal</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0106</span>
+            <span class="truncate" style="font-size:12.5px;font-weight:600;">Invoice total does not match usage report</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);padding-inline-start:1px;">Turki Al-Harthy</div>
+        </div>
+
+        <div style="height:1px;background:var(--line2);margin:4px 0;"></div>
+
+        <div class="section-label caps">Customers</div>
+
+        <div class="result-row">
+          <div class="row" style="gap:9px;">
+            <div class="avatar" style="width:24px;height:24px;">AR</div>
+            <span style="font-size:12.5px;font-weight:600;flex:1;">Abdulaziz Al-Rashid</span>
+            <span class="pill tier">Enterprise</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);padding-inline-start:33px;">Arabian Gulf Trading Co.</div>
+        </div>
+
+        <div class="result-row">
+          <div class="row" style="gap:9px;">
+            <div class="avatar" style="width:24px;height:24px;">TA</div>
+            <span style="font-size:12.5px;font-weight:600;flex:1;">Turki Al-Harthy</span>
+            <span class="pill tier" style="background:var(--slate-bg);color:var(--slate);">Standard</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);padding-inline-start:33px;">Najd Logistics</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none;">
+      <div style="padding:0 11px;height:32px;display:flex;align-items:center;background:#14171f;color:#fff;font-size:12px;font-weight:600;">EN</div>
+      <div style="padding:0 11px;height:32px;display:flex;align-items:center;color:var(--muted);font-size:13px;">ع</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:9px;flex:none;">
+      <div class="avatar" style="width:30px;height:30px;font-size:11px;">MA</div>
+      <div style="line-height:1.3;">
+        <div style="font-size:12.5px;font-weight:600;">Mostafa Abdalla agent</div>
+        <div style="font-size:11px;color:var(--muted);">Tier 2 · technical</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EMPTY-STATE VARIANT (secondary, smaller) ============ -->
+  <div style="margin:28px 0 0 18px;">
+    <div class="caps" style="margin-bottom:8px;">Empty state — no matches</div>
+    <div style="width:280px;background:var(--bg);border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 20px rgba(20,23,31,.10);padding:26px 20px;text-align:center;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6" stroke-linecap="round" style="margin:0 auto 10px;display:block;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <div style="font-size:12.5px;font-weight:600;">No results for &ldquo;xqzzt&rdquo;</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5;">Try a ticket number, subject or customer name.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

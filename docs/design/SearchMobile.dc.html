@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    :root{
+      --ink:#14171f; --ink2:#3d434f; --muted:#767d8c; --faint:#9aa1ad;
+      --line:#e4e7ec; --line2:#eef0f4; --bg:#ffffff; --bg2:#f7f8fa; --bg3:#f1f3f7;
+      --brand:#4f46e5; --brand-soft:#eef0fe;
+      --danger:#c62828; --danger-bg:#fdecec;
+      --warn:#b45309; --warn-bg:#fdf3e0;
+      --slate:#4a5567; --slate-bg:#eef1f5;
+      --gold:#8a6100; --gold-bg:#fdf0d5;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+    .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+    .caps{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;line-height:18px;white-space:nowrap;flex:none;}
+    .p-urgent{background:var(--danger-bg);color:var(--danger);}
+    .p-high{background:var(--warn-bg);color:var(--warn);}
+    .p-normal{background:var(--slate-bg);color:var(--slate);}
+    .tier{background:var(--gold-bg);color:var(--gold);letter-spacing:.07em;font-size:10px;text-transform:uppercase;}
+    .avatar{display:flex;align-items:center;justify-content:center;border-radius:999px;background:#2f3a56;color:#fff;font-size:10px;font-weight:600;flex:none;}
+    .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .result-row{display:flex;flex-direction:column;gap:3px;padding:11px 16px;}
+    .result-row:active{background:var(--bg2);}
+  </style>
+</helmet>
+
+<div style="display:flex;gap:40px;padding:20px;background:var(--bg3);align-items:flex-start;">
+
+  <!-- ============ STATE 1: mobile header, collapsed (search icon added) ============ -->
+  <div>
+    <div class="caps" style="margin-bottom:8px;">1 · Mobile header — search icon added</div>
+    <div style="width:375px;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(20,23,31,.14);background:var(--bg);">
+      <div style="height:52px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line);">
+        <div style="width:26px;height:26px;border-radius:7px;background:#14171f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">AZ</div>
+        <div style="font-size:13.5px;font-weight:700;flex:1;">Tickets</div>
+
+        <!-- NEW: search icon button, same 34px tap target as the hamburger beside it -->
+        <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        </div>
+        <div style="width:34px;height:34px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+          <div style="width:16px;height:1.6px;background:var(--ink2);"></div>
+          <div style="width:16px;height:1.6px;background:var(--ink2);"></div>
+          <div style="width:16px;height:1.6px;background:var(--ink2);"></div>
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <div style="height:14px;width:120px;border-radius:4px;background:var(--bg3);margin-bottom:10px;"></div>
+        <div style="height:64px;border-radius:9px;background:var(--bg2);margin-bottom:8px;"></div>
+        <div style="height:64px;border-radius:9px;background:var(--bg2);"></div>
+      </div>
+    </div>
+    <div style="width:375px;font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;">
+      Today (below the 1024px <span class="mono">lg</span> breakpoint) there is no way to search at
+      all — the whole nav row and the 300px field are both <span class="mono">hidden … lg:flex</span>.
+      A dedicated icon, same size as the existing hamburger trigger, is the fix.
+    </div>
+  </div>
+
+  <!-- ============ STATE 2: tapped — full-screen takeover with input focused ============ -->
+  <div>
+    <div class="caps" style="margin-bottom:8px;">2 · Tapped — full-screen takeover, typing</div>
+    <div style="width:375px;height:640px;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(20,23,31,.14);background:var(--bg);display:flex;flex-direction:column;">
+
+      <div style="height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid var(--line);">
+        <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"></path></svg>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1.5px solid var(--brand);border-radius:8px;box-shadow:0 0 0 3px rgba(79,70,229,.12);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex:none;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <span style="font-size:13px;flex:1;">invoice</span>
+          <div style="width:1.5px;height:14px;background:var(--brand);"></div>
+        </div>
+      </div>
+
+      <!-- Full-width results — single column, no floating panel or edge math at all,
+           the exact problem this whole design thread has been about simply doesn't
+           exist on mobile: the takeover IS the width, so there's no edge to hug. -->
+      <div style="flex:1;overflow:hidden;">
+        <div class="caps" style="padding:14px 16px 6px;">Tickets</div>
+
+        <div class="result-row">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span class="pill p-high">High</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0031</span>
+          </div>
+          <div class="truncate" style="font-size:13.5px;font-weight:600;">Payment link expired before we could use it</div>
+          <div style="font-size:11.5px;color:var(--muted);">Abdulaziz Al-Rashid</div>
+        </div>
+        <div style="height:1px;background:var(--line2);"></div>
+
+        <div class="result-row">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span class="pill p-urgent">Urgent</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0164</span>
+          </div>
+          <div class="truncate" style="font-size:13.5px;font-weight:600;">Bank transfer sent but account still shows unpaid</div>
+          <div style="font-size:11.5px;color:var(--muted);">Reem Al-Juhani</div>
+        </div>
+        <div style="height:1px;background:var(--line2);"></div>
+
+        <div class="result-row">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span class="pill p-normal">Normal</span>
+            <span class="mono" style="font-size:11px;color:var(--muted);">TK-0106</span>
+          </div>
+          <div class="truncate" style="font-size:13.5px;font-weight:600;">Invoice total does not match usage report</div>
+          <div style="font-size:11.5px;color:var(--muted);">Turki Al-Harthy</div>
+        </div>
+
+        <div class="caps" style="padding:16px 16px 6px;">Customers</div>
+
+        <div class="result-row" style="flex-direction:row;align-items:center;gap:10px;">
+          <div class="avatar" style="width:30px;height:30px;font-size:11px;">AR</div>
+          <div style="flex:1;min-width:0;">
+            <div class="truncate" style="font-size:13.5px;font-weight:600;">Abdulaziz Al-Rashid</div>
+            <div class="truncate" style="font-size:11.5px;color:var(--muted);">Arabian Gulf Trading Co.</div>
+          </div>
+          <span class="pill tier">Enterprise</span>
+        </div>
+        <div style="height:1px;background:var(--line2);"></div>
+
+        <div class="result-row" style="flex-direction:row;align-items:center;gap:10px;">
+          <div class="avatar" style="width:30px;height:30px;font-size:11px;">TA</div>
+          <div style="flex:1;min-width:0;">
+            <div class="truncate" style="font-size:13.5px;font-weight:600;">Turki Al-Harthy</div>
+            <div class="truncate" style="font-size:11.5px;color:var(--muted);">Najd Logistics</div>
+          </div>
+          <span class="pill" style="background:var(--slate-bg);color:var(--slate);">Standard</span>
+        </div>
+      </div>
+    </div>
+    <div style="width:375px;font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;">
+      Tapping the icon replaces the header with an input (auto-focused, keyboard up) plus a back
+      arrow — the standard mobile search-takeover pattern. Results run full-width, single column,
+      same grouped Tickets/Customers structure and same row content as desktop. Tapping a row
+      navigates straight to that ticket or customer and closes the takeover.
+    </div>
+  </div>
+
+  <!-- ============ STATE 3: empty state, mobile ============ -->
+  <div>
+    <div class="caps" style="margin-bottom:8px;">3 · Empty state</div>
+    <div style="width:375px;height:640px;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(20,23,31,.14);background:var(--bg);display:flex;flex-direction:column;">
+      <div style="height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid var(--line);">
+        <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"></path></svg>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1.5px solid var(--brand);border-radius:8px;box-shadow:0 0 0 3px rgba(79,70,229,.12);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex:none;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <span style="font-size:13px;flex:1;color:var(--muted);">xqzzt</span>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 40px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6" stroke-linecap="round" style="margin-bottom:12px;"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <div style="font-size:13.5px;font-weight:600;">No results for &ldquo;xqzzt&rdquo;</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;">Try a ticket number, subject or customer name.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

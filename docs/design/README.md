@@ -1,6 +1,7 @@
 # Design — AZM Squad Customer Support CRM
 
-Twelve artboards specifying every screen in the MVP. Published canvas:
+Artboards specifying every screen in the MVP, plus post-hand-in redesigns (global search, live
+chat). Published canvas:
 **https://claude.ai/code/artifact/217bc985-1f5c-4817-af6c-4aaacbda09a9**
 
 ## Files
@@ -24,6 +25,12 @@ output, not a source file — edit the `.dc.html` files and re-seed.
 | `PortalSubmit.dc.html` | Submit a request | Story 09 |
 | `PortalTicket.dc.html` | Portal request detail + CSAT | Story 09 |
 | `TicketWorkspaceRTL.dc.html` | The workspace in Arabic/RTL | Stories 06, 07, 10 |
+| `SearchOptionA.dc.html` / `SearchOptionB.dc.html` / `SearchOptionC.dc.html` | Global search dropdown — three options explored; C shipped | Post-hand-in |
+| `SearchRTL.dc.html` | Search dropdown in Arabic/RTL | Post-hand-in |
+| `SearchProblem.dc.html` | The edge-clipping bug Option A had at 1024px, shown honestly | Post-hand-in |
+| `SearchMobile.dc.html` | Search as a full-screen takeover below 1024px | Post-hand-in |
+| `LiveChatInbox.dc.html` | **Live Chat — agent inbox**: messaging-app list + a plain conversation thread, no SLA/category/priority/internal-note chrome | Post-hand-in |
+| `PortalChatWidget.dc.html` | Live Chat — the portal's floating launcher + chat panel, closed and open states | Post-hand-in |
 
 ## Decisions this design settles
 

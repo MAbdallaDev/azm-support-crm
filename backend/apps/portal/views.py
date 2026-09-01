@@ -27,6 +27,7 @@ from apps.accounts.scoping import (
 )
 from apps.kb.models import KBArticle
 from apps.portal.serializers import (
+    PortalAttachmentSerializer,
     PortalCSATSerializer,
     PortalKBArticleSerializer,
     PortalMessageSerializer,
@@ -197,6 +198,18 @@ class PortalTicketViewSet(ScopedQuerySetMixin, viewsets.ModelViewSet):
             status=http_status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Every file on this ticket — from creation and from replies",
+        responses={200: PortalAttachmentSerializer(many=True)},
+    )
+    @action(detail=True, methods=["get"], url_path="attachments")
+    def attachments(self, request, pk=None):
+        ticket = self.get_object()
+        qs = ticket.attachments.select_related("uploaded_by").all()
+        return Response(
+            PortalAttachmentSerializer(qs, many=True, context={"request": request}).data
+        )
+
 
 @extend_schema(
     tags=["portal"],
@@ -267,6 +280,11 @@ class PortalKBArticleViewSet(ScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet)
                 | Q(body_en__icontains=search)
                 | Q(body_ar__icontains=search)
             )
+        # Same slug filter KBArticleViewSet (the agent side) already applies —
+        # the portal home's category shortcuts send this, not a free-text q.
+        category = self.request.query_params.get("category")
+        if category:
+            qs = qs.filter(category__slug=category)
         return qs
 
 

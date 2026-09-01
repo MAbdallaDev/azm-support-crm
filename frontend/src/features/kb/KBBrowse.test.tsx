@@ -119,3 +119,34 @@ describe("selection", () => {
     expect(screen.getByTestId("kb-row-a")).not.toHaveAttribute("aria-current");
   });
 });
+
+describe("mobile layout", () => {
+  // Found live at 375px: a 236px category rail + 420px article list + reader
+  // pane add up to well over 650px with no responsive handling at all, so
+  // opening an article squeezed everything into unreadable slivers.
+  it("carries a mobile-only back link to the list once an article is open", async () => {
+    mock.on("/kb/articles/", () => page([article({ id: 1, slug: "a" })]));
+    mock.on("/kb/articles/a/", () => article({ id: 1, slug: "a" }));
+
+    const queryClient = makeQueryClient();
+    queryClient.setQueryData(qk.me, me());
+    renderWithDataRouter(<KBBrowse />, { queryClient, route: "/kb/a", path: "/kb/:slug" });
+
+    const back = await screen.findByTestId("back-to-kb-list");
+    expect(back).toHaveAttribute("href", "/app/kb");
+    expect(back.className).toContain("md:hidden");
+  });
+
+  it("hides the category rail and article list once an article is open, below md", async () => {
+    mock.on("/kb/articles/", () => page([article({ id: 1, slug: "a" })]));
+    mock.on("/kb/articles/a/", () => article({ id: 1, slug: "a" }));
+
+    const queryClient = makeQueryClient();
+    queryClient.setQueryData(qk.me, me());
+    renderWithDataRouter(<KBBrowse />, { queryClient, route: "/kb/a", path: "/kb/:slug" });
+
+    await screen.findByTestId("back-to-kb-list");
+    expect(screen.getByText("Categories").closest("aside")?.className).toContain("hidden");
+    expect((await screen.findByTestId("kb-row-a")).closest("section")?.className).toContain("hidden");
+  });
+});

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { tokenStore } from "@/api/tokenStore";
 import type { PortalTicket } from "@/api/types";
+import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
+import { PortalChatWidget } from "@/features/portal/PortalChatWidget";
 import PortalHome from "@/routes/PortalHome";
 import { installApiMock, page } from "@/test/apiMock";
 import type { ApiMock } from "@/test/apiMock";
@@ -28,11 +30,18 @@ const ticket = (over: Partial<PortalTicket> = {}): PortalTicket => ({
 });
 
 const setup = () =>
-  renderWithDataRouter(<PortalHome />, { queryClient: makeQueryClient(), path: "/", route: "/" });
+  renderWithDataRouter(
+    <ChatWidgetProvider>
+      <PortalHome />
+      <PortalChatWidget />
+    </ChatWidgetProvider>,
+    { queryClient: makeQueryClient(), path: "/", route: "/" },
+  );
 
 beforeEach(() => {
   mock = installApiMock();
   tokenStore.set({ access: "a", refresh: "r", role: "customer" });
+  mock.on("/auth/me/", () => ({ id: 48, full_name: "Hind Al-Subaie", role: "customer" }));
 });
 
 afterEach(() => {
@@ -49,12 +58,34 @@ const mockPortalTickets = (existing: PortalTicket[]) => {
       ? { id: 42, number: "TK-0042" }
       : page(existing),
   );
+  // Registered AFTER the broader "/portal/tickets/" match above — apiMock's
+  // substring `includes` check means that match also catches
+  // "/portal/tickets/<id>/messages/", so this override must come last.
+  mock.on("/messages/", () => []);
 };
 
+describe("My requests never lists a live chat conversation", () => {
+  it("excludes a chat-channel ticket from both the open and closed sections", async () => {
+    // Live chat has its own floating widget, reachable from every portal
+    // page — showing the same conversation again in "My requests" would
+    // just be the identical thing listed twice.
+    mockPortalTickets([
+      ticket({ id: 5, channel: "chat", status: "open", subject: "Live chat" }),
+      ticket({ id: 6, channel: "chat", status: "closed", subject: "Old live chat" }),
+      ticket({ id: 7, channel: "email", status: "open", subject: "A real email ticket" }),
+    ]);
+    setup();
+
+    expect(await screen.findByText("A real email ticket")).toBeInTheDocument();
+    expect(screen.queryByText("Live chat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old live chat")).not.toBeInTheDocument();
+  });
+});
+
 describe("Start a live chat", () => {
-  it("creates a new chat ticket and navigates to it when none is open", async () => {
+  it("creates a new chat ticket and opens the widget panel when none is open", async () => {
     mockPortalTickets([]);
-    const { router } = setup();
+    setup();
 
     await screen.findByText("No open requests");
     fireEvent.click(screen.getByTestId("start-live-chat"));
@@ -62,26 +93,32 @@ describe("Start a live chat", () => {
     await waitFor(() =>
       expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(true),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/42"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
+    // The full-page navigation this used to do is gone — a live chat stays a
+    // floating widget over whatever page the customer was on.
+    expect(screen.queryByTestId("start-live-chat")).toBeInTheDocument();
   });
 
   it("reuses an existing open chat ticket instead of creating a new one", async () => {
     mockPortalTickets([ticket({ id: 7, channel: "chat", status: "open" })]);
-    const { router } = setup();
+    setup();
 
-    // Wait for the ticket list itself to load — the button renders
-    // immediately regardless, but clicking before `open` is populated would
-    // read it as empty and create a new ticket instead of reusing this one.
-    await screen.findByText("Cannot access invoice portal");
+    // Wait for the ticket list itself to load before clicking — the button
+    // renders immediately regardless, but clicking before the query settles
+    // would read it as empty and create a new ticket instead of reusing this
+    // one. The chat ticket itself is never rendered in "My requests" (it has
+    // its own widget), so its absence — "No open requests" — is exactly what
+    // a loaded list with only a chat ticket in it looks like here.
+    await screen.findByText("No open requests");
     fireEvent.click(screen.getByTestId("start-live-chat"));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/7"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
     expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(false);
   });
 
   it("ignores a CLOSED chat ticket and starts a new one instead", async () => {
     mockPortalTickets([ticket({ id: 9, channel: "chat", status: "closed" })]);
-    const { router } = setup();
+    setup();
 
     // This ticket lands in the CLOSED section — the open list is empty.
     await screen.findByText("No open requests");
@@ -90,6 +127,62 @@ describe("Start a live chat", () => {
     await waitFor(() =>
       expect(mock.requests.some((r) => r === "POST /portal/tickets/")).toBe(true),
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/tickets/42"));
+    expect(await screen.findByTestId("chat-widget-panel")).toBeInTheDocument();
+  });
+});
+
+describe("matching the design canvas", () => {
+  it("greets the customer by first name in the hero", async () => {
+    mockPortalTickets([]);
+    setup();
+
+    expect(await screen.findByText("How can we help, Hind?")).toBeInTheDocument();
+  });
+
+  it("shows a colour-coded status badge and channel badge per row, not plain text", async () => {
+    mockPortalTickets([ticket({ id: 3, status: "on_hold", channel: "whatsapp" })]);
+    setup();
+
+    expect(await screen.findByTestId("status-on_hold")).toBeInTheDocument();
+    expect(screen.getByTestId("channel-whatsapp")).toBeInTheDocument();
+  });
+
+  it("shows a live rating for a rated closed ticket, and a 'rate this' prompt for an unrated one", async () => {
+    mockPortalTickets([
+      ticket({ id: 10, status: "resolved", csat: { score: 5, comment: "" } }),
+      ticket({ id: 11, status: "resolved", csat: null }),
+    ]);
+    setup();
+
+    expect(await screen.findByText("you rated 5")).toBeInTheDocument();
+    expect(screen.getByText("rate this")).toBeInTheDocument();
+  });
+
+  it("caps the closed list and reveals the rest via 'View all N'", async () => {
+    const closedTickets = Array.from({ length: 7 }, (_, i) =>
+      ticket({ id: 100 + i, status: "closed", subject: `Closed ticket ${i}` }),
+    );
+    mockPortalTickets(closedTickets);
+    setup();
+
+    await screen.findByText("Closed ticket 0");
+    expect(screen.queryByText("Closed ticket 6")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("view-all-closed"));
+
+    expect(screen.getByText("Closed ticket 6")).toBeInTheDocument();
+  });
+
+  it("a KB shortcut chip filters the KB by that category's slug, not a text search", async () => {
+    mockPortalTickets([]);
+    const { router } = setup();
+
+    fireEvent.click(await screen.findByText("Billing & Invoices"));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname + router.state.location.search).toBe(
+        "/portal/kb?category=billing",
+      ),
+    );
   });
 });

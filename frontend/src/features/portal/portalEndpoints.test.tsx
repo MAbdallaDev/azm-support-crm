@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { tokenStore } from "@/api/tokenStore";
 import PortalHome from "@/routes/PortalHome";
+import { ChatWidgetProvider } from "@/features/portal/ChatWidgetContext";
 import PortalKB from "@/features/portal/PortalKB";
 import PortalTicketDetail from "@/features/portal/PortalTicketDetail";
 import Register from "@/features/portal/Register";
@@ -49,6 +50,7 @@ beforeEach(() => {
   mock.on("/portal/kb/articles/", () => page([{ id: 1, slug: "billing-faq", title_en: "Billing FAQ", title_ar: "", category: "Billing", updated_at: "2026-08-01T00:00:00Z", body_en: "", body_ar: "" }]));
   mock.on("/portal/tickets/5/", () => ticket);
   mock.on("/portal/tickets/5/messages/", () => []);
+  mock.on("/portal/tickets/5/attachments/", () => []);
 });
 
 afterEach(() => {
@@ -63,7 +65,12 @@ const assertPortalOnly = () => {
 
 describe("every portal screen calls only /portal/* or /auth/* routes", () => {
   it("PortalHome", async () => {
-    renderWithDataRouter(<PortalHome />, { queryClient: makeQueryClient() });
+    renderWithDataRouter(
+      <ChatWidgetProvider>
+        <PortalHome />
+      </ChatWidgetProvider>,
+      { queryClient: makeQueryClient() },
+    );
     await screen.findByText("TK-0005");
     assertPortalOnly();
   });

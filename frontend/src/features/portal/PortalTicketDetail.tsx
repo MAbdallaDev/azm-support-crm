@@ -4,13 +4,21 @@ import { AxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
-import { ATTACHMENT_ACCEPT, validateAttachment } from "@/api/attachments";
-import { usePortalMessages, usePortalTicket, useSendPortalMessage, useSubmitCSAT } from "@/api/portal";
+import { ATTACHMENT_ACCEPT, attachmentUrl, validateAttachment } from "@/api/attachments";
+import {
+  usePortalMessages,
+  usePortalTicket,
+  usePortalTicketAttachments,
+  useSendPortalMessage,
+  useSubmitCSAT,
+} from "@/api/portal";
+import type { PortalAttachment } from "@/api/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,17 +100,45 @@ function CsatWidget({ ticketId, existing }: { ticketId: number; existing: { scor
   );
 }
 
+function PortalAttachmentRow({ attachment }: { attachment: PortalAttachment }) {
+  const { t } = useTranslation();
+  return (
+    <li>
+      <a
+        href={attachmentUrl(attachment.file)}
+        target="_blank"
+        rel="noreferrer"
+        data-testid={`portal-attachment-${attachment.id}`}
+        className="flex items-center gap-2.5 rounded-[9px] border border-line px-3 py-2.5 hover:bg-surface-2"
+      >
+        <Paperclip aria-hidden className="h-3.5 w-3.5 flex-none text-faint" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] font-medium text-ink">{attachment.filename}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {formatFileSize(attachment.size)}
+            {" · "}
+            {attachment.uploaded_by_kind === "you" ? t("portal.attachmentFromYou") : t("portal.attachmentFromSupport")}
+          </p>
+        </div>
+        <span className="flex-none text-[11.5px] font-medium text-brand">{t("common.open")}</span>
+      </a>
+    </li>
+  );
+}
+
 export default function PortalTicketDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const ticketId = id ? Number(id) : null;
 
-  const { data: ticket, isPending } = usePortalTicket(ticketId);
+  const { data: ticket, isPending, isError, error } = usePortalTicket(ticketId);
+  const notFound = isError && (error as AxiosError).response?.status === 404;
   const { data: messages, isPending: messagesPending } = usePortalMessages(
     ticketId,
     ticket?.channel === "chat",
   );
   const sendMessage = useSendPortalMessage();
+  const { data: attachments } = usePortalTicketAttachments(ticketId);
 
   const [body, setBody] = React.useState("");
   const [files, setFiles] = React.useState<File[]>([]);
@@ -139,11 +175,22 @@ export default function PortalTicketDetail() {
     );
   };
 
-  if (isPending || !ticket) {
+  if (isPending) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="portal-ticket-skeleton">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (isError || !ticket) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center">
+        {/* 404 means out of scope (someone else's ticket, or one that no
+            longer exists) — "not available" is the honest wording for both,
+            the same rule Tickets.tsx already applies on the agent side. */}
+        <EmptyState title={t(notFound ? "portal.ticketNotFound" : "portal.ticketLoadError")} description="" />
       </div>
     );
   }
@@ -180,6 +227,17 @@ export default function PortalTicketDetail() {
       </dl>
 
       {RATEABLE.has(ticket.status) ? <CsatWidget ticketId={ticket.id} existing={ticket.csat} /> : null}
+
+      {(attachments ?? []).length > 0 ? (
+        <div className="mt-4">
+          <h2 className="text-[12px] font-semibold text-muted-foreground">{t("portal.attachments")}</h2>
+          <ul className="mt-1.5 space-y-1.5">
+            {(attachments ?? []).map((attachment) => (
+              <PortalAttachmentRow key={attachment.id} attachment={attachment} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-5 rounded-[9px] border border-line bg-background">
         <div className="border-b border-line px-4 py-3">

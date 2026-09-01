@@ -91,6 +91,15 @@ describe("filters panel", () => {
     expect(screen.getByTestId("queue-filters-toggle")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("queue-filters-panel")).toBeInTheDocument();
   });
+
+  it("never offers Live chat as a channel filter — the queue itself never returns one", async () => {
+    setup("/app/tickets?priority=urgent");
+    await screen.findByTestId("queue-row-1");
+
+    const channelSelect = screen.getByTestId("queue-filter-channel");
+    const options = [...channelSelect.querySelectorAll("option")].map((o) => o.value);
+    expect(options).not.toContain("chat");
+  });
 });
 
 describe("URL as the source of truth", () => {

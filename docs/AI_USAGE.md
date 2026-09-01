@@ -1617,3 +1617,447 @@ wrong-pixel-click, but a background-tab optimization correctly refusing to run i
 that never reports itself as foregrounded. The fix each time was the same: check the actual browser
 state (`document.activeElement`, `document.visibilityState`) before concluding the feature, rather
 than the harness, is what's broken.
+
+## Post-hand-in — Attachments were invisible everywhere (`fix/attachment-visibility`)          (elapsed: ~1h 15m)
+
+**What I asked for:** "i discover issue in attachment when i create ticket and i add attachment,
+the attachment doesn't appear" — a portal bug report. Asked back whether the fix should cover the
+portal only or the agent side too, since a first look suggested the gap might be wider; chose
+**both, portal and agent**.
+
+**What the AI built:** the bug turned out to be three separate, independent defects stacked on top
+of each other, all now fixed:
+
+1. **No UI anywhere ever fetched or rendered an attachment list**, on either side, despite the
+   agent app already having a ready, unused `useTicketAttachments` hook and a working
+   `/tickets/{id}/attachments/` endpoint — `TicketDetail.tsx` simply never called it.
+   `TicketWorkspaceDetail` (`frontend/src/features/tickets/TicketDetail.tsx`) gained a fourth tab,
+   **Attachments**, with its own count badge, empty state, and a row per file (icon, filename,
+   size, uploader, relative time, an "Open" link).
+2. **`AttachmentSerializer`'s `file` field was root-relative** (`/media/attachments/...`) because
+   no `request` is in that serializer's context — correct only against the API's own origin, wrong
+   against the frontend's Vite origin. Added `attachmentUrl()` (`frontend/src/api/attachments.ts`)
+   to resolve a root-relative path against the API's real origin before it's ever used as an
+   `href`; left absolute URLs untouched.
+3. **Django was never serving `/media/` at all** — `backend/config/urls.py` had no `static()` call
+   registered, so every attachment ever uploaded, across the whole app's lifetime, 404'd
+   regardless of any UI or URL fix. Found by `curl`-ing a real seeded attachment's path directly
+   and getting a 404 with no display bug involved. Fixed with a `DEBUG`-gated `static()` call.
+
+On the portal side: a new `PortalAttachmentSerializer` and a `GET
+/portal/tickets/{id}/attachments/` action (`backend/apps/portal/views.py`), mirroring
+`PortalMessageSerializer.author_kind`'s `"you"`/`"support"` pattern via `uploaded_by_kind` — no
+staff name ever crosses the portal boundary, same rule as every other portal-facing field. A new
+`usePortalTicketAttachments` hook and an attachments section in `PortalTicketDetail.tsx`, styled to
+match the ticket detail page's existing density rather than copying the agent's larger row.
+
+Added `formatFileSize()` (`frontend/src/lib/format.ts`) — "62.4 KB" / "1.2 MB", used by both sides
+so a byte count is never shown raw. 5 new backend tests
+(`backend/apps/portal/tests/test_attachments_visible.py`) and 5 new frontend tests across
+`TicketDetail.test.tsx` and `PortalTicketDetail.test.tsx`.
+
+**Decisions the AI made on its own:**
+
+- Investigated whether the media-serving gap was new regression or original — it is original: no
+  code path anywhere in the repo's history ever wired up `static()`, so this was broken from story
+  02 onward and simply never noticed because nothing ever tried to display an attachment link
+  until now.
+- The portal's new serializer passes `context={"request": request}` (unlike the agent-side
+  endpoint that has the bug), so `FileField` there already builds an **absolute** URL via DRF's own
+  `build_absolute_uri` — `attachmentUrl()` still runs over it defensively (it already special-cases
+  a string that's already `http(s)://`), so the portal doesn't depend on the agent's bug being
+  fixed to also be correct, and a future change to either side's `request` context can't silently
+  break the other.
+- Reused `_create_attachments`, `ALLOWED_CONTENT_TYPES` and `MAX_ATTACHMENT_BYTES` as-is for the
+  new tests rather than duplicating validation assumptions — the fix is entirely about *reading*
+  attachments back, not about how they're written, which was already correct and already tested.
+
+**What I had to correct:** a self-inflicted test bug during this fix, not a real one. Two new
+`PortalTicketDetail.test.tsx` tests initially registered their attachment-list mock *before*
+calling the shared `setup()` helper — but `setup()` itself registers a broader
+`/portal/tickets/5/` handler afterward, and the test harness's mock matcher is a plain substring
+`includes` check where the **last** registered match wins. That broader handler also matches the
+narrower `/portal/tickets/5/attachments/` URL, so it silently overrode the test's own attachment
+data with the ticket object instead. Fixed by moving the override to *after* `setup()` — the same
+ordering rule the existing CSAT tests already followed, that I didn't apply consistently on the
+first pass. Also wrote the first backend test's own assertion wrong: I assumed the portal's new
+endpoint would carry the same root-relative bug as the agent one, and asserted `.startswith("/media/")`;
+the real response was an absolute URL (`http://testserver/media/...`) since this endpoint does pass
+`request` into its serializer context, so the assertion was corrected to match what's actually
+correct behavior, not what was originally guessed.
+
+**What I learned:** a single "attachment doesn't appear" report can be more than one bug at once,
+and fixing only the most visible layer (a missing UI) would have shipped a still-broken feature —
+the link would have rendered but 404'd. Verifying end-to-end (a real seeded attachment,
+`curl`-checked for a 200, then confirmed rendering and downloading in the browser as both a
+customer and a manager) is what caught the second bug; a unit test alone that mocked the file URL
+would not have.
+
+## Post-hand-in — Portal ticket detail spun forever on a missing ticket (`fix/portal-ticket-not-found`)          (elapsed: ~20m)
+
+**What I asked for:** the previous fix's own test ticket (TK-0152, `id=455`) was deleted directly
+from the database as clean-up. Its portal detail page (`/portal/tickets/455`) was still open in the
+browser and, on reload, sat on an endless loading skeleton instead of any kind of error — a real bug
+surfaced by accident while tidying up test data, not something asked for directly, but worth fixing
+immediately since it would affect any customer whose ticket link goes stale for any reason (deleted,
+or simply someone else's).
+
+**What the AI built:** `PortalTicketDetail.tsx`'s loading guard was `if (isPending || !ticket)`,
+which renders the skeleton forever once the query settles into an error state (`isPending` becomes
+`false`, but `ticket` stays `undefined` — matching neither branch, falling through to a skeleton
+that never resolves). Split it into two guards, mirroring the pattern the agent side's own
+`Tickets.tsx` already established for this exact situation: a real skeleton while `isPending`, then
+a distinct not-found/load-error `EmptyState` once the query has actually failed, telling a 404 apart
+from a 500 the same way (`notFound = isError && error.response?.status === 404`). Added
+`portal.ticketNotFound` / `portal.ticketLoadError` i18n keys and 2 new tests (404 shows "not
+available", 500 shows "could not be loaded", neither ever shows the skeleton test id once settled).
+
+**Decisions the AI made on its own:** reused the exact 404-vs-other-error distinction already coded
+in `Tickets.tsx` rather than inventing new wording or logic — the reasoning (a 404 here means "out
+of scope," which the API returns instead of a 403 on purpose, so "not available" is the honest
+message for both a truly-missing ticket and someone else's) applies identically on the portal side,
+and a second, slightly different error-handling convention for the same situation would be a
+maintenance trap.
+
+**What I had to correct:** nothing in the fix itself, but the live-verification step needed care —
+the fix landed via a container restart mid-session, and the first two reload attempts in the browser
+still showed the stale skeleton because of leftover HMR/error-boundary state from unrelated earlier
+work in the same tab (visible in the console as stale module timestamps and a broken WebSocket HMR
+connection). Restarting the `web` container and re-navigating cleared it; the page then rendered
+correctly. Worth noting for next time: a still-broken-looking page after a source fix is not
+automatically evidence the fix is wrong — check the actual network response and a fresh reload
+before concluding that.
+
+**What I learned:** an early-return loading guard written as `isPending || !ticket` is a common
+enough shape that it is worth checking every future "has this data arrived yet" guard against
+explicitly asking "what does this render on a *settled* error, not just before data arrives?" —
+`!ticket` alone cannot distinguish "not fetched yet" from "fetched and failed," and only looks
+correct until the failure path is actually exercised.
+
+## Post-hand-in — Live chat redesign: a real messaging screen, not a disguised ticket (`feature/live-chat-redesign`)          (elapsed: ~2h 30m)
+
+**What I asked for:** direct product feedback after using the earlier live-chat feature — "I am not
+satisfied with the design of live chat. I put it with the ticket... live chat is a ticket called
+'محادثة مباشرة' — that's not good for me. Behave as a UI/UX designer and change this design. First
+give me the design before implementation." A design-first request, explicitly gated on approval
+before any code changed.
+
+**What the AI built, in two stages:**
+
+1. **A design proposal, published as a canvas, before writing any application code.** Two mockups
+   matching the app's real design tokens (read from `tailwind.config.js`/`index.css`, not
+   guessed): an agent-side dedicated Live Chat inbox (messaging-app list + a plain conversation
+   thread, no SLA/category/priority/internal-note chrome) and a portal-side floating chat widget
+   (launcher bubble + compact panel) in place of the old full-page ticket navigation. Reviewed once
+   in the background against the brief (RTL logical properties, no forbidden ticket fields, color
+   tokens) before handing it over. Approved as-is with "yes, implement it."
+2. **The approved design, for real, once given the go-ahead:**
+   - Backend: `LiveChatListSerializer` and `GET /tickets/live-chat/`
+     (`backend/apps/tickets/views.py`/`serializers.py`) — a distinct, unpaginated inbox list scoped
+     through the same `get_queryset()` every other agent list uses, with `last_message`/
+     `last_message_at`/`awaiting_reply` computed from a `Prefetch(..., to_attr="prefetched_messages")`
+     rather than a raw `obj.messages` access, to stay N+1-free. Deliberately excludes every
+     priority/SLA/category field `TicketListSerializer` carries — the whole point of the new screen.
+   - Agent frontend: a new `/app/live-chat` (+ `/app/live-chat/:id`) route
+     (`frontend/src/routes/LiveChat.tsx`) with its own top-nav entry and an unread-style badge
+     (`AppChrome.tsx`) sharing one query/poll with the page itself, so opening the nav item is never
+     a second fetch.
+   - Portal frontend: `ChatWidgetContext` + `PortalChatWidget` (`frontend/src/features/portal/`),
+     mounted once in `PortalChrome` so the launcher/panel persist across every portal route.
+     `PortalHome`'s "Start a live chat" button now calls the same shared `openChat()` the widget's
+     own launcher uses, rather than owning its own find-or-create-ticket logic — one place decides
+     whether to reuse an existing chat ticket or create one.
+   - 8 new backend tests, 14 new/updated frontend tests (`LiveChat.test.tsx`,
+     `PortalChatWidget.test.tsx`, plus fixes to `PortalHome.test.tsx`/`portalEndpoints.test.tsx` for
+     the button's new behavior).
+
+**Decisions the AI made on its own:**
+
+- **The underlying data model did not change** — a live chat is still a `Ticket` with
+  `channel="chat"`, still reusing `useTicketMessages`/`useSendMessage`/`usePortalMessages`/
+  `useSendPortalMessage` exactly as they were. Only the *presentation* changed. This kept the
+  redesign backend-light (one new read endpoint) and meant every existing attachment/audit/security
+  guarantee on tickets carried over automatically instead of needing to be re-proven for a new
+  concept.
+- **"Awaiting reply" is a heuristic, not a real read-state model**: whichever party sent the most
+  recent message is the one *not* waiting. Building actual per-agent read receipts was judged out of
+  scope for this fix — the existing app has no such model anywhere else either (the notification
+  centre's own unread count is the closest precedent, and that is a separate, coarser mechanism).
+- **The portal widget's "unread" badge is a client-side, `localStorage`-backed approximation**
+  (compare current message count against a `seen` count written when the panel opens), not a
+  server-tracked field — deliberately kept out of the backend for the same reason.
+- Kept the small, secondary "View ticket record" link on the agent side rather than removing the
+  bridge to the ticket workspace entirely — attachments, and anything else the ticket workspace can
+  do that the slimmed-down chat screen deliberately can't, still need a way back to the full record.
+
+**What I had to correct:**
+
+- Two rounds of the exact same self-inflicted test-ordering bug this session had already hit once
+  before, in `PortalHome.test.tsx` and `portalEndpoints.test.tsx`: registering a narrow mock handler
+  (`/portal/tickets/7/messages/`) *before* a broader one (`/portal/tickets/`) that the test harness's
+  substring-`includes` matcher also matches, with "last registered wins" semantics — so the broader
+  handler silently overrode the narrower one and crashed the widget's `.map()` on non-array data.
+  Fixed by moving the messages stub to register *after* the broader ticket handler in both files.
+- Live-verifying the portal widget in the browser initially looked broken — typed text was not
+  appearing in the composer input at all. Traced to the browser-automation harness itself: a manual
+  viewport resize (`resize_window` with explicit pixel dimensions) had put the tool's click
+  coordinates and the page's actual device pixels out of sync, so clicks were landing at the wrong
+  physical position despite `elementFromPoint` reporting the right element for the coordinate I
+  separately checked in JS (a different coordinate space, which I initially and wrongly treated as
+  equivalent). Resetting to the `desktop` viewport preset restored correct click targeting; the
+  widget was already working correctly the whole time, matching the 6 passing automated tests for
+  exactly this flow.
+
+**What I learned:** a direct, specific piece of UX feedback ("this looks like a ticket, not a chat")
+is worth designing before implementing even when the fix could technically be described in a
+sentence — seeing the two states (agent inbox, portal widget) side by side against the real design
+tokens surfaced the "no SLA/category chrome" and "no full-page navigation" requirements more
+precisely than the verbal complaint alone would have, and meant the approval ("yes, implement it")
+covered a concrete, already-reviewed shape rather than an open-ended redo.
+
+## Post-hand-in — Portal header overflowed the whole page on mobile (`fix/portal-mobile-header-overflow`)          (elapsed: ~35m)
+
+**What I asked for:** a screenshot of the portal home page at a phone width, with "check the mobile
+there is a design bug here" — no further detail on what the bug was.
+
+**What the AI built:** confirmed the bug live (a resized browser tab reproduced it: the whole page
+scrolled horizontally, with header content and hero-card text bleeding off the right edge). Traced it
+to `PortalChrome.tsx`'s header having no responsive handling at all — unlike `AppChrome.tsx`, which
+already collapses its nav into a hamburger dropdown below `lg`, the portal header always rendered its
+full logo+secondary-label, two full-width nav link labels, the language toggle, and the user chip in
+one row, with no wrap and no fallback. At a ~375px width that content measured ~500px, forcing the
+entire page (not just the header) into horizontal overflow. Fixed with the same pattern `AppChrome`
+already established:
+- `Lockup.tsx`: the secondary product label (and its divider) now hides below `sm` — the wordmark
+  alone still identifies the product.
+- `PortalChrome.tsx`: the inline nav hides below `sm`, replaced by a `DropdownMenu` + hamburger
+  trigger (`portal-mobile-nav-trigger`), identical in shape to `AppChrome`'s own mobile trigger;
+  header padding and gaps also shrink slightly below `sm`.
+- `PortalChatWidget.tsx`: while verifying at a real phone width, also tightened the chat panel's
+  fixed `360px` width with a `max-w-[calc(100vw-24px)]` clamp and a `min(520px, 100vh-40px)` height
+  clamp — the panel was one narrow-phone-width away from clipping off the left edge, a related but
+  separate small bug caught by the same verification pass, not the one reported.
+- 3 new tests (`PortalChrome.test.tsx`): the mobile trigger exists, clicking it reveals both nav
+  items, and the secondary label carries the responsive classes rather than rendering unconditionally.
+
+**Decisions the AI made on its own:**
+
+- Reused `AppChrome`'s exact mobile-nav-collapse pattern (same `DropdownMenu` components, same
+  trigger shape) rather than inventing a different mobile treatment for the portal — one collapse
+  pattern in the app is easier to keep correct than two.
+- Fixed the chat-widget panel's narrow-phone clipping risk in the same commit even though it wasn't
+  the reported bug, since it was found via the same live verification pass and is a one-line-per-fix
+  change in a file this same session had just written.
+
+**What I had to correct:** the browser-automation harness's `resize_window` tool did not actually
+apply the requested viewport in this session — `window.innerWidth` read back as 502px regardless of
+whether 375px or an explicit 375×812 was requested, and real (non-JS) clicks on the new dropdown
+trigger timed out repeatedly against the sandboxed pane. Rather than fight the harness further,
+verified the dropdown's actual behavior with a fast, deterministic unit test
+(`fireEvent.click` + assert both nav items appear) — the same kind of automation-environment
+limitation this session has hit before with focus and click coordinates, worked around the same way:
+trust the harness's stated result over a plausible-looking screenshot when the two disagree, and fall
+back to a more reliable verification method rather than assuming the feature itself is broken.
+
+**What I learned:** a chrome/header component with zero responsive handling can pass every existing
+test and look correct in every screenshot taken at desktop width, and still break the entire page —
+not just itself — the first time a real narrow viewport hits it, because unconstrained flex content
+doesn't wrap, it expands the whole document. `AppChrome` had already solved this once; the fix here
+was recognizing the same shape of problem in the sibling component that never got the same treatment,
+rather than treating it as a new kind of bug.
+
+## Post-hand-in — Full mobile audit, three more fixed-layout screens broken (`fix/mobile-audit`)          (elapsed: ~1h 45m)
+
+**What I asked for:** "review all pages in mobile perspective and verify that all designs are mobile
+friendly" — a full sweep, not a specific bug report, following directly from the portal-header fix
+just before it.
+
+**What the AI built:** methodically checked every route in both the agent app and the customer
+portal at a 375px viewport (`/app/dashboard`, `/tickets`, `/tickets/:id`, `/tickets/new`,
+`/live-chat`, `/live-chat/:id`, `/customers`, `/customers/:id`, `/kb`, `/kb/:slug`, `/kb/new`,
+`/reports`, `/profile`, and the portal's `/`, `/new`, `/tickets/:id`, `/kb`, `/kb/:slug`,
+`/register`), using an automated "does any element render wider than its scroll container" check
+rather than relying on screenshots alone. Found and fixed three real, previously-unnoticed bugs, all
+in screens with a fixed multi-pane desktop layout and no responsive fallback:
+
+1. **`LiveChat.tsx`** (built earlier this session, never tested at mobile width): the 320px inbox
+   list and the conversation pane rendered side by side unconditionally, squeezing the open
+   conversation into an unusable ~50px sliver with text wrapping one character per line. Fixed with
+   the same two-page pattern `Tickets.tsx` already established: the list hides below `md` once a
+   conversation is selected, with a "← Live Chat" back link.
+2. **`KBBrowse.tsx`**: a 236px category rail + 420px article list + reader pane (656px minimum)
+   never had any responsive handling at all, unlike `Tickets.tsx`. Restructured to stack the rail and
+   list vertically when no article is selected, and hide both behind a "← Knowledge base" back link
+   once one is open — the same shape as the `LiveChat.tsx` fix, applied to a three-pane rather than
+   two-pane layout.
+3. **`Customer360.tsx`**: a fixed-330px contacts/notes rail next to a flex-1 ticket-history table
+   squeezed the table to near-zero width, and — a second, independent bug in the same table — the
+   table itself had no `overflow-x-auto` of its own (unlike `CustomerList`'s shared `DataTable`,
+   which already wraps every table this way), so its overflow leaked into and widened the whole
+   page's scroll area instead of scrolling locally. Fixed both: the rail and table now stack below
+   `md`, and the table gained its own scroll wrapper.
+
+Confirmed clean with no changes needed: `Dashboard`, the ticket queue and detail, `NewTicket`,
+`CustomerList`, the KB editor, `Reports` (its agent-performance table already had `overflow-x-auto`),
+`Profile`, and every portal screen including the floating chat widget panel. 6 new regression tests
+added across `LiveChat.test.tsx`, `KBBrowse.test.tsx`, and `Customer360.test.tsx`.
+
+**Decisions the AI made on its own:**
+
+- **Rejected `document.documentElement.scrollWidth` as the audit signal after the first page passed
+  it while visibly broken.** This app's shell is a fixed `h-screen` layout where `<main>` itself
+  scrolls (`overflow-y-auto`), not the document — so document-level width was reporting "fine" while
+  `KBBrowse` was actually 740px of content squeezed into a 375px `<main>`. Switched to checking
+  `main.scrollWidth` vs `main.clientWidth`, then refined further to "does any single element render
+  wider than its container" after even the `main`-level numbers turned out to disagree with reality
+  on one page for reasons traced to an RTL/scrollbar rendering quirk of the specific browser engine in
+  use, not a real bug — the per-element check doesn't depend on that arithmetic at all.
+- **Distinguished a genuinely broken overflow from a properly-scoped one** before treating either as
+  a bug: `Reports`' agent-performance table is also wider than its container, but it already sits
+  inside its own `overflow-x-auto` wrapper and scrolls locally without affecting the page — correct,
+  left untouched. `Customer360`'s ticket-history table had no such wrapper — that was the bug.
+- **Fixed the `Customer360` table's local overflow-x-auto in the same commit as its layout-stacking
+  fix**, even though only one of the two was strictly necessary to make it usable, because both are
+  one-line changes in a component this same investigation already had open, and shipping the layout
+  fix without the scroll wrapper would have left a second, related bug for the exact same table.
+
+**What I had to correct:** treated an apparent 30px `main`-level overflow on the fixed `LiveChat`
+detail view as real at first, until a targeted check ("does any element actually render wider than
+375px") came back empty — no element was wider than its container, so the `scrollWidth` gap was
+measurement noise from the same RTL-scrollbar quirk seen once already this session, not a live bug.
+Verified this conclusion against the screenshot, which showed a clean, correctly laid-out screen,
+before moving on rather than chasing a number that disagreed with everything else.
+
+**What I learned:** "no page-level horizontal scrollbar" and "mobile-friendly" are not the same
+claim in an app whose shell scrolls internally — three real bugs here would have all read as clean
+under the document-level check alone. The reliable signal turned out to be the most literal one
+("is any element wider than the box that's supposed to contain it"), not a derived arithmetic
+comparison that depends on assumptions about which element does the scrolling.
+
+**Addendum, same branch:** the user then sent two real-device screenshots (360×780, an actual iPhone
+SE-class width rather than the 375–391px this session's browser-automation tool had been reporting)
+showing `AppChrome`'s own header — not just the pages beneath it — visibly wider than the frame. This
+was the exact header this session had earlier measured at ~390px of content in a ~391px window and
+judged "fits, barely" from a `scrollWidth`/`clientWidth` comparison that turned out to be right at the
+threshold where the RTL-scrollbar measurement noise (documented above) could mask a few pixels of
+genuine overflow; at a true 360px it no longer fit at all. Fixed by moving the 32px segmented EN/ع
+language toggle into the mobile hamburger menu below `sm` (extracting its switching logic into a
+reusable `useLanguageSwitch` hook so the menu item and the standalone control share one
+implementation) rather than trimming padding further, which had already been reduced as far as it
+could go without every other element on the bar changing size. Verified at a real 360px width this
+time, and added a regression test using `pointerdown`/`pointerup` events rather than a bare `click` —
+the fireEvent sequence Radix's `DropdownMenu` trigger actually listens for, discovered only once a
+test that couldn't pass by accident (an earlier test in this session had asserted against text that
+also existed, hidden, outside the dropdown, and so proved nothing about whether the click worked at
+all) forced the real gap into the open.
+
+**What I learned, again:** the 375–391px range this session's own tooling reported is close enough to
+a real 360px phone that a bug sitting in that gap can pass every automated check and still be visible
+to an actual user on an actual device — the fix here shipped only because the user tested on
+something this session's tooling couldn't faithfully reproduce, not because the audit above was
+insufficiently thorough at the widths it actually checked.
+
+**Second addendum, same branch:** two more real-device screenshots (still 360×780, now in English
+rather than the Arabic this session's own sweep happened to test in) showed two further bugs, both in
+screens the sweep had already visited and passed:
+
+1. **`Customer360.tsx`'s header card**: the avatar/name/company column and the "Edit"/"New ticket"
+   buttons shared one `items-center` row. In Arabic the company line was short enough to stay on one
+   line, so the row never actually wrapped during this session's own testing; the user's English
+   content ("Arabian Gulf Trading Co. · Riyadh · prefers Arabic") was long enough to wrap onto three
+   lines, and `items-center` then centered the buttons against that full wrapped height — rendering
+   them floating mid-way through the company address rather than below it. Fixed by splitting into
+   its own row that stacks below `sm`.
+2. **`TicketDetail.tsx`'s four-tab bar and `Composer.tsx`'s mode row**: both were plain unwrapped flex
+   rows with no `overflow-x-auto` of their own. Arabic's short labels ("المحادثة", "رد") fit; English's
+   longer ones ("Internal notes", "Activity log", "Sending via") did not, and — the same failure shape
+   as `Customer360`'s ticket-history table earlier in this branch — the overflow leaked into and
+   widened the whole page rather than scrolling locally, clipping unrelated text above and below
+   it (a back link, the ticket number) that had nothing to do with either row. Fixed by giving each
+   its own `overflow-x-auto` plus `whitespace-nowrap`/`flex-none` on its items, matching the pattern
+   already used elsewhere in this same branch.
+
+**What I learned, a third time:** this session's own testing had been running mobile checks
+disproportionately in Arabic, whose typically-shorter labels quietly hid two more instances of the
+exact bug shape this branch already knew about (fixed-row content with no local scroll container).
+Content-length is a real, separate axis from viewport width when auditing "does this fit" — a screen
+confirmed clean at 360px in one language is not confirmed clean at 360px in the other, and the fix
+each time was recognizable on sight only because the previous fixes in this same branch had already
+named the shape: unwrapped flex content with nowhere to go needs either wrapping/stacking or its own
+`overflow-x-auto`, chosen by whether the content reads better as a column or a locally-scrollable row.
+
+**Third addendum, same branch:** the user then pointed at two cropped screenshots of the very screen
+this branch had just fixed — "this part height is so tiny" for the AI-summary banner and composer
+tab row, and just "button" for the composer's Attach/Suggest/Send row — without further detail. Two
+more layout bugs, both a size down from the ones already fixed:
+
+1. **`AiSummaryBanner.tsx`**: the badge, the message text, and the "Generate summary" action shared
+   one `items-start` row. The earlier fixes in this branch had made the *tabs above* and the
+   *composer mode row below* it scroll correctly, but never touched this banner sitting between
+   them — at 360px its text column got squeezed so narrow that even "No summary yet." wrapped across
+   three lines, which is what "so tiny" pointed at. Fixed by giving the badge+text pair their own
+   full-width row below `sm` (via `sm:contents`, so the single-row layout at `sm` and up is
+   unchanged) and letting the actions become their own row underneath.
+2. **`Composer.tsx`**'s bottom button row: Attach + Suggest reply + a `flex-1` spacer + Send reply
+   didn't all fit one row at 360px, and — a flexbox-specific trap — a `flex-1` spacer that can't
+   shrink far enough wraps onto its *own* empty full-width line when the row wraps, rather than
+   simply letting the next button follow it down; Send ended up crowded flush against the composer
+   card's rounded corner with no margin. Fixed by dropping the spacer for `flex-wrap` on the row and
+   `ms-auto` on the Send button, which doesn't have that wrapping side effect.
+
+2 new regression tests (`AiSummaryBanner.test.tsx`, new file; `Composer.test.tsx`), 294 total passing.
+
+**What I learned, a fourth time:** "fits without horizontal overflow" and "looks right" are still two
+different bars — both of these screens already passed the overflow check from the earlier fixes in
+this branch; the actual complaint was readability and touch-target crowding, not a page that scrolled
+sideways. A terse two-word user report ("button") pointing at a screenshot was enough to locate the
+real issue once the surrounding fixes had already established which specific rows on that screen were
+fixed-width-constrained.
+
+## Post-hand-in — Live chat no longer shows up twice (`fix/live-chat-hidden-from-ticket-list`)          (elapsed: ~45m)
+
+**What I asked for:** two screenshots — the customer portal's "My requests" list and the agent's
+ticket queue, both showing a live-chat conversation as an ordinary row — with "no need to put live
+chat within tickets for all user... we can reach to live chat from other places so remove it from
+ticket list."
+
+**What the AI built:**
+
+- Backend: `TicketViewSet.get_queryset()` now excludes `channel=chat` specifically for the `list`
+  action (agent queue + `q` search, which shares that same action) — `retrieve` is untouched, so
+  opening a chat ticket directly by id (the Live Chat screen's own "View ticket record" link) still
+  works.
+- `TicketQueue.tsx`: removed "Live chat" from the channel filter dropdown — with the queue itself
+  never returning one, that option would only ever have produced an empty list.
+- `PortalHome.tsx`: filters `channel !== "chat"` out of the rendered Open/Closed lists —
+  client-side, not from the query itself, since `ChatWidgetContext`'s own "does an open chat ticket
+  already exist" check shares that exact cached list and still needs to see it.
+- 5 new tests (2 backend, 3 frontend) plus 4 pre-existing backend scoping tests updated (see below).
+
+**Decisions the AI made on its own:**
+
+- **Backend exclusion for the agent side, frontend-only filtering for the portal side** — a
+  deliberate asymmetry, not an inconsistency. The agent ticket queue has no other consumer that needs
+  chat tickets in its result set, so excluding at the query level is strictly cleaner. The portal's
+  own `usePortalTickets` list, though, is shared cache: `ChatWidgetContext` reads the *same* query to
+  find an existing open chat ticket to reuse when the widget opens. Filtering there instead of in the
+  hook keeps that internal lookup working while "My requests" itself never renders one.
+- **Excluded from `list`, not from `retrieve`** on the backend, specifically so a chat ticket stays
+  reachable by direct id — the exact path the Live Chat screen's "View ticket record" link already
+  depends on.
+
+**What I had to correct:** the backend exclusion broke four pre-existing scoping tests
+(`test_scoping_endpoints.py`) that had been silently relying on "a ticket absent from the list
+response is a ticket outside this role's scope" as their definition of "hidden" — now a chat ticket
+can be absent from the list for an unrelated reason (channel, not scope), which made two tests
+compute the wrong expected set (`test_admin_sees_every_ticket`, `test_agent_sees_department_...`)
+and two others accidentally pick an in-scope chat ticket as their "hidden" fixture and then fail when
+write actions against it correctly succeeded instead of 404ing. Fixed by explicitly excluding
+`channel="chat"` from each test's own expected-set computation and from the "hidden ticket" candidate
+pool, rather than loosening the assertions — the tests were right to enforce scope-by-role; they
+just needed to stop conflating that with "excluded from the list for an unrelated reason."
+
+**What I learned:** a query-level exclusion married to a semantically loose test helper ("whatever
+`all_ids()` returns defines the scope boundary") is a trap that only surfaces the moment a second,
+legitimate reason to leave something out of a list shows up — the four failures here were the test
+suite doing exactly its job, not collateral damage to shrug off.
