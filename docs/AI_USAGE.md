@@ -1956,3 +1956,32 @@ a real 360px phone that a bug sitting in that gap can pass every automated check
 to an actual user on an actual device — the fix here shipped only because the user tested on
 something this session's tooling couldn't faithfully reproduce, not because the audit above was
 insufficiently thorough at the widths it actually checked.
+
+**Second addendum, same branch:** two more real-device screenshots (still 360×780, now in English
+rather than the Arabic this session's own sweep happened to test in) showed two further bugs, both in
+screens the sweep had already visited and passed:
+
+1. **`Customer360.tsx`'s header card**: the avatar/name/company column and the "Edit"/"New ticket"
+   buttons shared one `items-center` row. In Arabic the company line was short enough to stay on one
+   line, so the row never actually wrapped during this session's own testing; the user's English
+   content ("Arabian Gulf Trading Co. · Riyadh · prefers Arabic") was long enough to wrap onto three
+   lines, and `items-center` then centered the buttons against that full wrapped height — rendering
+   them floating mid-way through the company address rather than below it. Fixed by splitting into
+   its own row that stacks below `sm`.
+2. **`TicketDetail.tsx`'s four-tab bar and `Composer.tsx`'s mode row**: both were plain unwrapped flex
+   rows with no `overflow-x-auto` of their own. Arabic's short labels ("المحادثة", "رد") fit; English's
+   longer ones ("Internal notes", "Activity log", "Sending via") did not, and — the same failure shape
+   as `Customer360`'s ticket-history table earlier in this branch — the overflow leaked into and
+   widened the whole page rather than scrolling locally, clipping unrelated text above and below
+   it (a back link, the ticket number) that had nothing to do with either row. Fixed by giving each
+   its own `overflow-x-auto` plus `whitespace-nowrap`/`flex-none` on its items, matching the pattern
+   already used elsewhere in this same branch.
+
+**What I learned, a third time:** this session's own testing had been running mobile checks
+disproportionately in Arabic, whose typically-shorter labels quietly hid two more instances of the
+exact bug shape this branch already knew about (fixed-row content with no local scroll container).
+Content-length is a real, separate axis from viewport width when auditing "does this fit" — a screen
+confirmed clean at 360px in one language is not confirmed clean at 360px in the other, and the fix
+each time was recognizable on sight only because the previous fixes in this same branch had already
+named the shape: unwrapped flex content with nowhere to go needs either wrapping/stacking or its own
+`overflow-x-auto`, chosen by whether the content reads better as a column or a locally-scrollable row.

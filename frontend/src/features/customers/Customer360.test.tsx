@@ -109,6 +109,25 @@ describe("the ticket-history table on a narrow screen", () => {
   });
 });
 
+describe("the header card on a narrow screen", () => {
+  it("stacks the Edit/New ticket buttons below the name and company instead of floating mid-text", async () => {
+    // Found live at 360px: the buttons shared one `items-center` row with the
+    // name/company column, so once that column wrapped onto several lines
+    // the buttons rendered vertically centered against the whole row's
+    // height — floating in the middle of the wrapped company address.
+    mock.on("/tickets/", () => page([]));
+    setup();
+
+    const editButton = await screen.findByTestId("edit-customer-button");
+    const buttonRow = editButton.closest("div.flex.flex-none");
+    expect(buttonRow).not.toBeNull();
+
+    const outerRow = editButton.closest("div.flex.flex-col");
+    expect(outerRow?.className).toContain("sm:flex-row");
+    expect(outerRow?.className).toContain("sm:items-center");
+  });
+});
+
 describe("editing the customer", () => {
   it("survives a write-serializer response that omits contacts, without crashing", async () => {
     // CustomerViewSet.get_serializer_class() returns CustomerWriteSerializer

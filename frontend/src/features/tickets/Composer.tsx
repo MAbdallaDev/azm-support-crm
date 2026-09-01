@@ -161,7 +161,7 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
       aria-pressed={internal === isInternal}
       data-testid={`composer-mode-${isInternal ? "internal" : "reply"}`}
       className={cn(
-        "border-b-2 pb-[9px] text-[13px]",
+        "flex-none whitespace-nowrap border-b-2 pb-[9px] text-[13px]",
         internal === isInternal
           ? "border-brand font-semibold text-ink"
           : "border-transparent font-medium text-muted-foreground hover:text-ink-2",
@@ -179,16 +179,19 @@ export function Composer({ ticket }: { ticket: TicketDetail }) {
         internal ? "border-priority-high/40" : "border-line",
       )}
     >
-      <div className="flex items-center gap-[18px] px-3.5 pt-[11px]">
+      {/* Below a phone width "Reply" + "Internal note" + "Sending via" + the
+          channel badge don't fit one unwrapped row — this leaked into the
+          page's own horizontal scroll the same way the tabs above it did. */}
+      <div className="flex items-center gap-[18px] overflow-x-auto px-3.5 pt-[11px]">
         {modeTab(false, t("composer.reply"))}
         {modeTab(true, t("composer.internalNote"))}
         <span className="flex-1" />
         {!internal ? (
           <>
-            <span className="pb-[9px] text-[11.5px] text-muted-foreground">
+            <span className="flex-none whitespace-nowrap pb-[9px] text-[11.5px] text-muted-foreground">
               {t("composer.sendingVia")}
             </span>
-            <ChannelBadge channel={ticket.channel} className="mb-[9px]" />
+            <ChannelBadge channel={ticket.channel} className="mb-[9px] flex-none" />
           </>
         ) : null}
       </div>

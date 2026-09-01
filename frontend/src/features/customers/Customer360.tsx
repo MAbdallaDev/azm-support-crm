@@ -277,32 +277,42 @@ export default function Customer360() {
       </p>
 
       <div className="mt-3 rounded-[9px] border border-line bg-background p-[18px_20px]">
-        <div className="flex items-center gap-3.5">
-          <span
-            aria-hidden
-            className="flex h-12 w-12 flex-none items-center justify-center rounded-[11px] bg-[#3f5a7d] text-[16px] font-semibold text-white"
-          >
-            {initials(customer.name)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[19px] font-bold tracking-[-0.01em]">{customer.name}</span>
-              <Pill className="bg-tier-bg uppercase tracking-[0.07em] text-tier">
-                {t(`customers.tier.${customer.tier}`)}
-              </Pill>
+        {/* Below `sm` the name/company column and the two action buttons
+            stack instead of sharing one `items-center` row — found live: at
+            a real 360px width the column wraps onto several lines while
+            `items-center` still vertically centers the buttons against the
+            row's full height, so they render floating mid-way through the
+            wrapped company address instead of below it. */}
+        <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3.5">
+            <span
+              aria-hidden
+              className="flex h-12 w-12 flex-none items-center justify-center rounded-[11px] bg-[#3f5a7d] text-[16px] font-semibold text-white"
+            >
+              {initials(customer.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[19px] font-bold tracking-[-0.01em]">{customer.name}</span>
+                <Pill className="bg-tier-bg uppercase tracking-[0.07em] text-tier">
+                  {t(`customers.tier.${customer.tier}`)}
+                </Pill>
+              </div>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                {[customer.company, customer.branch_name, t(customer.preferred_language === "ar" ? "customers.prefersArabic" : "customers.prefersEnglish")]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
             </div>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">
-              {[customer.company, customer.branch_name, t(customer.preferred_language === "ar" ? "customers.prefersArabic" : "customers.prefersEnglish")]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
           </div>
-          <Button variant="outline" data-testid="edit-customer-button" onClick={() => setEditingCustomer((v) => !v)}>
-            {t("common.edit")}
-          </Button>
-          <Button onClick={() => navigate(`/app/tickets/new?customer=${customer.id}`)}>
-            {t("customers.newTicket")}
-          </Button>
+          <div className="flex flex-none gap-2.5 sm:ms-auto">
+            <Button variant="outline" data-testid="edit-customer-button" onClick={() => setEditingCustomer((v) => !v)}>
+              {t("common.edit")}
+            </Button>
+            <Button onClick={() => navigate(`/app/tickets/new?customer=${customer.id}`)}>
+              {t("customers.newTicket")}
+            </Button>
+          </div>
         </div>
 
         {editingCustomer ? (
