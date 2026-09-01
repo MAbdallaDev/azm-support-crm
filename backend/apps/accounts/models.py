@@ -101,18 +101,24 @@ class Notification(models.Model):
     trail read by admins. This is read by its own recipient and carries a
     read/unread state AuditLog has no reason to have.
 
-    Scoped to two verbs only: a ticket assigned to you, and an escalation on a
-    ticket you own or watch. SLA breach is deliberately not a verb here —
-    `sla_service` computes breach lazily on every read with no scheduler to
-    catch the moment a breach first occurs (see its module docstring), so
-    "notify on breach" would mean either a real scheduled sweep (out of scope)
-    or a lossy check bolted onto unrelated writes. Two honest verbs beat a
-    third dishonest one.
+    Three verbs: a ticket assigned to you, an escalation on a ticket you own
+    or watch, and an SLA breach on a ticket assigned to you. The first two are
+    written inline from the request that causes them (`ticket_service`'s
+    `assign`/`escalate`). The breach verb cannot be — `sla_service` computes
+    breach state lazily on every read, with no request that "causes" a breach
+    to hang a notification off. It is written instead by the
+    `check_sla_breaches` management command, a real scheduled sweep (the
+    project's own Odoo `ir.cron` mapping) run periodically — not a lossy check
+    bolted onto an unrelated write. `notify_sla_breach` is idempotent per
+    ticket (one lifetime breach notification, not one per sweep), which is
+    the deliberate simplification: a reopened ticket that breaches again does
+    not notify a second time in this MVP.
     """
 
     class Verb(models.TextChoices):
         TICKET_ASSIGNED = "ticket_assigned", "Ticket assigned"
         TICKET_ESCALATED = "ticket_escalated", "Ticket escalated"
+        TICKET_SLA_BREACHED = "ticket_sla_breached", "SLA breached"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

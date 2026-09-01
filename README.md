@@ -292,9 +292,12 @@ Three small MVP fixes and two closed Phase-2 items, done after the ten-story han
 same way (branch → PR → `dev` → `main`): a queue-panel layout fix and the scroll-escape bug it led
 to being found and fixed, a self-service profile page (view/edit phone and language, change
 password), personalized demo account display names, a **notification centre** (bell with an
-unread badge, notifying on ticket assignment and escalation — closing the SLA & Automation area's
-"alerts and notifications" item; SLA breach is deliberately not a notification verb, since the SLA
-engine computes breach lazily with no scheduler to catch the moment one occurs), and **suggested
+unread badge, notifying on ticket assignment, escalation, and SLA breach — closing the SLA &
+Automation area's "alerts and notifications" item fully; the breach verb is written by a
+`check_sla_breaches` management command — a real periodic sweep, the project's own Odoo `ir.cron`
+mapping — rather than the lossy check bolted onto an unrelated write that was rejected the first time
+this was built, since the SLA engine's breach *state* stays lazily derived either way, on branch
+`feature/notification-centre-sla-breach`, not yet merged), and **suggested
 solutions** (`.squad/stories/crm-advanced/11-suggested-solutions/` — an agent viewing a ticket sees
 up to three already-resolved tickets that look similar, each with how it was resolved; a real
 deterministic database ranking, not semantic search or an external model — closing the fourth of

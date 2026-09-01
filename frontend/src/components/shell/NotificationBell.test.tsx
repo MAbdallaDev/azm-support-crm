@@ -84,6 +84,24 @@ describe("NotificationBell", () => {
     expect(await screen.findByText("Nothing new")).toBeInTheDocument();
   });
 
+  it("shows an SLA-breach notification actor-less", async () => {
+    mock.on("/notifications/", () =>
+      page([
+        notification({
+          id: 2,
+          verb: "ticket_sla_breached",
+          actor_name: "",
+        }),
+      ]),
+    );
+    renderWithProviders(<NotificationBell />);
+
+    openBell();
+
+    expect(await screen.findByTestId("notification-2")).toBeInTheDocument();
+    expect(screen.getByText("TK-0042 breached its SLA")).toBeInTheDocument();
+  });
+
   it("marks a notification read and navigates to its ticket on click", async () => {
     mock.on("/notifications/", () => page([notification()]));
     renderWithProviders(<NotificationBell />, { route: "/app/dashboard" });

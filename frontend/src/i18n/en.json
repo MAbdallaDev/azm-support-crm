@@ -535,10 +535,11 @@
   "notifications": {
     "title": "Notifications",
     "empty": "Nothing new",
-    "emptyBody": "Assignments and escalations will show up here.",
+    "emptyBody": "Assignments, escalations and SLA breaches will show up here.",
     "assigned": "{{actor}} assigned you {{ticket}}",
     "escalated": "{{actor}} escalated {{ticket}}",
     "assignedNoActor": "You were assigned {{ticket}}",
-    "escalatedNoActor": "{{ticket}} was escalated"
+    "escalatedNoActor": "{{ticket}} was escalated",
+    "slaBreached": "{{ticket}} breached its SLA"
   }
 }
