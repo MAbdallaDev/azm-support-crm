@@ -293,7 +293,17 @@
     "suggestedSolutionsGenerate": "البحث عن تذاكر مشابهة",
     "suggestedSolutionsEmpty": "لم يتم العثور على تذاكر مشابهة تم حلها.",
     "noResolutionNote": "تم الحل دون تسجيل ملاحظة.",
-    "resolvedRelative": "تم الحل {{when}}"
+    "resolvedRelative": "تم الحل {{when}}",
+    "category": "التصنيف المقترح",
+    "categoryGenerate": "التحقق من التصنيف",
+    "categoryEmpty": "لم يتم التحقق من التصنيف بعد.",
+    "categoryFailed": "تعذّر اقتراح تصنيف.",
+    "categoryConfidence": "(بثقة {{percent}}٪)",
+    "categoryCurrent": "التصنيف الحالي: {{name}}",
+    "categoryMatchesCurrent": "يطابق التصنيف الحالي ({{name}}).",
+    "categoryApply": "تطبيق",
+    "categoryApplied": "تم تطبيق التصنيف.",
+    "categoryApplyFailed": "تعذّر تحديث التصنيف."
   },
   "composer": {
     "reply": "رد",
