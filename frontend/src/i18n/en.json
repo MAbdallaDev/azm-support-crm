@@ -293,7 +293,17 @@
     "suggestedSolutionsGenerate": "Find similar tickets",
     "suggestedSolutionsEmpty": "No similar resolved tickets found.",
     "noResolutionNote": "Resolved with no note recorded.",
-    "resolvedRelative": "Resolved {{when}}"
+    "resolvedRelative": "Resolved {{when}}",
+    "category": "SUGGESTED CATEGORY",
+    "categoryGenerate": "Check category",
+    "categoryEmpty": "Category not checked yet.",
+    "categoryFailed": "A category could not be suggested.",
+    "categoryConfidence": "({{percent}}% confidence)",
+    "categoryCurrent": "Currently: {{name}}",
+    "categoryMatchesCurrent": "Matches the current category ({{name}}).",
+    "categoryApply": "Apply",
+    "categoryApplied": "Category applied.",
+    "categoryApplyFailed": "The category could not be updated."
   },
   "composer": {
     "reply": "Reply",

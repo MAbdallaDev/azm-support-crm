@@ -240,6 +240,39 @@ export const useResolve = () => {
 };
 
 /**
+ * Apply a category — the explicit "an agent always approves" step after the
+ * AI has only *suggested* one via `ai_suggested_category` (see `useCategorize`
+ * in `ai.ts`). There is no dedicated action route for this: `category` is
+ * already a writable field on `TicketWriteSerializer`, so this goes straight
+ * through the ordinary detail `PATCH` the ViewSet already exposes rather than
+ * adding a second way to change the same column.
+ *
+ * **Not `settleDetail`.** That helper trusts its response as a full
+ * `TicketDetailSerializer`, which is true of the six actions above — but a
+ * generic `PATCH` is served by `TicketWriteSerializer` on the way out too
+ * (DRF reuses one serializer for both directions unless told otherwise),
+ * a much narrower shape missing the SLA/date fields the rest of the page
+ * reads. Patching in just the `Category` the caller already has — the exact
+ * object `useCategorize`/`useCategories` resolved it from — avoids trusting
+ * that response shape at all.
+ */
+export const useApplyCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, category }: { id: number; category: Category }) =>
+      api.patch(`/tickets/${id}/`, { category: category.id }).then(() => category),
+    onSuccess: (category, { id }) => {
+      queryClient.setQueryData<TicketDetail>(qk.tickets.detail(id), (previous) =>
+        previous ? { ...previous, category } : previous,
+      );
+      void queryClient.invalidateQueries({ queryKey: qk.tickets.all });
+      void queryClient.invalidateQueries({ queryKey: qk.mySummary });
+    },
+  });
+};
+
+/**
  * Assign, or auto-assign when `assignee` is omitted.
  *
  * **Not optimistic.** An auto-assign has no predictable outcome to patch in —

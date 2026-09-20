@@ -357,6 +357,22 @@ export type AiSuggestedSolutionsResponse = {
   solutions: AiSuggestedSolution[];
 };
 
+/**
+ * `CategorizeResponseSerializer`. Persists `ai_suggested_category` on the
+ * ticket server-side — this response itself carries only `category_id` and
+ * `category_slug`, not the full `Category` shape (name_en/name_ar/
+ * default_priority), so the caller refetches the detail rather than
+ * reconstructing one from this.
+ */
+export type AiCategorySuggestion = {
+  ticket: number;
+  backend: string;
+  category_id: number | null;
+  category_slug: string;
+  confidence: number;
+  rationale: string;
+};
+
 // ---------------------------------------------------------------------------
 // Story 08 — customer 360, knowledge base, and the two reference lists a
 // dropdown needed (branches, departments).

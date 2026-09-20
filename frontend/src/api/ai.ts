@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { qk } from "./queryKeys";
 import type {
+  AiCategorySuggestion,
   AiSuggestedReply,
   AiSuggestedSolutionsResponse,
   AiSummary,
@@ -58,3 +59,24 @@ export const useSuggestedSolutions = (ticketId: number) =>
         .then((r) => r.data),
     enabled: false,
   });
+
+/**
+ * Suggest a category. The response itself carries only an id/slug pair, not
+ * the full `Category` shape the detail cache needs to render a name — so
+ * unlike `useSummarize` above, this refetches the detail rather than patching
+ * it from the response. The endpoint writes `ai_suggested_category` on the
+ * ticket, never `category` itself: applying the suggestion is a separate,
+ * explicit step (`useApplyCategory` in `tickets.ts`) so "an agent always
+ * approves" holds here too.
+ */
+export const useCategorize = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ticket: number) =>
+      api.post<AiCategorySuggestion>("/ai/categorize/", { ticket }).then((r) => r.data),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: qk.tickets.detail(data.ticket) });
+    },
+  });
+};

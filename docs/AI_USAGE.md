@@ -2061,3 +2061,68 @@ just needed to stop conflating that with "excluded from the list for an unrelate
 `all_ids()` returns defines the scope boundary") is a trap that only surfaces the moment a second,
 legitimate reason to leave something out of a list shows up — the four failures here were the test
 suite doing exactly its job, not collateral damage to shrug off.
+
+## Post-hand-in — Auto-categorize gets a UI (`feature/auto-categorize-ui`)          (elapsed: ~1.5h)
+
+Follows directly from a coverage audit done on a sibling branch
+(`fix/ticket-context-test-coverage`) in response to a company review note that testing "is not
+complete or needs to be more efficient." That audit found the backend's `/ai/categorize/` endpoint
+(the fourth AI feature, "auto-categorize") fully tested but with **no frontend consumer at all** — no
+`useCategorize` hook, no UI ever reading `ai_suggested_category` — and surfaced it as a decision
+rather than fixing it unilaterally, since it's a feature gap, not a test gap.
+
+**What I asked for:** after the coverage audit above surfaced that `/ai/categorize/` (the "auto-
+categorize" AI feature) had a fully tested backend and zero frontend consumer, asked the AI to build
+the missing UI and its tests rather than leave it a documented gap.
+
+**What the AI built:**
+
+- `SuggestedCategory.tsx` — a fifth AI-panel card, visual and structural twin of `AiSummaryBanner`
+  and `SuggestedSolutions` (same violet shell, same click-to-generate pattern), rendered in
+  `TicketDetail.tsx` between them. Three states: never checked, matches the current category
+  (a checkmark, no action), or differs (name, confidence, rationale, and an **Apply** button).
+- `useCategorize` (`api/ai.ts`) — posts to `/ai/categorize/`, which persists only
+  `ai_suggested_category`, never `category` itself. `useApplyCategory` (`api/tickets.ts`) — the
+  agent's explicit approval step, since `category` is already a writable field on
+  `TicketWriteSerializer` and there is no reason to add a second route for the same column.
+- A new end-to-end backend test, `test_categorize_then_apply_is_a_real_end_to_end_path`: creates a
+  ticket filed under one category whose wording clearly belongs to another, calls `/ai/categorize/`,
+  confirms `category` is untouched and only `ai_suggested_category` moved, then `PATCH`es `category`
+  to the suggestion and confirms it actually changed. The isolated tests for each endpoint already
+  existed; this is the one that proves the *loop* — suggest, then apply — actually closes.
+- 8 new frontend tests (`SuggestedCategory.test.tsx`) and 10 new i18n keys in both `en.json` and
+  `ar.json`. Frontend: 309 → 317 tests; backend: 447 → 448.
+
+**Decisions the AI made on its own:**
+
+- **Confidence and rationale are not persisted anywhere** — only `ai_suggested_category`'s id is
+  (`Ticket.ai_suggested_category`, a plain FK). Rather than lose that detail on every page load, the
+  card keeps the freshest categorize response in local component state and shows the richer detail
+  only for a suggestion generated in *this* session; a suggestion carried over from an earlier one
+  still shows (from `ticket.ai_suggested_category`), just without confidence/rationale attached.
+- **Resolved a fresh suggestion's name against `useCategories()`** (the same reference list every
+  other category picker in the workspace already uses) instead of waiting on a round trip back to the
+  ticket detail endpoint — `/ai/categorize/`'s response carries only a bare `category_id`, not the
+  full name a card needs to render.
+
+**What I had to correct — a real bug, caught live rather than by the test suite:** the first version
+of `useApplyCategory` followed the same `settleDetail(queryClient, ticket)` pattern as the other five
+ticket mutations (assign, status, escalate, resolve — each documented as returning the full
+`TicketDetailSerializer`). It doesn't hold for a generic `PATCH /tickets/{id}/`: DRF reuses
+`get_serializer_class()` for both directions, and that method returns `TicketWriteSerializer` — a much
+narrower shape — for `update`/`partial_update`. Clicking Apply in a real browser check (not the
+Vitest suite, which mocks the network and never had a reason to disagree about response shape)
+overwrote the cached ticket detail with that narrow shape and crashed the whole page on the very next
+render (`RangeError` inside `Intl.RelativeTimeFormat`, from a now-missing date field). Fixed by never
+trusting that response at all: the mutation now returns the `Category` object the caller already
+holds and patches only that one field into the cache, the same targeted-patch shape `useSummarize`
+already uses for its own single-column write.
+
+**What I learned:** a convention documented as "all six ticket mutations return the full detail
+shape" was true of the five *action* routes (`/assign/`, `/status/`, …, each with its own explicit
+response serializer) but silently false of the ViewSet's own generic `PATCH` — the same
+`get_serializer_class()` switch that picks the write serializer for input reuses it for output too.
+A frontend unit test that mocks the network could not have caught this: the mock simply returns
+whatever the test tells it to. Only running the real app against the real backend surfaced it, which
+is the concrete reason "verify a UI change in the browser, not just via the test suite" stays a hard
+rule for this project rather than a nice-to-have.
