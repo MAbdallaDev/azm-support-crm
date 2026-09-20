@@ -214,6 +214,42 @@ def test_categorize_is_input_dependent(english_customer, department, categories)
     assert billing["rationale"]
 
 
+@pytest.mark.django_db
+def test_categorize_then_apply_is_a_real_end_to_end_path(
+    agent, english_customer, department, categories
+):
+    """`/ai/categorize/` only ever writes the *suggestion* column — closing the
+    loop (an agent applying it to the ticket's real `category`) goes through
+    the ticket's own generic `PATCH`, since `category` is already a writable
+    field there. This is the one test proving that path actually works end to
+    end, not just that each half works in isolation.
+    """
+    # Starts filed as technical, but the wording is unmistakably about billing —
+    # so the suggestion below has somewhere real to move it *from*.
+    ticket = Ticket.objects.create(
+        customer=english_customer,
+        subject="VAT missing on invoice",
+        description="The totals do not match the usage report in the portal.",
+        department=department,
+        category=categories["technical-fault"],
+    )
+
+    suggestion = agent.post("/api/v1/ai/categorize/", {"ticket": ticket.pk}, format="json").data
+    assert suggestion["category_slug"] == "billing-invoice"
+
+    ticket.refresh_from_db()
+    assert ticket.category_id == categories["technical-fault"].pk  # untouched by categorize
+    assert ticket.ai_suggested_category_id == suggestion["category_id"]
+
+    applied = agent.patch(
+        f"/api/v1/tickets/{ticket.pk}/", {"category": suggestion["category_id"]}, format="json"
+    )
+    assert applied.status_code == 200
+
+    ticket.refresh_from_db()
+    assert ticket.category_id == categories["billing-invoice"].pk
+
+
 # ---------------------------------------------------------------------------
 # Suggested solutions — a GET, unlike its three siblings: nothing to write,
 # nothing to guard against mutating on the *current* ticket, but the same

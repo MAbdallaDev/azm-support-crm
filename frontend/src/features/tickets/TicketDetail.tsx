@@ -16,6 +16,7 @@ import type { Attachment, TicketDetail as Ticket, TicketMessage, TicketStatus } 
 import { ActivityLog } from "@/features/tickets/ActivityLog";
 import { AiSummaryBanner } from "@/features/tickets/AiSummaryBanner";
 import { Composer } from "@/features/tickets/Composer";
+import { SuggestedCategory } from "@/features/tickets/SuggestedCategory";
 import { SuggestedSolutions } from "@/features/tickets/SuggestedSolutions";
 import { Button } from "@/components/ui/button";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
@@ -235,6 +236,7 @@ export function TicketWorkspaceDetail({ ticket }: { ticket: Ticket }) {
         {tab === "conversation" || tab === "internal" ? (
           <div className="space-y-3">
             <AiSummaryBanner ticket={ticket} />
+            <SuggestedCategory ticket={ticket} />
             <SuggestedSolutions ticket={ticket} />
           </div>
         ) : null}
