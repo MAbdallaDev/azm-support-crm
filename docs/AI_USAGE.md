@@ -2062,6 +2062,60 @@ just needed to stop conflating that with "excluded from the list for an unrelate
 legitimate reason to leave something out of a list shows up — the four failures here were the test
 suite doing exactly its job, not collateral damage to shrug off.
 
+## Post-hand-in — Closing a real test-coverage gap (`fix/ticket-context-test-coverage`)          (elapsed: ~1h)
+
+**What I asked for:** the company reviewing the project flagged that testing "is not complete or
+needs to be more efficient," without saying exactly where. Asked the AI to audit whether the test
+suite genuinely covers every CRM feature and fill in whatever it does not, rather than guess.
+
+**What the AI built:**
+
+- Ran the backend suite with `pytest-cov`: **98% line coverage** across every app (`accounts`,
+  `tickets`, `customers`, `kb`, `reports`, `portal`, `ai`), no meaningful gaps.
+- Audited the frontend by mapping every route and feature component against its `*.test.tsx` file.
+  Found one real, substantive gap: `frontend/src/features/tickets/TicketContext.tsx` (the ticket
+  workspace's 336px right pane — Customer/History/Notes tabs, the SLA bars, and the "Assign to
+  me"/"Auto-assign" actions) had **zero test coverage**, despite being 370 lines of interactive,
+  stateful UI central to the agent workflow. Every other apparent gap turned out to be exercised
+  indirectly by an existing test file (e.g. `NewTicket.tsx` via `routes.test.tsx`,
+  `ArticlePicker.tsx` via `Composer.test.tsx`'s insert-KB-link test) — confirmed by grepping for each
+  component's name and test-ids across all `*.test.tsx` files before concluding it was actually a gap.
+- Added `TicketContext.test.tsx` — 13 new tests: the Customer tab renders the *customer's* record
+  (not the ticket's) and links to Customer 360; the History tab lists the customer's other tickets
+  and excludes the current one, with a real empty state; the Notes tab lists, adds, and blocks a
+  blank note; the Assignment block shows/hides "Assign to me" correctly, confirms on a successful
+  assign, and — the one with a real branch to get wrong — asserts a 409 ("no eligible agent") shows a
+  distinct message from every other assign failure, since the view code explicitly branches on that
+  status.
+- Frontend total: 296 → **309 tests**. Full suite, `tsc` build, `check:rtl`, and `check:i18n` all
+  re-run clean afterward.
+
+**Decisions the AI made on its own:**
+
+- Treated "coverage" as a codebase question to measure, not a documentation question to reread — ran
+  `pytest --cov` and a route/component-to-test-file cross-reference rather than trusting the
+  README's coverage claims (already known stale from an earlier session).
+- Did **not** add tests for `KitchenSink.tsx` (a dev-only component preview page, never routed to in
+  the real product) or the trivial `NotFound.tsx` catch-all — both are intentionally low-value test
+  targets, not overlooked ones.
+- Flagged, without unilaterally building, a related but distinct finding: the backend's
+  `/ai/categorize/` endpoint (the fourth AI feature, "auto-categorize") has full backend test
+  coverage but **no frontend consumer at all** — no `useCategorize` hook, no UI ever reads
+  `ai_suggested_category`. That is a feature-completeness gap, not a test gap, so it was surfaced to
+  the user as a decision rather than treated as part of this fix.
+
+**What I had to correct:** the test's first draft copied plausible-sounding UI copy ("No other
+tickets yet", "Add a note about this customer", "No eligible agent is available.") instead of reading
+the real strings from `frontend/src/i18n/en.json`. All of it was wrong in small ways (missing pieces
+of the string, different wording) and would have failed on first run had it not been checked against
+`en.json` before running — fixed by grepping the `context.*` keys directly rather than guessing.
+
+**What I learned:** "the tests don't cover everything" is unfalsifiable as a starting instruction —
+what turned it into a fixable task was a mechanical cross-reference (every source file against
+whether *anything* exercises it, by name or test-id) rather than a feature-by-feature guess, since
+several components that looked untested from their filename alone turned out to be fully exercised
+through a parent component's test file.
+
 ## Post-hand-in — Auto-categorize gets a UI (`feature/auto-categorize-ui`)          (elapsed: ~1.5h)
 
 Follows directly from a coverage audit done on a sibling branch
